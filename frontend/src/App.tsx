@@ -11,6 +11,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import BrepImportNode from "./nodes/BrepImportNode";
+import ContourExtractNode from "./nodes/ContourExtractNode";
 
 const initialNodes = [
   {
@@ -21,9 +22,9 @@ const initialNodes = [
   },
   {
     id: "2",
-    type: "default",
+    type: "contourExtract",
     position: { x: 100, y: 350 },
-    data: { label: "Contour Extract" },
+    data: {},
   },
   {
     id: "3",
@@ -69,7 +70,10 @@ const initialEdges = [
 const API_URL = "http://localhost:8000";
 
 export default function App() {
-  const nodeTypes = useMemo(() => ({ brepImport: BrepImportNode }), []);
+  const nodeTypes = useMemo(
+    () => ({ brepImport: BrepImportNode, contourExtract: ContourExtractNode }),
+    []
+  );
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [backendStatus, setBackendStatus] = useState<string>("checking...");

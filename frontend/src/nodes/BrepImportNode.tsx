@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import { uploadStepFile } from "../api";
 import type { BrepImportResult, BrepObject } from "../types";
 
@@ -11,6 +11,7 @@ export default function BrepImportNode({ id }: NodeProps) {
   const [error, setError] = useState<string>("");
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { setNodes } = useReactFlow();
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -20,12 +21,18 @@ export default function BrepImportNode({ id }: NodeProps) {
         const data = await uploadStepFile(file);
         setResult(data);
         setStatus("success");
+        // Store result in node data so downstream nodes can access it
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === id ? { ...n, data: { ...n.data, brepResult: data } } : n
+          )
+        );
       } catch (e) {
         setError(e instanceof Error ? e.message : "Upload failed");
         setStatus("error");
       }
     },
-    []
+    [id, setNodes]
   );
 
   const onDrop = useCallback(
