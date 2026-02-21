@@ -1,0 +1,69 @@
+presets:
+  - id: plywood_12mm
+    name: "合板 12mm"
+    material: plywood
+    operation_type: contour
+    tool:
+      diameter: 6.35
+      type: endmill
+      flutes: 2
+    feed_rate:
+      xy: 75.0
+      z: 25.0
+    jog_speed: 200.0
+    spindle_speed: 18000
+    depth_per_pass: 6.0
+    total_depth: 12.0
+    direction: climb
+    offset_side: outside
+    tabs:
+      enabled: true
+      height: 3.0
+      width: 5.0
+      count: 4
+
+  - id: mdf_18mm
+    name: "MDF 18mm"
+    material: mdf
+    operation_type: contour
+    tool:
+      diameter: 6.35
+      type: endmill
+      flutes: 2
+    feed_rate:
+      xy: 60.0
+      z: 20.0
+    jog_speed: 200.0
+    spindle_speed: 16000
+    depth_per_pass: 4.0
+    total_depth: 18.0
+    direction: climb
+    offset_side: outside
+    tabs:
+      enabled: true
+      height: 4.0
+      width: 5.0
+      count: 6
+
+  - id: acrylic_5mm
+    name: "アクリル 5mm"
+    material: acrylic
+    operation_type: contour
+    tool:
+      diameter: 3.175
+      type: endmill
+      flutes: 1
+    feed_rate:
+      xy: 30.0
+      z: 10.0
+    jog_speed: 150.0
+    spindle_speed: 18000
+    depth_per_pass: 1.5
+    total_depth: 5.0
+    direction: climb
+    offset_side: outside
+    tabs:
+      enabled: true
+      height: 2.0
+      width: 3.0
+      count: 4

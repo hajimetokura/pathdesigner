@@ -44,3 +44,43 @@ def test_machining_settings_serialization():
     data = settings.model_dump()
     restored = MachiningSettings(**data)
     assert restored == settings
+
+
+import yaml
+
+PRESETS_DIR = Path(__file__).parent.parent / "presets"
+
+
+def test_presets_yaml_valid():
+    """Presets YAML loads and each preset produces valid MachiningSettings."""
+    yaml_path = PRESETS_DIR / "materials.yaml"
+    assert yaml_path.exists(), "materials.yaml not found"
+
+    data = yaml.safe_load(yaml_path.read_text())
+    assert "presets" in data
+    assert len(data["presets"]) >= 1
+
+    for p in data["presets"]:
+        assert "id" in p
+        assert "name" in p
+        settings_fields = {k: v for k, v in p.items() if k not in ("id", "name", "material")}
+        MachiningSettings(**settings_fields)
+
+
+from fastapi.testclient import TestClient
+from main import app
+
+client = TestClient(app)
+
+
+def test_get_presets_endpoint():
+    """GET /api/presets returns preset list."""
+    res = client.get("/api/presets")
+    assert res.status_code == 200
+    data = res.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    first = data[0]
+    assert "id" in first
+    assert "name" in first
+    assert "settings" in first

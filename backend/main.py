@@ -1,12 +1,16 @@
 import uuid
 from pathlib import Path
 
+import yaml
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from nodes.brep_import import analyze_step_file
 from nodes.contour_extract import extract_contours
-from schemas import BrepImportResult, ContourExtractRequest, ContourExtractResult
+from schemas import (
+    BrepImportResult, ContourExtractRequest, ContourExtractResult,
+    MachiningSettings, PresetItem,
+)
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
 
@@ -20,6 +24,7 @@ app.add_middleware(
 
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
+PRESETS_DIR = Path(__file__).parent / "presets"
 
 
 @app.get("/health")
@@ -80,4 +85,26 @@ async def extract_contours_endpoint(req: ContourExtractRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Contour extraction failed: {e}")
 
+    return result
+
+
+@app.get("/api/presets", response_model=list[PresetItem])
+def get_presets():
+    """Return available machining presets."""
+    yaml_path = PRESETS_DIR / "materials.yaml"
+    if not yaml_path.exists():
+        return []
+    data = yaml.safe_load(yaml_path.read_text())
+    result = []
+    for p in data.get("presets", []):
+        preset_id = p["id"]
+        name = p["name"]
+        material = p.get("material", "unknown")
+        settings_fields = {k: v for k, v in p.items() if k not in ("id", "name", "material")}
+        result.append(PresetItem(
+            id=preset_id,
+            name=name,
+            material=material,
+            settings=MachiningSettings(**settings_fields),
+        ))
     return result
