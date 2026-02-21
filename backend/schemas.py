@@ -41,3 +41,32 @@ class BrepImportResult(BaseModel):
     file_id: str
     objects: list[BrepObject]
     object_count: int
+
+
+# --- Node 2: Contour Extract ---
+
+
+class ContourExtractRequest(BaseModel):
+    file_id: str
+    object_id: str
+    tool_diameter: float = 6.35  # mm, default 1/4"
+    offset_side: str = "outside"  # "outside" | "inside" | "none"
+
+
+class Contour(BaseModel):
+    id: str
+    type: str  # "exterior" | "interior"
+    coords: list[list[float]]  # [[x, y], ...]
+    closed: bool
+
+
+class OffsetApplied(BaseModel):
+    distance: float
+    side: str
+
+
+class ContourExtractResult(BaseModel):
+    object_id: str
+    slice_z: float
+    contours: list[Contour]
+    offset_applied: OffsetApplied
