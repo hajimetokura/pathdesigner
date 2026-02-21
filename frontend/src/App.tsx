@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ReactFlow,
+  ReactFlowProvider,
   addEdge,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type OnConnect,
   Background,
   Controls,
@@ -12,6 +14,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import BrepImportNode from "./nodes/BrepImportNode";
 import ContourExtractNode from "./nodes/ContourExtractNode";
+import DebugNode from "./nodes/DebugNode";
+import Sidebar from "./Sidebar";
 
 const initialNodes = [
   {
@@ -59,9 +63,9 @@ const initialNodes = [
 ];
 
 const initialEdges = [
-  { id: "e1-2", source: "1", target: "2" },
-  { id: "e3-2", source: "3", target: "2" },
-  { id: "e2-4", source: "2", target: "4" },
+  { id: "e1-2", source: "1", sourceHandle: "1-out", target: "2", targetHandle: "2-brep" },
+  { id: "e3-2", source: "3", target: "2", targetHandle: "2-settings" },
+  { id: "e2-4", source: "2", sourceHandle: "2-out", target: "4" },
   { id: "e4-6", source: "4", target: "6" },
   { id: "e5-6", source: "5", target: "6" },
   { id: "e6-7", source: "6", target: "7" },
@@ -69,18 +73,54 @@ const initialEdges = [
 
 const API_URL = "http://localhost:8000";
 
-export default function App() {
-  const nodeTypes = useMemo(
-    () => ({ brepImport: BrepImportNode, contourExtract: ContourExtractNode }),
-    []
-  );
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+let nodeCounter = 100;
+
+const nodeTypes = {
+  brepImport: BrepImportNode,
+  contourExtract: ContourExtractNode,
+  debug: DebugNode,
+};
+
+function Flow() {
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [backendStatus, setBackendStatus] = useState<string>("checking...");
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const { screenToFlowPosition } = useReactFlow();
 
   const onConnect: OnConnect = useCallback(
     (params) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
+  );
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      const type = event.dataTransfer.getData("application/reactflow");
+      if (!type) return;
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      nodeCounter += 1;
+      setNodes((nds) => [
+        ...nds,
+        {
+          id: `${type}-${nodeCounter}`,
+          type,
+          position,
+          data: {},
+        },
+      ]);
+    },
+    [screenToFlowPosition, setNodes]
   );
 
   useEffect(() => {
@@ -91,35 +131,49 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
-      <div
-        style={{
-          position: "absolute",
-          top: 10,
-          left: 10,
-          zIndex: 10,
-          background: "white",
-          padding: "8px 16px",
-          borderRadius: 8,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-          fontSize: 14,
-        }}
-      >
-        <strong>PathDesigner</strong> &mdash; Backend: {backendStatus}
+    <div style={{ display: "flex", width: "100vw", height: "100vh" }}>
+      <Sidebar />
+      <div ref={wrapperRef} style={{ flex: 1, position: "relative" }}>
+        <div style={statusStyle}>
+          <strong>PathDesigner</strong> &mdash; Backend: {backendStatus}
+        </div>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          proOptions={{ hideAttribution: true }}
+          fitView
+        >
+          <Background />
+          <Controls />
+          <MiniMap />
+        </ReactFlow>
       </div>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        fitView
-      >
-        <Background />
-        <Controls />
-        <MiniMap />
-      </ReactFlow>
     </div>
   );
 }
+
+export default function App() {
+  return (
+    <ReactFlowProvider>
+      <Flow />
+    </ReactFlowProvider>
+  );
+}
+
+const statusStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 10,
+  left: 10,
+  zIndex: 10,
+  background: "white",
+  padding: "8px 16px",
+  borderRadius: 8,
+  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  fontSize: 14,
+};

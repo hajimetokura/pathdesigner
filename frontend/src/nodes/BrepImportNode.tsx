@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import LabeledHandle from "./LabeledHandle";
 import { uploadStepFile } from "../api";
 import type { BrepImportResult, BrepObject } from "../types";
 
@@ -112,7 +113,7 @@ export default function BrepImportNode({ id }: NodeProps) {
         </div>
       )}
 
-      <Handle type="source" position={Position.Bottom} id={`${id}-out`} />
+      <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="out" dataType="geometry" />
     </div>
   );
 }
@@ -142,7 +143,7 @@ const nodeStyle: React.CSSProperties = {
   background: "white",
   border: "1px solid #ddd",
   borderRadius: 8,
-  padding: 12,
+  padding: "12px 12px 20px",
   minWidth: 200,
   maxWidth: 280,
   boxShadow: "0 2px 6px rgba(0,0,0,0.08)",

@@ -44,7 +44,7 @@ async def upload_step(file: UploadFile):
     saved_path.write_bytes(content)
 
     try:
-        result = analyze_step_file(saved_path, file_name=file.filename)
+        objects = analyze_step_file(saved_path, file_name=file.filename)
     except ValueError as e:
         saved_path.unlink(missing_ok=True)
         raise HTTPException(status_code=422, detail=str(e))
@@ -54,8 +54,8 @@ async def upload_step(file: UploadFile):
 
     return BrepImportResult(
         file_id=file_id,
-        objects=result.objects,
-        object_count=result.object_count,
+        objects=objects,
+        object_count=len(objects),
     )
 
 

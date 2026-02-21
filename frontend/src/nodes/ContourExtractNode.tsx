@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
-import { Handle, Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import { extractContours } from "../api";
 import type { ContourExtractResult } from "../types";
+import LabeledHandle from "./LabeledHandle";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -9,13 +10,13 @@ export default function ContourExtractNode({ id }: NodeProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<ContourExtractResult | null>(null);
   const [error, setError] = useState("");
-  const { getNode, getEdges } = useReactFlow();
+  const { getNode, getEdges, setNodes } = useReactFlow();
 
   const handleExtract = useCallback(async () => {
     // Find connected BREP Import node to get file_id and object_id
     const edges = getEdges();
     const incomingEdge = edges.find(
-      (e) => e.target === id && e.source === "1"
+      (e) => e.target === id && e.targetHandle === `${id}-brep`
     );
     if (!incomingEdge) {
       setError("Connect BREP Import node first");
@@ -44,15 +45,24 @@ export default function ContourExtractNode({ id }: NodeProps) {
       );
       setResult(data);
       setStatus("success");
+      // Store result in node data so downstream nodes (e.g. Debug) can access it
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id
+            ? { ...n, data: { ...n.data, contourResult: data } }
+            : n
+        )
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Extraction failed");
       setStatus("error");
     }
-  }, [id, getNode, getEdges]);
+  }, [id, getNode, getEdges, setNodes]);
 
   return (
     <div style={nodeStyle}>
-      <Handle type="target" position={Position.Top} id={`${id}-in`} />
+      <LabeledHandle type="target" position={Position.Top} id={`${id}-brep`} label="brep" dataType="geometry" index={0} total={2} />
+      <LabeledHandle type="target" position={Position.Top} id={`${id}-settings`} label="settings" dataType="settings" index={1} total={2} />
 
       <div style={headerStyle}>Contour Extract</div>
 
@@ -97,7 +107,7 @@ export default function ContourExtractNode({ id }: NodeProps) {
         </div>
       )}
 
-      <Handle type="source" position={Position.Bottom} id={`${id}-out`} />
+      <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="out" dataType="geometry" />
     </div>
   );
 }
@@ -106,7 +116,7 @@ const nodeStyle: React.CSSProperties = {
   background: "white",
   border: "1px solid #ddd",
   borderRadius: 8,
-  padding: 12,
+  padding: "20px 12px",
   minWidth: 200,
   maxWidth: 280,
   boxShadow: "0 2px 6px rgba(0,0,0,0.08)",

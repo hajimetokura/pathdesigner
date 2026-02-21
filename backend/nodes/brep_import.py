@@ -6,14 +6,13 @@ from build123d import Axis, GeomType, Solid, import_step
 
 from schemas import (
     BoundingBox,
-    BrepImportResult,
     BrepObject,
     FacesAnalysis,
     Origin,
 )
 
 
-def analyze_step_file(filepath: str | Path, file_name: str) -> BrepImportResult:
+def analyze_step_file(filepath: str | Path, file_name: str) -> list[BrepObject]:
     """Import a STEP file and analyze each solid for CNC machining."""
     compound = import_step(str(filepath))
     solids = compound.solids()
@@ -21,11 +20,10 @@ def analyze_step_file(filepath: str | Path, file_name: str) -> BrepImportResult:
     if not solids:
         raise ValueError("STEP file contains no solid objects")
 
-    objects = [
+    return [
         _analyze_solid(solid, index=i, file_name=file_name)
         for i, solid in enumerate(solids)
     ]
-    return BrepImportResult(objects=objects, object_count=len(objects))
 
 
 def _analyze_solid(solid: Solid, index: int, file_name: str) -> BrepObject:
