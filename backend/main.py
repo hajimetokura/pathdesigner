@@ -9,7 +9,7 @@ from nodes.brep_import import analyze_step_file
 from nodes.contour_extract import extract_contours
 from schemas import (
     BrepImportResult, ContourExtractRequest, ContourExtractResult,
-    MachiningSettings, PresetItem,
+    MachiningSettings, PresetItem, ValidateSettingsRequest, ValidateSettingsResponse,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -86,6 +86,30 @@ async def extract_contours_endpoint(req: ContourExtractRequest):
         raise HTTPException(status_code=500, detail=f"Contour extraction failed: {e}")
 
     return result
+
+
+@app.post("/api/validate-settings", response_model=ValidateSettingsResponse)
+def validate_settings(req: ValidateSettingsRequest):
+    """Validate machining settings and return warnings."""
+    s = req.settings
+    warnings: list[str] = []
+
+    if s.spindle_speed < 5000:
+        warnings.append(f"スピンドル速度が低すぎます ({s.spindle_speed} RPM < 5000)")
+    if s.depth_per_pass > s.total_depth:
+        warnings.append(
+            f"パスあたりの深さ ({s.depth_per_pass}mm) が合計深さ ({s.total_depth}mm) を超えています"
+        )
+    if s.feed_rate.xy <= 0 or s.feed_rate.z <= 0:
+        warnings.append("送り速度は正の値を指定してください")
+    if s.tool.diameter <= 0:
+        warnings.append("刃物径は正の値を指定してください")
+
+    return ValidateSettingsResponse(
+        valid=True,
+        settings=s,
+        warnings=warnings,
+    )
 
 
 @app.get("/api/presets", response_model=list[PresetItem])
