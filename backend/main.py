@@ -1,4 +1,4 @@
-import tempfile
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile
@@ -17,6 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+UPLOAD_DIR = Path(__file__).parent / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+
 
 @app.get("/health")
 def health():
@@ -33,18 +36,23 @@ async def upload_step(file: UploadFile):
     if suffix not in (".step", ".stp"):
         raise HTTPException(status_code=400, detail="Only .step/.stp files are accepted")
 
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = Path(tmp.name)
+    file_id = uuid.uuid4().hex[:12]
+    saved_path = UPLOAD_DIR / f"{file_id}{suffix}"
+
+    content = await file.read()
+    saved_path.write_bytes(content)
 
     try:
-        result = analyze_step_file(tmp_path, file_name=file.filename)
+        result = analyze_step_file(saved_path, file_name=file.filename)
     except ValueError as e:
+        saved_path.unlink(missing_ok=True)
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
+        saved_path.unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=f"STEP analysis failed: {e}")
-    finally:
-        tmp_path.unlink(missing_ok=True)
 
-    return result
+    return BrepImportResult(
+        file_id=file_id,
+        objects=result.objects,
+        object_count=result.object_count,
+    )

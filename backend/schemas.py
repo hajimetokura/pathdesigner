@@ -38,5 +38,6 @@ class BrepObject(BaseModel):
 
 
 class BrepImportResult(BaseModel):
+    file_id: str
     objects: list[BrepObject]
     object_count: int
