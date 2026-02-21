@@ -70,3 +70,54 @@ class ContourExtractResult(BaseModel):
     slice_z: float
     contours: list[Contour]
     offset_applied: OffsetApplied
+
+
+# --- Node 3: Machining Settings ---
+
+
+class Tool(BaseModel):
+    diameter: float  # mm
+    type: str  # "endmill" | "ballnose" | "v_bit"
+    flutes: int
+
+
+class FeedRate(BaseModel):
+    xy: float  # mm/s
+    z: float  # mm/s
+
+
+class TabSettings(BaseModel):
+    enabled: bool
+    height: float  # mm
+    width: float  # mm
+    count: int
+
+
+class MachiningSettings(BaseModel):
+    operation_type: str  # "contour" | "pocket" | "drill" | "engrave"
+    tool: Tool
+    feed_rate: FeedRate
+    jog_speed: float  # mm/s
+    spindle_speed: int  # RPM
+    depth_per_pass: float  # mm
+    total_depth: float  # mm
+    direction: str  # "climb" | "conventional"
+    offset_side: str  # "outside" | "inside" | "none"
+    tabs: TabSettings
+
+
+class PresetItem(BaseModel):
+    id: str
+    name: str
+    material: str
+    settings: MachiningSettings
+
+
+class ValidateSettingsRequest(BaseModel):
+    settings: MachiningSettings
+
+
+class ValidateSettingsResponse(BaseModel):
+    valid: bool
+    settings: MachiningSettings
+    warnings: list[str]

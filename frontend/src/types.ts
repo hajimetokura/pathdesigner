@@ -57,3 +57,49 @@ export interface ContourExtractResult {
   contours: Contour[];
   offset_applied: OffsetApplied;
 }
+
+/** Node 3: Machining Settings types */
+
+export interface Tool {
+  diameter: number;
+  type: string; // "endmill" | "ballnose" | "v_bit"
+  flutes: number;
+}
+
+export interface FeedRate {
+  xy: number; // mm/s
+  z: number;  // mm/s
+}
+
+export interface TabSettings {
+  enabled: boolean;
+  height: number; // mm
+  width: number;  // mm
+  count: number;
+}
+
+export interface MachiningSettings {
+  operation_type: string; // "contour" | "pocket" | "drill" | "engrave"
+  tool: Tool;
+  feed_rate: FeedRate;
+  jog_speed: number;
+  spindle_speed: number;
+  depth_per_pass: number;
+  total_depth: number;
+  direction: string; // "climb" | "conventional"
+  offset_side: string; // "outside" | "inside" | "none"
+  tabs: TabSettings;
+}
+
+export interface PresetItem {
+  id: string;
+  name: string;
+  material: string;
+  settings: MachiningSettings;
+}
+
+export interface ValidateSettingsResponse {
+  valid: boolean;
+  settings: MachiningSettings;
+  warnings: string[];
+}

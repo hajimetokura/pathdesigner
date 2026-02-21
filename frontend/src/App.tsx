@@ -14,6 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import BrepImportNode from "./nodes/BrepImportNode";
 import ContourExtractNode from "./nodes/ContourExtractNode";
+import MachiningSettingsNode from "./nodes/MachiningSettingsNode";
 import DebugNode from "./nodes/DebugNode";
 import Sidebar from "./Sidebar";
 
@@ -32,9 +33,9 @@ const initialNodes = [
   },
   {
     id: "3",
-    type: "default",
+    type: "machiningSettings",
     position: { x: 350, y: 350 },
-    data: { label: "Machining Settings" },
+    data: {},
   },
   {
     id: "4",
@@ -64,7 +65,7 @@ const initialNodes = [
 
 const initialEdges = [
   { id: "e1-2", source: "1", sourceHandle: "1-out", target: "2", targetHandle: "2-brep" },
-  { id: "e3-2", source: "3", target: "2", targetHandle: "2-settings" },
+  { id: "e3-2", source: "3", sourceHandle: "3-out", target: "2", targetHandle: "2-settings" },
   { id: "e2-4", source: "2", sourceHandle: "2-out", target: "4" },
   { id: "e4-6", source: "4", target: "6" },
   { id: "e5-6", source: "5", target: "6" },
@@ -78,6 +79,7 @@ let nodeCounter = 100;
 const nodeTypes = {
   brepImport: BrepImportNode,
   contourExtract: ContourExtractNode,
+  machiningSettings: MachiningSettingsNode,
   debug: DebugNode,
 };
 
