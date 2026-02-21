@@ -32,6 +32,28 @@ export interface BrepObject {
 }
 
 export interface BrepImportResult {
+  file_id: string;
   objects: BrepObject[];
   object_count: number;
+}
+
+/** Node 2: Contour Extract types */
+
+export interface Contour {
+  id: string;
+  type: string; // "exterior" | "interior"
+  coords: [number, number][];
+  closed: boolean;
+}
+
+export interface OffsetApplied {
+  distance: number;
+  side: string;
+}
+
+export interface ContourExtractResult {
+  object_id: string;
+  slice_z: number;
+  contours: Contour[];
+  offset_applied: OffsetApplied;
 }

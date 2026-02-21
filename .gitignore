@@ -19,3 +19,9 @@ frontend/dist/
 # Environment
 .env
 .claude
+
+# Worktrees
+.worktrees/
+
+# Uploaded files
+backend/uploads/
