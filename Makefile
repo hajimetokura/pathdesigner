@@ -1,9 +1,10 @@
 .PHONY: dev back front
 
-# Backend + Frontend simultaneous start
+# Backend + Frontend simultaneous start (Ctrl+C once to stop both)
 dev:
-	@echo "Starting backend and frontend..."
-	@make back & make front
+	@trap 'kill 0' INT; \
+	$(MAKE) back & $(MAKE) front & \
+	wait
 
 # Backend only
 back:
