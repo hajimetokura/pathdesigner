@@ -110,7 +110,13 @@ make front  # Frontend のみ
 | 5 | #5 | プレビュー |
 | 6 | #6 | マージ + 複数オブジェクト |
 
+## セッション開始時
+新しいセッションを始める際は、まず以下を確認すること:
+1. ブレストログ (`2026-02-21_brainstorm.md`) を読み、進捗と次のPhaseを把握
+2. `git log --oneline -5` で直近のコミット状況を確認
+3. 該当Phaseの GitHub issue を確認
+
 ## リファレンス
-- ブレストログ: `OKRA_local/brainstorm/2026-02-21_brainstorm.md`
+- ブレストログ: `2026-02-21_brainstorm.md`（プロジェクトルート）
 - SBPリファレンス: `OKRA_local/resources/shopbot/`
 - GitHub: https://github.com/hajimetokura/pathdesigner
