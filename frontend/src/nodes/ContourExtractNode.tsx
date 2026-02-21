@@ -8,7 +8,7 @@ type Status = "idle" | "loading" | "success" | "error";
 
 export default function ContourExtractNode({ id }: NodeProps) {
   const [status, setStatus] = useState<Status>("idle");
-  const [result, setResult] = useState<ContourExtractResult | null>(null);
+  const [results, setResults] = useState<ContourExtractResult[]>([]);
   const [error, setError] = useState("");
   const { getNode, getEdges, setNodes } = useReactFlow();
 
@@ -35,21 +35,34 @@ export default function ContourExtractNode({ id }: NodeProps) {
       return;
     }
 
+    // Read machining settings from upstream
+    const settingsEdge = edges.find(
+      (e) => e.target === id && e.targetHandle === `${id}-settings`
+    );
+    const settingsNode = settingsEdge ? getNode(settingsEdge.source) : null;
+    const machiningSettings = settingsNode?.data?.machiningSettings as
+      | { tool: { diameter: number }; offset_side: string }
+      | undefined;
+
+    const toolDiameter = machiningSettings?.tool?.diameter ?? 6.35;
+    const offsetSide = machiningSettings?.offset_side ?? "outside";
+
     setStatus("loading");
     setError("");
 
     try {
-      const data = await extractContours(
-        brepData.file_id,
-        brepData.objects[0].object_id
+      const allResults = await Promise.all(
+        brepData.objects.map((obj) =>
+          extractContours(brepData.file_id, obj.object_id, toolDiameter, offsetSide)
+        )
       );
-      setResult(data);
+      setResults(allResults);
       setStatus("success");
-      // Store result in node data so downstream nodes (e.g. Debug) can access it
+      // Store results in node data so downstream nodes can access them
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, contourResult: data } }
+            ? { ...n, data: { ...n.data, contourResult: allResults } }
             : n
         )
       );
@@ -80,30 +93,37 @@ export default function ContourExtractNode({ id }: NodeProps) {
         </div>
       )}
 
-      {status === "success" && result && (
+      {status === "success" && results.length > 0 && (
         <div style={resultStyle}>
           <div style={{ fontWeight: 600, marginBottom: 4 }}>
-            {result.contours.length} contour
-            {result.contours.length > 1 ? "s" : ""}
+            {results.length} object{results.length > 1 ? "s" : ""}
           </div>
-          <div style={{ fontSize: 11, color: "#555" }}>
-            Z: {result.slice_z} mm
-          </div>
-          {result.contours.map((c) => (
-            <div key={c.id} style={contourStyle}>
-              <div style={{ fontSize: 11 }}>
-                {c.id}: {c.type}
+          {results.map((r) => (
+            <div key={r.object_id} style={{ marginBottom: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#333" }}>
+                {r.object_id}
               </div>
-              <div style={{ fontSize: 10, color: "#777" }}>
-                {c.coords.length} points
-                {c.closed ? " (closed)" : " (open)"}
+              <div style={{ fontSize: 11, color: "#555" }}>
+                Z: {r.slice_z} mm — {r.contours.length} contour
+                {r.contours.length > 1 ? "s" : ""}
+              </div>
+              {r.contours.map((c) => (
+                <div key={c.id} style={contourStyle}>
+                  <div style={{ fontSize: 11 }}>
+                    {c.id}: {c.type}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#777" }}>
+                    {c.coords.length} points
+                    {c.closed ? " (closed)" : " (open)"}
+                  </div>
+                </div>
+              ))}
+              <div style={{ fontSize: 11, marginTop: 2, color: "#555" }}>
+                Offset: {r.offset_applied.distance.toFixed(3)} mm (
+                {r.offset_applied.side})
               </div>
             </div>
           ))}
-          <div style={{ fontSize: 11, marginTop: 4, color: "#555" }}>
-            Offset: {result.offset_applied.distance.toFixed(3)} mm{" "}
-            ({result.offset_applied.side})
-          </div>
         </div>
       )}
 
