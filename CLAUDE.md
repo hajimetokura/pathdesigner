@@ -93,18 +93,17 @@ frontend/
 
 ## 起動方法
 ```bash
-# バックエンド
-cd backend && uv run uvicorn main:app --reload
-
-# フロントエンド
-cd frontend && npm run dev
+make dev    # Backend + Frontend 同時起動
+make back   # Backend のみ
+make front  # Frontend のみ
 ```
+動作確認は `make dev` で行うこと。
 
 ## 開発フェーズ
 | Phase | Issue | 内容 |
 |-------|-------|------|
 | 0 | ✅ | プロジェクト初期化 |
-| 1 | #1 | BREPインポートノード (build123d) |
+| 1 | ✅ | BREPインポートノード (build123d) |
 | 2 | #2 | 外形線抽出ノード (shapely) |
 | 3 | #3 | 加工設定UI |
 | 4 | #4 | パス生成 + SBP出力 |

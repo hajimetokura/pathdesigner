@@ -6,20 +6,17 @@ STEP input → Toolpath generation → OpenSBP output (ShopBot)
 
 ## Setup
 
-### Backend
-
 ```bash
-cd backend
-uv sync
-uv run uvicorn main:app --reload
+cd backend && uv sync
+cd frontend && npm install
 ```
 
-### Frontend
+## Dev
 
 ```bash
-cd frontend
-npm install
-npm run dev
+make dev    # Backend + Frontend 同時起動
+make back   # Backend のみ
+make front  # Frontend のみ
 ```
 
 Open http://localhost:5173
