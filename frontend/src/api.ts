@@ -1,4 +1,4 @@
-import type { BrepImportResult, ContourExtractResult } from "./types";
+import type { BrepImportResult, ContourExtractResult, PresetItem, ValidateSettingsResponse, MachiningSettings } from "./types";
 
 const API_URL = "http://localhost:8000";
 
@@ -41,5 +41,28 @@ export async function extractContours(
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
 
+  return res.json();
+}
+
+export async function fetchPresets(): Promise<PresetItem[]> {
+  const res = await fetch(`${API_URL}/api/presets`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch presets: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function validateSettings(
+  settings: MachiningSettings
+): Promise<ValidateSettingsResponse> {
+  const res = await fetch(`${API_URL}/api/validate-settings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ settings }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Validation failed" }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
   return res.json();
 }
