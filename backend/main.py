@@ -5,7 +5,8 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from nodes.brep_import import analyze_step_file
-from schemas import BrepImportResult
+from nodes.contour_extract import extract_contours
+from schemas import BrepImportResult, ContourExtractRequest, ContourExtractResult
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
 
@@ -56,3 +57,27 @@ async def upload_step(file: UploadFile):
         objects=result.objects,
         object_count=result.object_count,
     )
+
+
+@app.post("/api/extract-contours", response_model=ContourExtractResult)
+async def extract_contours_endpoint(req: ContourExtractRequest):
+    """Extract 2D contours from a previously uploaded STEP file."""
+    matches = list(UPLOAD_DIR.glob(f"{req.file_id}.*"))
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"File not found: {req.file_id}")
+
+    step_path = matches[0]
+
+    try:
+        result = extract_contours(
+            step_path=step_path,
+            object_id=req.object_id,
+            tool_diameter=req.tool_diameter,
+            offset_side=req.offset_side,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Contour extraction failed: {e}")
+
+    return result
