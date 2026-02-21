@@ -1,6 +1,7 @@
 const nodeItems = [
   { type: "brepImport", label: "BREP Import", color: "#4a90d9" },
   { type: "contourExtract", label: "Contour Extract", color: "#7b61ff" },
+  { type: "machiningSettings", label: "Machining Settings", color: "#66bb6a" },
   { type: "debug", label: "Debug", color: "#4fc3f7" },
 ] as const;
 
