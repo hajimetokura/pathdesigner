@@ -5,6 +5,8 @@ description = "Node-based CAM system with React Flow frontend"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "build123d>=0.10.0",
     "fastapi>=0.129.0",
+    "python-multipart>=0.0.22",
     "uvicorn[standard]>=0.41.0",
 ]
