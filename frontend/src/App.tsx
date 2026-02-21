@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   addEdge,
@@ -10,48 +10,49 @@ import {
   MiniMap,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import BrepImportNode from "./nodes/BrepImportNode";
 
 const initialNodes = [
   {
     id: "1",
-    type: "default",
+    type: "brepImport",
     position: { x: 100, y: 100 },
-    data: { label: "BREP Import" },
+    data: {},
   },
   {
     id: "2",
     type: "default",
-    position: { x: 100, y: 250 },
+    position: { x: 100, y: 350 },
     data: { label: "Contour Extract" },
   },
   {
     id: "3",
     type: "default",
-    position: { x: 350, y: 250 },
+    position: { x: 350, y: 350 },
     data: { label: "Machining Settings" },
   },
   {
     id: "4",
     type: "default",
-    position: { x: 250, y: 400 },
+    position: { x: 250, y: 500 },
     data: { label: "Merge" },
   },
   {
     id: "5",
     type: "default",
-    position: { x: 500, y: 400 },
+    position: { x: 500, y: 500 },
     data: { label: "Post Processor" },
   },
   {
     id: "6",
     type: "default",
-    position: { x: 350, y: 550 },
+    position: { x: 350, y: 650 },
     data: { label: "Toolpath Gen" },
   },
   {
     id: "7",
     type: "default",
-    position: { x: 350, y: 700 },
+    position: { x: 350, y: 800 },
     data: { label: "Preview" },
   },
 ];
@@ -68,6 +69,7 @@ const initialEdges = [
 const API_URL = "http://localhost:8000";
 
 export default function App() {
+  const nodeTypes = useMemo(() => ({ brepImport: BrepImportNode }), []);
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [backendStatus, setBackendStatus] = useState<string>("checking...");
@@ -104,6 +106,7 @@ export default function App() {
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
