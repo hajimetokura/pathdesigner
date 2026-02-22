@@ -1,20 +1,17 @@
-import { useCallback, useEffect, useMemo } from "react";
-import { Position, type NodeProps, useStore } from "@xyflow/react";
+import { useCallback, useEffect } from "react";
+import { Position, type NodeProps } from "@xyflow/react";
 import type { OutputResult } from "../types";
 import type { PanelTab } from "../components/SidePanel";
 import LabeledHandle from "./LabeledHandle";
 import CncCodePanel from "../components/CncCodePanel";
+import { useUpstreamData } from "../hooks/useUpstreamData";
 
 export default function CncCodeNode({ id, data }: NodeProps) {
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
 
-  // Subscribe to upstream ToolpathGenNode's outputResult via useStore
-  const outputSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
-    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-in`);
-    if (!edge) return undefined;
-    return s.nodeLookup.get(edge.source)?.data?.outputResult as OutputResult | undefined;
-  }, [id]);
-  const outputResult = useStore(outputSelector);
+  // Subscribe to upstream ToolpathGenNode's outputResult
+  const extractOutput = useCallback((d: Record<string, unknown>) => d.outputResult as OutputResult | undefined, []);
+  const outputResult = useUpstreamData(id, `${id}-in`, extractOutput);
 
   const lineCount = outputResult ? outputResult.code.split("\n").length : 0;
 

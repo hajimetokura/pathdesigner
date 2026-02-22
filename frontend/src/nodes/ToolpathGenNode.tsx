@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow, useStore } from "@xyflow/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import { generateToolpath, generateSbp } from "../api";
 import type {
   OperationDetectResult,
@@ -10,6 +10,7 @@ import type {
   PlacementItem,
 } from "../types";
 import LabeledHandle from "./LabeledHandle";
+import { useUpstreamData } from "../hooks/useUpstreamData";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -29,28 +30,20 @@ export default function ToolpathGenNode({ id }: NodeProps) {
   const lastGenKeyRef = useRef<string | null>(null);
 
   // Subscribe to upstream OperationNode data
-  const operationsSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
-    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-operations`);
-    if (!edge) return undefined;
-    const node = s.nodeLookup.get(edge.source);
-    if (!node?.data) return undefined;
-    const detectedOperations = node.data.detectedOperations as OperationDetectResult | undefined;
-    const assignments = node.data.assignments as OperationAssignment[] | undefined;
-    const stockSettings = node.data.stockSettings as StockSettings | undefined;
-    const placements = node.data.placements as PlacementItem[] | undefined;
-    const objectOrigins = node.data.objectOrigins as Record<string, [number, number]> | undefined;
+  const extractOperations = useCallback((d: Record<string, unknown>): OperationsUpstream | undefined => {
+    const detectedOperations = d.detectedOperations as OperationDetectResult | undefined;
+    const assignments = d.assignments as OperationAssignment[] | undefined;
+    const stockSettings = d.stockSettings as StockSettings | undefined;
+    const placements = d.placements as PlacementItem[] | undefined;
+    const objectOrigins = d.objectOrigins as Record<string, [number, number]> | undefined;
     if (!detectedOperations || !assignments?.length || !stockSettings || !placements) return undefined;
-    return { detectedOperations, assignments, stockSettings, placements, objectOrigins: objectOrigins ?? {} } as OperationsUpstream;
-  }, [id]);
-  const operations = useStore(operationsSelector);
+    return { detectedOperations, assignments, stockSettings, placements, objectOrigins: objectOrigins ?? {} };
+  }, []);
+  const operations = useUpstreamData(id, `${id}-operations`, extractOperations);
 
   // Subscribe to upstream PostProcessorNode data
-  const postProcSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
-    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-postprocessor`);
-    if (!edge) return undefined;
-    return s.nodeLookup.get(edge.source)?.data?.postProcessorSettings as PostProcessorSettings | undefined;
-  }, [id]);
-  const postProc = useStore(postProcSelector);
+  const extractPostProc = useCallback((d: Record<string, unknown>) => d.postProcessorSettings as PostProcessorSettings | undefined, []);
+  const postProc = useUpstreamData(id, `${id}-postprocessor`, extractPostProc);
 
   // Auto-generate when upstream data changes
   useEffect(() => {
@@ -58,9 +51,8 @@ export default function ToolpathGenNode({ id }: NodeProps) {
 
     const { detectedOperations, assignments, stockSettings, placements, objectOrigins } = operations;
 
-    // Build a generation key from enabled assignments to avoid redundant calls
-    const enabledIds = assignments.filter((a) => a.enabled).map((a) => a.operation_id).sort().join(",");
-    const genKey = `${enabledIds}|${JSON.stringify(postProc)}`;
+    // Build a generation key from all upstream inputs to avoid redundant calls
+    const genKey = JSON.stringify({ assignments, placements, stockSettings, postProc });
     if (lastGenKeyRef.current === genKey && toolpathResult) return;
     lastGenKeyRef.current = genKey;
 

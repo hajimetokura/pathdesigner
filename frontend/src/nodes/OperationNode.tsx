@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow, useStore } from "@xyflow/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import { detectOperations } from "../api";
 import type {
   BrepObject,
@@ -11,6 +11,7 @@ import type {
 import LabeledHandle from "./LabeledHandle";
 import type { PanelTab } from "../components/SidePanel";
 import OperationDetailPanel from "../components/OperationDetailPanel";
+import { useUpstreamData } from "../hooks/useUpstreamData";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -28,18 +29,14 @@ export default function OperationNode({ id, data }: NodeProps) {
   const { setNodes } = useReactFlow();
   const lastFileIdRef = useRef<string | null>(null);
 
-  // Subscribe to upstream PlacementNode data via useStore (reactive)
-  const upstreamSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
-    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-brep`);
-    if (!edge) return undefined;
-    const node = s.nodeLookup.get(edge.source);
-    if (!node?.data) return undefined;
-    const placementResult = node.data.placementResult as UpstreamData["placementResult"] | undefined;
-    const fileId = node.data.fileId as string | undefined;
+  // Subscribe to upstream PlacementNode data (reactive)
+  const extractUpstream = useCallback((d: Record<string, unknown>): UpstreamData | undefined => {
+    const placementResult = d.placementResult as UpstreamData["placementResult"] | undefined;
+    const fileId = d.fileId as string | undefined;
     if (!placementResult || !fileId) return undefined;
-    return { placementResult, fileId } as UpstreamData;
-  }, [id]);
-  const upstream = useStore(upstreamSelector);
+    return { placementResult, fileId };
+  }, []);
+  const upstream = useUpstreamData(id, `${id}-brep`, extractUpstream);
 
   const syncToNodeData = useCallback(
     (det: OperationDetectResult, assign: OperationAssignment[], stock: StockSettings | null, plc: PlacementItem[], objects: BrepObject[]) => {
