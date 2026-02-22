@@ -190,6 +190,8 @@ export interface Toolpath {
 
 export interface ToolpathGenResult {
   toolpaths: Toolpath[];
+  stock_width: number | null;
+  stock_depth: number | null;
 }
 
 export interface OutputResult {
