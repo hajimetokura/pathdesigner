@@ -187,6 +187,7 @@ export interface ToolpathPass {
 export interface Toolpath {
   operation_id: string;
   passes: ToolpathPass[];
+  settings?: MachiningSettings;
 }
 
 export interface ToolpathGenResult {
