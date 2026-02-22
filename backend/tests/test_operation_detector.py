@@ -54,3 +54,58 @@ def test_detect_operations_no_offset(simple_box_step: Path):
 
     op = result.operations[0]
     assert op.geometry.offset_applied.distance == 0.0
+
+
+# --- Integration test: full pipeline ---
+
+from nodes.toolpath_gen import generate_toolpath_from_operations
+from sbp_writer import SbpWriter
+from schemas import (
+    OperationAssignment, StockMaterial, StockSettings,
+    PostProcessorSettings,
+)
+
+
+def test_full_pipeline_detect_to_sbp(simple_box_step: Path):
+    """Full pipeline: STEP → detect operations → toolpath → SBP."""
+    # 1. Detect operations
+    detected = detect_operations(
+        step_path=simple_box_step,
+        file_id="test",
+        object_ids=["obj_001"],
+        tool_diameter=6.35,
+        offset_side="outside",
+    )
+    assert len(detected.operations) == 1
+
+    # 2. Create assignments
+    op = detected.operations[0]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id=op.operation_id,
+            material_id="mtl_1",
+            settings=op.suggested_settings,
+            order=1,
+        )
+    ]
+
+    # 3. Generate toolpath
+    tp_result = generate_toolpath_from_operations(assignments, detected, stock)
+    assert len(tp_result.toolpaths) >= 1
+
+    # 4. Generate SBP
+    post = PostProcessorSettings()
+    writer = SbpWriter(
+        settings=post,
+        machining=assignments[0].settings,
+        stock=stock,
+    )
+    sbp = writer.generate(tp_result.toolpaths)
+
+    assert "'SHOPBOT ROUTER FILE IN MM" in sbp
+    assert "M3," in sbp  # Has cutting moves
+    assert "mtl_1" in sbp  # Has material metadata
+    assert "END" in sbp
