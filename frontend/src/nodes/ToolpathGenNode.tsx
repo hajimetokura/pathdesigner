@@ -119,6 +119,9 @@ export default function ToolpathGenNode({ id }: NodeProps) {
                     allStockIds,
                     allPlacements: placements,
                     allAssignments: assignments,
+                    detectedOperations,
+                    objectOrigins,
+                    postProcessorSettings: postProc,
                   },
                 }
               : n

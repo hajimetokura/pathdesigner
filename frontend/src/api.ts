@@ -1,6 +1,7 @@
 import type {
   BrepImportResult,
   BrepObject,
+  BoundingBox,
   ContourExtractResult,
   PresetItem,
   ValidateSettingsResponse,
@@ -13,7 +14,6 @@ import type {
   OutputResult,
   MeshDataResult,
   PlacementItem,
-  BoundingBox,
   AutoNestingResponse,
 } from "./types";
 
@@ -217,4 +217,33 @@ export async function autoNesting(
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+export async function generateSbpZip(
+  operations: OperationAssignment[],
+  detectedOperations: OperationDetectResult,
+  stock: StockSettings,
+  placements: PlacementItem[],
+  objectOrigins: Record<string, [number, number]>,
+  boundingBoxes: Record<string, BoundingBox>,
+  postProcessor: PostProcessorSettings,
+): Promise<Blob> {
+  const res = await fetch(`${API_URL}/api/generate-sbp-zip`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      operations,
+      detected_operations: detectedOperations,
+      stock,
+      placements,
+      object_origins: objectOrigins,
+      bounding_boxes: boundingBoxes,
+      post_processor: postProcessor,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "ZIP generation failed" }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.blob();
 }
