@@ -2,7 +2,9 @@
 
 import math
 
+from nodes.geometry_utils import rotate_coords
 from schemas import (
+    BoundingBox,
     ContourExtractResult,
     MachiningSettings,
     OperationAssignment,
@@ -26,10 +28,13 @@ def generate_toolpath(
     """Generate multi-pass toolpaths from contour + settings."""
     toolpaths = []
 
-    for contour in contour_result.contours:
-        if contour.type != "exterior":
-            continue
+    # Sort: interior first, then exterior
+    sorted_contours = sorted(
+        contour_result.contours,
+        key=lambda c: (0 if c.type == "interior" else 1),
+    )
 
+    for contour in sorted_contours:
         passes = _compute_passes(
             coords=contour.coords,
             depth_per_pass=settings.depth_per_pass,
@@ -53,6 +58,7 @@ def generate_toolpath_from_operations(
     stock: StockSettings,
     placements: list[PlacementItem] | None = None,
     object_origins: dict[str, list[float]] | None = None,
+    bounding_boxes: dict[str, BoundingBox] | None = None,
 ) -> ToolpathGenResult:
     """Generate toolpaths from operation assignments.
 
@@ -60,7 +66,8 @@ def generate_toolpath_from_operations(
     as the cutting depth (to cut through the entire stock).
 
     Coordinate transform: model_space → stock_space
-      stock_coord = (model_coord - object_origin) + placement_offset
+      1. Rotate around BB center (if rotation != 0)
+      2. Translate: stock_coord = (model_coord - origin) + placement_offset
     """
     # Build lookup: operation_id → DetectedOperation
     op_lookup = {op.operation_id: op for op in detected.operations}
@@ -70,6 +77,8 @@ def generate_toolpath_from_operations(
     plc_lookup = {p.object_id: p for p in (placements or [])}
     # Build lookup: object_id → (origin_x, origin_y)
     ori_lookup = object_origins or {}
+    # Build lookup: object_id → BoundingBox
+    bb_lookup = bounding_boxes or {}
 
     toolpaths: list[Toolpath] = []
 
@@ -86,14 +95,19 @@ def generate_toolpath_from_operations(
             continue
 
         # Compute coordinate transform: model → stock space
-        # stock_coord = (model_coord - origin) + placement_offset
         placement = plc_lookup.get(detected_op.object_id)
         origin = ori_lookup.get(detected_op.object_id, [0.0, 0.0])
         origin_x, origin_y = origin[0], origin[1]
         place_x = placement.x_offset if placement else 0.0
         place_y = placement.y_offset if placement else 0.0
+        rotation = placement.rotation if placement else 0
         dx = -origin_x + place_x
         dy = -origin_y + place_y
+
+        # Get BB center for rotation pivot (in model space, relative to origin)
+        bb = bb_lookup.get(detected_op.object_id)
+        rot_cx = bb.x / 2 if bb else 0.0
+        rot_cy = bb.y / 2 if bb else 0.0
 
         # For contour operations, cut through entire stock
         if detected_op.operation_type == "contour":
@@ -101,12 +115,19 @@ def generate_toolpath_from_operations(
         else:
             total_depth = detected_op.geometry.depth
 
-        for contour in detected_op.geometry.contours:
-            if contour.type != "exterior":
-                continue
+        # Sort: interior first, then exterior
+        sorted_contours = sorted(
+            detected_op.geometry.contours,
+            key=lambda c: (0 if c.type == "interior" else 1),
+        )
 
-            # Apply placement offset to contour coordinates
-            offset_coords = [[c[0] + dx, c[1] + dy] for c in contour.coords]
+        for contour in sorted_contours:
+            # Apply rotation (around BB center) then placement offset
+            if rotation != 0 and len(contour.coords) >= 3:
+                rotated = rotate_coords(contour.coords, rotation, rot_cx, rot_cy)
+                offset_coords = [[c[0] + dx, c[1] + dy] for c in rotated]
+            else:
+                offset_coords = [[c[0] + dx, c[1] + dy] for c in contour.coords]
 
             passes = _compute_passes(
                 coords=offset_coords,

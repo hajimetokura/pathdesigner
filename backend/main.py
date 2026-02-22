@@ -182,7 +182,7 @@ def generate_toolpath_endpoint(req: ToolpathGenRequest):
     try:
         result = generate_toolpath_from_operations(
             req.operations, req.detected_operations, req.stock,
-            req.placements, req.object_origins
+            req.placements, req.object_origins, req.bounding_boxes
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Toolpath generation failed: {e}")
@@ -245,15 +245,54 @@ def _validate_placement(
 
 @app.post("/api/validate-placement", response_model=ValidatePlacementResponse)
 def validate_placement_endpoint(req: ValidatePlacementRequest):
-    """Validate part placements on stock."""
+    """Validate part placements on stock (bounds + collision)."""
+    from shapely.geometry import Polygon, box as shapely_box
+    from shapely.affinity import translate
+    from nodes.geometry_utils import rotate_polygon
+
     mat_lookup = {m.material_id: m for m in req.stock.materials}
     all_warnings: list[str] = []
 
+    # 1. Bounds check per part
     for p in req.placements:
         stock = mat_lookup.get(p.material_id)
         bb = req.bounding_boxes.get(p.object_id)
         if stock and bb:
             all_warnings.extend(_validate_placement(p, stock, bb))
+
+    # 2. Collision check between all pairs
+    if len(req.placements) >= 2:
+        polygons: dict[str, Polygon] = {}
+        for p in req.placements:
+            bb = req.bounding_boxes.get(p.object_id)
+            if not bb:
+                continue
+            outline = req.outlines.get(p.object_id, [])
+            if len(outline) >= 3:
+                poly = Polygon(outline)
+            else:
+                poly = shapely_box(0, 0, bb.x, bb.y)
+
+            # Rotate around BB center
+            if p.rotation:
+                cx, cy = bb.x / 2, bb.y / 2
+                poly = rotate_polygon(poly, p.rotation, (cx, cy))
+
+            # Tool diameter margin
+            if req.tool_diameter > 0:
+                poly = poly.buffer(req.tool_diameter / 2)
+
+            # Translate to placement position
+            poly = translate(poly, p.x_offset, p.y_offset)
+            polygons[p.object_id] = poly
+
+        ids = list(polygons.keys())
+        for i in range(len(ids)):
+            for j in range(i + 1, len(ids)):
+                if polygons[ids[i]].intersects(polygons[ids[j]]):
+                    all_warnings.append(
+                        f"衝突: {ids[i]} と {ids[j]} が重なっています"
+                    )
 
     return ValidatePlacementResponse(
         valid=len(all_warnings) == 0,

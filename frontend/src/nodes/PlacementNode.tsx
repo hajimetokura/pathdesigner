@@ -77,13 +77,17 @@ export default function PlacementNode({ id, data }: NodeProps) {
       if (brepResult && stockSettings) {
         syncToNodeData(updated, brepResult, stockSettings);
 
-        // Validate
+        // Validate (with outlines for collision detection)
         const bbs: Record<string, { x: number; y: number; z: number }> = {};
+        const outlines: Record<string, number[][]> = {};
         for (const obj of brepResult.objects) {
           bbs[obj.object_id] = obj.bounding_box;
+          if (obj.outline && obj.outline.length >= 3) {
+            outlines[obj.object_id] = obj.outline;
+          }
         }
         try {
-          const result = await validatePlacement(updated, stockSettings, bbs);
+          const result = await validatePlacement(updated, stockSettings, bbs, outlines);
           setWarnings(result.warnings);
         } catch {
           // validation failure is non-critical
@@ -128,25 +132,47 @@ export default function PlacementNode({ id, data }: NodeProps) {
       ctx.strokeStyle = colors[i % colors.length];
       ctx.lineWidth = 1;
 
+      const rot = p.rotation || 0;
+      const bb = obj.bounding_box;
+      const rcx = bb.x / 2;
+      const rcy = bb.y / 2;
+
+      const rp = (x: number, y: number): [number, number] => {
+        if (rot === 0) return [x, y];
+        const rad = (rot * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        const dx = x - rcx;
+        const dy = y - rcy;
+        return [rcx + dx * cos - dy * sin, rcy + dx * sin + dy * cos];
+      };
+
       if (obj.outline && obj.outline.length > 2) {
-        // Draw actual outline
+        // Draw rotated outline
         ctx.beginPath();
-        const [x0, y0] = [ox + (p.x_offset + obj.outline[0][0]) * sc, h - oy - (p.y_offset + obj.outline[0][1]) * sc];
-        ctx.moveTo(x0, y0);
+        const [rx0, ry0] = rp(obj.outline[0][0], obj.outline[0][1]);
+        ctx.moveTo(ox + (p.x_offset + rx0) * sc, h - oy - (p.y_offset + ry0) * sc);
         for (let j = 1; j < obj.outline.length; j++) {
-          ctx.lineTo(ox + (p.x_offset + obj.outline[j][0]) * sc, h - oy - (p.y_offset + obj.outline[j][1]) * sc);
+          const [rx, ry] = rp(obj.outline[j][0], obj.outline[j][1]);
+          ctx.lineTo(ox + (p.x_offset + rx) * sc, h - oy - (p.y_offset + ry) * sc);
         }
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
       } else {
-        // Fallback: bounding box rectangle
-        const px = ox + p.x_offset * sc;
-        const py = h - oy - (p.y_offset + obj.bounding_box.y) * sc;
-        const pw = obj.bounding_box.x * sc;
-        const ph = obj.bounding_box.y * sc;
-        ctx.fillRect(px, py, pw, ph);
-        ctx.strokeRect(px, py, pw, ph);
+        // Fallback: rotated bounding box as polygon
+        const corners: [number, number][] = [[0, 0], [bb.x, 0], [bb.x, bb.y], [0, bb.y]];
+        ctx.beginPath();
+        for (let j = 0; j < corners.length; j++) {
+          const [rx, ry] = rp(corners[j][0], corners[j][1]);
+          const cx = ox + (p.x_offset + rx) * sc;
+          const cy = h - oy - (p.y_offset + ry) * sc;
+          if (j === 0) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
       }
     }
   }, [placements, brepResult, stockSettings]);

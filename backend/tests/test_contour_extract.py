@@ -78,3 +78,78 @@ def test_extract_contours_offset_expands_box(simple_box_step: Path):
     poly_offset = Polygon(result_with_offset.contours[0].coords)
 
     assert poly_offset.area > poly_raw.area
+
+
+# --- Interior contour tests ---
+
+
+def test_interior_contours_detected(box_with_hole_step: Path):
+    """A box with a 20mm hole should produce both exterior and interior contours."""
+    result = extract_contours(
+        step_path=box_with_hole_step,
+        object_id="obj_001",
+        tool_diameter=6.35,
+        offset_side="outside",
+    )
+
+    types = [c.type for c in result.contours]
+    assert "exterior" in types
+    assert "interior" in types
+
+    exterior = [c for c in result.contours if c.type == "exterior"]
+    interior = [c for c in result.contours if c.type == "interior"]
+    assert len(exterior) == 1
+    assert len(interior) == 1
+
+
+def test_interior_contour_offset_shrinks(box_with_hole_step: Path):
+    """Interior contour with outside offset should shrink (offset inward)."""
+    result_no_offset = extract_contours(
+        step_path=box_with_hole_step,
+        object_id="obj_001",
+        tool_diameter=6.35,
+        offset_side="none",
+    )
+    result_with_offset = extract_contours(
+        step_path=box_with_hole_step,
+        object_id="obj_001",
+        tool_diameter=6.35,
+        offset_side="outside",
+    )
+
+    from shapely.geometry import Polygon
+
+    # Interior contour should be smaller with offset (tool moves inside the hole)
+    interior_raw = [c for c in result_no_offset.contours if c.type == "interior"]
+    interior_offset = [c for c in result_with_offset.contours if c.type == "interior"]
+
+    if interior_raw and interior_offset:
+        poly_raw = Polygon(interior_raw[0].coords)
+        poly_offset = Polygon(interior_offset[0].coords)
+        assert poly_offset.area < poly_raw.area
+
+
+def test_small_holes_filtered_by_tool_diameter(box_with_small_hole_step: Path):
+    """Holes smaller than the tool diameter should be filtered out."""
+    result = extract_contours(
+        step_path=box_with_small_hole_step,
+        object_id="obj_001",
+        tool_diameter=6.35,
+        offset_side="outside",
+    )
+
+    types = [c.type for c in result.contours]
+    assert "interior" not in types  # 4mm hole filtered by 6.35mm tool
+
+
+def test_simple_box_no_interior(simple_box_step: Path):
+    """A simple box without holes should have no interior contours."""
+    result = extract_contours(
+        step_path=simple_box_step,
+        object_id="obj_001",
+        tool_diameter=6.35,
+        offset_side="outside",
+    )
+
+    interior = [c for c in result.contours if c.type == "interior"]
+    assert len(interior) == 0

@@ -146,8 +146,9 @@ def test_uneven_depth_division():
 
 from nodes.toolpath_gen import generate_toolpath_from_operations
 from schemas import (
+    BoundingBox,
     OperationAssignment, OperationGeometry, DetectedOperation, OperationDetectResult,
-    StockMaterial, StockSettings,
+    PlacementItem, StockMaterial, StockSettings,
 )
 
 
@@ -250,3 +251,197 @@ def test_generate_from_operations_disabled():
 
     result = generate_toolpath_from_operations(assignments, detected, stock)
     assert len(result.toolpaths) == 0
+
+
+def test_interior_contours_processed():
+    """Interior contours should also produce toolpaths."""
+    exterior = Contour(
+        id="c_001", type="exterior",
+        coords=[[0, 0], [100, 0], [100, 50], [0, 50], [0, 0]], closed=True,
+    )
+    interior = Contour(
+        id="c_002", type="interior",
+        coords=[[30, 10], [70, 10], [70, 40], [30, 40], [30, 10]], closed=True,
+    )
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_001",
+                object_id="obj_001",
+                operation_type="contour",
+                geometry=OperationGeometry(
+                    contours=[exterior, interior],
+                    offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                    depth=10.0,
+                ),
+                suggested_settings=_make_settings(10.0),
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_001",
+            material_id="mtl_1",
+            settings=_make_settings(10.0),
+            order=1,
+        )
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock)
+
+    # Should have 2 toolpaths: interior first, then exterior
+    assert len(result.toolpaths) == 2
+
+
+def test_interior_before_exterior_order():
+    """Interior contours should be processed before exterior contours."""
+    exterior = Contour(
+        id="c_001", type="exterior",
+        coords=[[0, 0], [100, 0], [100, 50], [0, 50], [0, 0]], closed=True,
+    )
+    interior = Contour(
+        id="c_002", type="interior",
+        coords=[[30, 10], [70, 10], [70, 40], [30, 40], [30, 10]], closed=True,
+    )
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_001",
+                object_id="obj_001",
+                operation_type="contour",
+                geometry=OperationGeometry(
+                    contours=[exterior, interior],  # exterior first in input
+                    offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                    depth=10.0,
+                ),
+                suggested_settings=_make_settings(10.0),
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_001",
+            material_id="mtl_1",
+            settings=_make_settings(10.0),
+            order=1,
+        )
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock)
+
+    # First toolpath should be from interior, second from exterior
+    assert len(result.toolpaths) == 2
+    # Interior contour coords start at [30, 10]
+    assert result.toolpaths[0].passes[0].path[0][0] == 30.0
+    # Exterior contour coords start at [0, 0]
+    assert result.toolpaths[1].passes[0].path[0][0] == 0.0
+
+
+def test_rotation_90_transforms_coords():
+    """90-degree rotation should swap X/Y coordinates around BB center."""
+    contour = Contour(
+        id="c_001", type="exterior",
+        coords=[[0, 0], [100, 0], [100, 50], [0, 50], [0, 0]], closed=True,
+    )
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_001",
+                object_id="obj_001",
+                operation_type="contour",
+                geometry=OperationGeometry(
+                    contours=[contour],
+                    offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                    depth=10.0,
+                ),
+                suggested_settings=_make_settings(10.0),
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_001",
+            material_id="mtl_1",
+            settings=_make_settings(10.0),
+            order=1,
+        )
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    )
+    placements = [
+        PlacementItem(object_id="obj_001", material_id="mtl_1", x_offset=0, y_offset=0, rotation=90)
+    ]
+    bounding_boxes = {"obj_001": BoundingBox(x=100, y=50, z=10)}
+
+    result_no_rot = generate_toolpath_from_operations(
+        assignments, detected, stock,
+    )
+    result_with_rot = generate_toolpath_from_operations(
+        assignments, detected, stock, placements, bounding_boxes=bounding_boxes,
+    )
+
+    # After 90° rotation, the path should be different
+    path_no_rot = result_no_rot.toolpaths[0].passes[0].path
+    path_with_rot = result_with_rot.toolpaths[0].passes[0].path
+    assert path_no_rot != path_with_rot
+
+    # A 100x50 box rotated 90° around center (50, 25) should have different bounds
+    xs = [p[0] for p in path_with_rot]
+    ys = [p[1] for p in path_with_rot]
+    # Rotated: width ~50, height ~100 (swapped)
+    assert (max(xs) - min(xs)) < 60  # was 100, now ~50
+    assert (max(ys) - min(ys)) > 90  # was 50, now ~100
+
+
+def test_rotation_0_no_change():
+    """0-degree rotation should not modify coordinates."""
+    contour = Contour(
+        id="c_001", type="exterior",
+        coords=[[0, 0], [100, 0], [100, 50], [0, 50], [0, 0]], closed=True,
+    )
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_001",
+                object_id="obj_001",
+                operation_type="contour",
+                geometry=OperationGeometry(
+                    contours=[contour],
+                    offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                    depth=10.0,
+                ),
+                suggested_settings=_make_settings(10.0),
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_001",
+            material_id="mtl_1",
+            settings=_make_settings(10.0),
+            order=1,
+        )
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    )
+    placements = [
+        PlacementItem(object_id="obj_001", material_id="mtl_1", x_offset=10, y_offset=20, rotation=0)
+    ]
+    bounding_boxes = {"obj_001": BoundingBox(x=100, y=50, z=10)}
+
+    result = generate_toolpath_from_operations(
+        assignments, detected, stock, placements, bounding_boxes=bounding_boxes,
+    )
+
+    # With offset (10, 20) and no rotation, first point should be [10, 20]
+    path = result.toolpaths[0].passes[0].path
+    assert path[0][0] == 10.0
+    assert path[0][1] == 20.0

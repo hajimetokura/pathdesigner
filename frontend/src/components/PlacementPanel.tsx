@@ -1,6 +1,39 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrepObject, StockSettings, PlacementItem } from "../types";
 
+/** Rotate a 2D point (x,y) by `angle` degrees around (cx,cy). */
+function rotatePoint(
+  x: number, y: number, angle: number, cx: number, cy: number,
+): [number, number] {
+  if (angle === 0) return [x, y];
+  const rad = (angle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = x - cx;
+  const dy = y - cy;
+  return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos];
+}
+
+/** Get the axis-aligned bounding rect of a rotated BB. */
+function rotatedAABB(
+  bbX: number, bbY: number, angle: number,
+): { minX: number; minY: number; maxX: number; maxY: number } {
+  const cx = bbX / 2;
+  const cy = bbY / 2;
+  const corners = [
+    rotatePoint(0, 0, angle, cx, cy),
+    rotatePoint(bbX, 0, angle, cx, cy),
+    rotatePoint(bbX, bbY, angle, cx, cy),
+    rotatePoint(0, bbY, angle, cx, cy),
+  ];
+  return {
+    minX: Math.min(...corners.map((c) => c[0])),
+    minY: Math.min(...corners.map((c) => c[1])),
+    maxX: Math.max(...corners.map((c) => c[0])),
+    maxY: Math.max(...corners.map((c) => c[1])),
+  };
+}
+
 interface Props {
   objects: BrepObject[];
   stockSettings: StockSettings;
@@ -81,23 +114,31 @@ export default function PlacementPanel({
       if (!obj) continue;
 
       const bb = obj.bounding_box;
+      const rot = p.rotation || 0;
+      const rcx = bb.x / 2;
+      const rcy = bb.y / 2;
+
+      // Out-of-bounds check using rotated AABB
+      const aabb = rotatedAABB(bb.x, bb.y, rot);
       const isOut =
-        p.x_offset + bb.x > stock.width ||
-        p.y_offset + bb.y > stock.depth ||
-        p.x_offset < 0 ||
-        p.y_offset < 0;
+        p.x_offset + aabb.maxX > stock.width ||
+        p.y_offset + aabb.maxY > stock.depth ||
+        p.x_offset + aabb.minX < 0 ||
+        p.y_offset + aabb.minY < 0;
 
       const fillColor = isOut ? "rgba(229,57,53,0.15)" : `${colors[i % colors.length]}22`;
       const strokeColor = isOut ? "#e53935" : colors[i % colors.length];
       const lineW = isOut ? 2 : 1.5;
 
       if (obj.outline && obj.outline.length > 2) {
-        // Draw actual outline
+        // Draw rotated outline
         ctx.beginPath();
-        const [cx0, cy0] = toCanvas(p.x_offset + obj.outline[0][0], p.y_offset + obj.outline[0][1]);
+        const [rx0, ry0] = rotatePoint(obj.outline[0][0], obj.outline[0][1], rot, rcx, rcy);
+        const [cx0, cy0] = toCanvas(p.x_offset + rx0, p.y_offset + ry0);
         ctx.moveTo(cx0, cy0);
         for (let j = 1; j < obj.outline.length; j++) {
-          const [cx, cy] = toCanvas(p.x_offset + obj.outline[j][0], p.y_offset + obj.outline[j][1]);
+          const [rx, ry] = rotatePoint(obj.outline[j][0], obj.outline[j][1], rot, rcx, rcy);
+          const [cx, cy] = toCanvas(p.x_offset + rx, p.y_offset + ry);
           ctx.lineTo(cx, cy);
         }
         ctx.closePath();
@@ -107,18 +148,26 @@ export default function PlacementPanel({
         ctx.lineWidth = lineW;
         ctx.stroke();
       } else {
-        // Fallback: bounding box rectangle
-        const [px0, py0] = toCanvas(p.x_offset, p.y_offset);
-        const [px1, py1] = toCanvas(p.x_offset + bb.x, p.y_offset + bb.y);
+        // Fallback: rotated bounding box as polygon
+        const bbCorners: [number, number][] = [[0, 0], [bb.x, 0], [bb.x, bb.y], [0, bb.y]];
+        ctx.beginPath();
+        for (let j = 0; j < bbCorners.length; j++) {
+          const [rx, ry] = rotatePoint(bbCorners[j][0], bbCorners[j][1], rot, rcx, rcy);
+          const [cx, cy] = toCanvas(p.x_offset + rx, p.y_offset + ry);
+          if (j === 0) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        }
+        ctx.closePath();
         ctx.fillStyle = fillColor;
-        ctx.fillRect(px0, py1, px1 - px0, py0 - py1);
+        ctx.fill();
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = lineW;
-        ctx.strokeRect(px0, py1, px1 - px0, py0 - py1);
+        ctx.stroke();
       }
 
-      // Label
-      const [lx, ly] = toCanvas(p.x_offset, p.y_offset + bb.y);
+      // Label (at rotated top-left corner)
+      const [rlx, rly] = rotatePoint(0, bb.y, rot, rcx, rcy);
+      const [lx, ly] = toCanvas(p.x_offset + rlx, p.y_offset + rly);
       ctx.fillStyle = colors[i % colors.length];
       ctx.font = "bold 11px sans-serif";
       ctx.fillText(p.object_id, lx + 4, ly + 14);
@@ -132,13 +181,15 @@ export default function PlacementPanel({
     const cx = (e.clientX - rect.left) * (canvasW / rect.width);
     const cy = (e.clientY - rect.top) * (canvasH / rect.height);
 
-    // Hit test: find which part is under cursor
+    // Hit test: find which part is under cursor (using rotated AABB)
     for (let i = placements.length - 1; i >= 0; i--) {
       const p = placements[i];
       const obj = objects.find((o) => o.object_id === p.object_id);
       if (!obj) continue;
-      const [px0, py0] = toCanvas(p.x_offset, p.y_offset);
-      const [px1, py1] = toCanvas(p.x_offset + obj.bounding_box.x, p.y_offset + obj.bounding_box.y);
+      const bb = obj.bounding_box;
+      const aabb = rotatedAABB(bb.x, bb.y, p.rotation || 0);
+      const [px0, py0] = toCanvas(p.x_offset + aabb.minX, p.y_offset + aabb.minY);
+      const [px1, py1] = toCanvas(p.x_offset + aabb.maxX, p.y_offset + aabb.maxY);
       if (cx >= px0 && cx <= px1 && cy >= py1 && cy <= py0) {
         setDragging(p.object_id);
         setDragStart({ mx: cx, my: cy, ox: p.x_offset, oy: p.y_offset });
@@ -167,9 +218,18 @@ export default function PlacementPanel({
     setDragStart(null);
   };
 
-  const handleNumericChange = (objectId: string, field: "x_offset" | "y_offset", value: number) => {
+  const handleNumericChange = (objectId: string, field: "x_offset" | "y_offset" | "rotation", value: number) => {
     const updated = placements.map((p) =>
       p.object_id === objectId ? { ...p, [field]: value } : p
+    );
+    onPlacementsChange(updated);
+  };
+
+  const handleRotate = (objectId: string) => {
+    const updated = placements.map((p) =>
+      p.object_id === objectId
+        ? { ...p, rotation: ((p.rotation || 0) + 45) % 360 }
+        : p
     );
     onPlacementsChange(updated);
   };
@@ -224,6 +284,13 @@ export default function PlacementPanel({
                   style={numInputStyle}
                 />
               </label>
+              <button
+                onClick={() => handleRotate(p.object_id)}
+                style={rotBtnStyle}
+                title="45° rotate"
+              >
+                {"\u27F3"} {p.rotation || 0}°
+              </button>
               {obj && (
                 <span style={{ fontSize: 10, color: "#888" }}>
                   ({obj.bounding_box.x.toFixed(0)}{"\u00d7"}{obj.bounding_box.y.toFixed(0)})
@@ -244,3 +311,4 @@ const inputsTitle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color:
 const inputRow: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "4px 0" };
 const labelStyle: React.CSSProperties = { fontSize: 11, display: "flex", alignItems: "center", gap: 4 };
 const numInputStyle: React.CSSProperties = { width: 60, padding: "3px 6px", border: "1px solid #ddd", borderRadius: 4, fontSize: 12 };
+const rotBtnStyle: React.CSSProperties = { padding: "2px 6px", border: "1px solid #ddd", borderRadius: 4, fontSize: 11, background: "#fafafa", cursor: "pointer", whiteSpace: "nowrap" };
