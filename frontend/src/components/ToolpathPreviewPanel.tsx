@@ -28,6 +28,14 @@ export default function ToolpathPreviewPanel({ toolpathResult, onClose }: Props)
           }
         }
       }
+      // Include origin and stock bounds in view calculation
+      if (toolpathResult.stock_width && toolpathResult.stock_depth) {
+        allPoints.push([0, 0]);
+        allPoints.push([toolpathResult.stock_width, toolpathResult.stock_depth]);
+      } else {
+        allPoints.push([0, 0]); // Always include origin
+      }
+
       if (allPoints.length === 0) return;
 
       const xs = allPoints.map((p) => p[0]);
@@ -57,6 +65,54 @@ export default function ToolpathPreviewPanel({ toolpathResult, onClose }: Props)
       const minZ = Math.min(...allZ);
       const maxZ = Math.max(...allZ);
       const zRange = maxZ - minZ || 1;
+
+      // --- Stock bounds (background layer) ---
+      if (toolpathResult.stock_width && toolpathResult.stock_depth) {
+        const sw = toolpathResult.stock_width;
+        const sd = toolpathResult.stock_depth;
+        const [sx0, sy0] = toCanvas(0, 0);
+        const [sx1, sy1] = toCanvas(sw, sd);
+        ctx.save();
+        ctx.strokeStyle = "#ccc";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(sx0, sy1, sx1 - sx0, sy0 - sy1);
+        ctx.setLineDash([]);
+        // Dimension label
+        ctx.fillStyle = "#aaa";
+        ctx.font = "10px sans-serif";
+        ctx.fillText(`${sw} × ${sd} mm`, sx0, sy1 - 4);
+        ctx.restore();
+      }
+
+      // --- Origin axes ---
+      const [ox, oy] = toCanvas(0, 0);
+      const axisLen = 30; // pixels
+      ctx.save();
+      // X axis (red)
+      ctx.strokeStyle = "#e53935";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + axisLen, oy);
+      ctx.stroke();
+      ctx.fillStyle = "#e53935";
+      ctx.font = "bold 10px sans-serif";
+      ctx.fillText("X", ox + axisLen + 2, oy + 3);
+      // Y axis (green)
+      ctx.strokeStyle = "#43a047";
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox, oy - axisLen);
+      ctx.stroke();
+      ctx.fillStyle = "#43a047";
+      ctx.fillText("Y", ox - 4, oy - axisLen - 4);
+      // Origin dot
+      ctx.fillStyle = "#333";
+      ctx.beginPath();
+      ctx.arc(ox, oy, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
 
       for (const tp of toolpathResult.toolpaths) {
         for (const pass of tp.passes) {
