@@ -140,6 +140,28 @@ class ValidateSettingsResponse(BaseModel):
     warnings: list[str]
 
 
+# --- Node 3b: Operation Detection ---
+
+
+class OperationGeometry(BaseModel):
+    contours: list[Contour]
+    offset_applied: OffsetApplied
+    depth: float  # cutting depth for this operation (mm)
+
+
+class DetectedOperation(BaseModel):
+    operation_id: str
+    object_id: str
+    operation_type: str  # "contour" | "pocket" | "drill" | "engrave"
+    geometry: OperationGeometry
+    suggested_settings: MachiningSettings
+    enabled: bool = True
+
+
+class OperationDetectResult(BaseModel):
+    operations: list[DetectedOperation]
+
+
 # --- Node 5: Post Processor Settings ---
 
 
