@@ -1,16 +1,22 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type {
   OperationDetectResult,
   OperationAssignment,
   StockSettings,
   MachiningSettings,
+  PlacementItem,
 } from "../types";
+import StockTabs from "./StockTabs";
 
 interface Props {
   detectedOperations: OperationDetectResult;
   assignments: OperationAssignment[];
   stockSettings: StockSettings | null;
   onAssignmentsChange: (assignments: OperationAssignment[]) => void;
+  placements: PlacementItem[];
+  stockIds: string[];
+  activeStockId: string;
+  onActiveStockChange: (stockId: string) => void;
 }
 
 export default function OperationDetailPanel({
@@ -18,10 +24,23 @@ export default function OperationDetailPanel({
   assignments,
   stockSettings,
   onAssignmentsChange,
+  placements,
+  stockIds,
+  activeStockId,
+  onActiveStockChange,
 }: Props) {
   const [expandedOp, setExpandedOp] = useState<string | null>(null);
 
   const materials = stockSettings?.materials ?? [];
+
+  // Filter by active stock
+  const activeObjectIds = useMemo(() => {
+    return new Set(placements.filter((p) => p.stock_id === activeStockId).map((p) => p.object_id));
+  }, [placements, activeStockId]);
+
+  const filteredOps = useMemo(() => {
+    return detectedOperations.operations.filter((op) => activeObjectIds.has(op.object_id));
+  }, [detectedOperations, activeObjectIds]);
 
   const updateAssignment = useCallback(
     (opId: string, update: Partial<OperationAssignment>) => {
@@ -48,7 +67,14 @@ export default function OperationDetailPanel({
   return (
     <div style={panelStyle}>
       <div style={panelBodyStyle}>
-        {detectedOperations.operations.map((op) => {
+        {stockIds.length > 1 && (
+          <StockTabs
+            stockIds={stockIds}
+            activeStockId={activeStockId}
+            onChange={onActiveStockChange}
+          />
+        )}
+        {filteredOps.map((op) => {
           const assignment = assignments.find(
             (a) => a.operation_id === op.operation_id
           );

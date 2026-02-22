@@ -199,10 +199,14 @@ export default function OperationNode({ id, data }: NodeProps) {
           assignments={assignments}
           stockSettings={upstream?.placementResult.stock ?? null}
           onAssignmentsChange={handleAssignmentsChange}
+          placements={allPlacements}
+          stockIds={stockIds}
+          activeStockId={activeStockId}
+          onActiveStockChange={handleStockChange}
         />
       ),
     });
-  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab, allPlacements, stockIds, activeStockId, handleStockChange]);
 
   // Update tab content when assignments change (only if tab is already open)
   useEffect(() => {
@@ -217,11 +221,15 @@ export default function OperationNode({ id, data }: NodeProps) {
             assignments={assignments}
             stockSettings={upstream?.placementResult.stock ?? null}
             onAssignmentsChange={handleAssignmentsChange}
+            placements={allPlacements}
+            stockIds={stockIds}
+            activeStockId={activeStockId}
+            onActiveStockChange={handleStockChange}
           />
         ),
       });
     }
-  }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab, allPlacements, stockIds, activeStockId, handleStockChange]);
 
   const dynamicBorder = status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : "#ddd";
 
