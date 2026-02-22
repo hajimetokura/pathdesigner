@@ -147,11 +147,11 @@ function Flow() {
           id: `${type}-${nodeCounter}`,
           type,
           position,
-          data: {},
+          data: { openTab, updateTab, closeTab },
         },
       ]);
     },
-    [screenToFlowPosition, setNodes]
+    [screenToFlowPosition, setNodes, openTab, updateTab, closeTab]
   );
 
   useEffect(() => {
