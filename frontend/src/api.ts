@@ -9,7 +9,7 @@ import type {
   StockSettings,
   PostProcessorSettings,
   ToolpathGenResult,
-  SbpGenResult,
+  OutputResult,
 } from "./types";
 
 const API_URL = "http://localhost:8000";
@@ -128,7 +128,7 @@ export async function generateSbp(
   operations: OperationAssignment[],
   stock: StockSettings,
   postProcessor: PostProcessorSettings
-): Promise<SbpGenResult> {
+): Promise<OutputResult> {
   const res = await fetch(`${API_URL}/api/generate-sbp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

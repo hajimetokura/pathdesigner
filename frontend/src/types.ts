@@ -192,7 +192,8 @@ export interface ToolpathGenResult {
   toolpaths: Toolpath[];
 }
 
-export interface SbpGenResult {
-  sbp_code: string;
+export interface OutputResult {
+  code: string;
   filename: string;
+  format: string;
 }

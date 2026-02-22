@@ -7,7 +7,6 @@ import type {
   StockSettings,
   PostProcessorSettings,
   ToolpathGenResult,
-  SbpGenResult,
 } from "../types";
 import LabeledHandle from "./LabeledHandle";
 
@@ -16,7 +15,6 @@ type Status = "idle" | "loading" | "success" | "error";
 export default function ToolpathGenNode({ id }: NodeProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [toolpathResult, setToolpathResult] = useState<ToolpathGenResult | null>(null);
-  const [sbpResult, setSbpResult] = useState<SbpGenResult | null>(null);
   const [error, setError] = useState("");
   const { getNode, getEdges, setNodes } = useReactFlow();
 
@@ -115,15 +113,13 @@ export default function ToolpathGenNode({ id }: NodeProps) {
         stockSettings,
         postProcessorSettings
       );
-      setSbpResult(sbp);
-
       setStatus("success");
 
       // Store results in node data
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, toolpathResult: tpResult, sbpResult: sbp } }
+            ? { ...n, data: { ...n.data, toolpathResult: tpResult, outputResult: sbp } }
             : n
         )
       );
@@ -132,17 +128,6 @@ export default function ToolpathGenNode({ id }: NodeProps) {
       setStatus("error");
     }
   }, [id, getNode, getEdges, setNodes]);
-
-  const handleDownload = useCallback(() => {
-    if (!sbpResult) return;
-    const blob = new Blob([sbpResult.sbp_code], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = sbpResult.filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [sbpResult]);
 
   return (
     <div style={nodeStyle}>
@@ -201,20 +186,26 @@ export default function ToolpathGenNode({ id }: NodeProps) {
             </div>
           ))}
 
-          {sbpResult && (
-            <button onClick={handleDownload} style={downloadStyle}>
-              Download SBP
-            </button>
-          )}
         </div>
       )}
 
       <LabeledHandle
         type="source"
         position={Position.Bottom}
-        id={`${id}-out`}
-        label="out"
+        id={`${id}-toolpath`}
+        label="toolpath"
         dataType="toolpath"
+        index={0}
+        total={2}
+      />
+      <LabeledHandle
+        type="source"
+        position={Position.Bottom}
+        id={`${id}-output`}
+        label="output"
+        dataType="toolpath"
+        index={1}
+        total={2}
       />
     </div>
   );
@@ -263,15 +254,3 @@ const detailStyle: React.CSSProperties = {
   marginTop: 4,
 };
 
-const downloadStyle: React.CSSProperties = {
-  width: "100%",
-  marginTop: 8,
-  padding: "8px 12px",
-  border: "1px solid #66bb6a",
-  borderRadius: 6,
-  background: "#66bb6a",
-  color: "white",
-  cursor: "pointer",
-  fontSize: 12,
-  fontWeight: 600,
-};
