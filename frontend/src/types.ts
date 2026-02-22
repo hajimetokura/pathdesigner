@@ -58,6 +58,22 @@ export interface ContourExtractResult {
   offset_applied: OffsetApplied;
 }
 
+/** Node 2b: Stock Settings types */
+
+export interface StockMaterial {
+  material_id: string;
+  label: string;
+  width: number;
+  depth: number;
+  thickness: number;
+  x_position: number;
+  y_position: number;
+}
+
+export interface StockSettings {
+  materials: StockMaterial[];
+}
+
 /** Node 3: Machining Settings types */
 
 export interface Tool {
@@ -104,30 +120,52 @@ export interface ValidateSettingsResponse {
   warnings: string[];
 }
 
+/** Node 3b: Operation Detection types */
+
+export interface OperationGeometry {
+  contours: Contour[];
+  offset_applied: OffsetApplied;
+  depth: number;
+}
+
+export interface DetectedOperation {
+  operation_id: string;
+  object_id: string;
+  operation_type: string;
+  geometry: OperationGeometry;
+  suggested_settings: MachiningSettings;
+  enabled: boolean;
+}
+
+export interface OperationDetectResult {
+  operations: DetectedOperation[];
+}
+
+/** Node 4: Operation Editing types */
+
+export interface OperationAssignment {
+  operation_id: string;
+  material_id: string;
+  enabled: boolean;
+  settings: MachiningSettings;
+  order: number;
+}
+
+export interface OperationEditResult {
+  assignments: OperationAssignment[];
+}
+
 /** Node 5: Post Processor Settings types */
 
-export interface SpindleWarmup {
-  initial_rpm: number;
-  wait_seconds: number;
-}
-
-export interface MaterialSettings {
-  width: number;
-  depth: number;
-  thickness: number;
-  x_offset: number;
-  y_offset: number;
-}
-
 export interface PostProcessorSettings {
-  machine: string;
+  machine_name: string;
   output_format: string;
   unit: string;
+  bed_size: [number, number];
   safe_z: number;
   home_position: [number, number];
   tool_number: number;
-  spindle_warmup: SpindleWarmup;
-  material: MaterialSettings;
+  warmup_pause: number;
 }
 
 /** Node 6: Toolpath Generation types */
@@ -145,13 +183,13 @@ export interface ToolpathPass {
   tabs: TabSegment[];
 }
 
-export interface ToolpathResult {
+export interface Toolpath {
   operation_id: string;
   passes: ToolpathPass[];
 }
 
 export interface ToolpathGenResult {
-  toolpaths: ToolpathResult[];
+  toolpaths: Toolpath[];
 }
 
 export interface SbpGenResult {
