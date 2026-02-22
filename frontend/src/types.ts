@@ -230,3 +230,11 @@ export interface ObjectMesh {
 export interface MeshDataResult {
   objects: ObjectMesh[];
 }
+
+/** Auto Nesting types */
+
+export interface AutoNestingResponse {
+  placements: PlacementItem[];
+  stock_count: number;
+  warnings: string[];
+}

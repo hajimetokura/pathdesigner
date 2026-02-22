@@ -298,3 +298,19 @@ class ValidatePlacementRequest(BaseModel):
 class ValidatePlacementResponse(BaseModel):
     valid: bool
     warnings: list[str]
+
+
+# --- Auto Nesting ---
+
+
+class AutoNestingRequest(BaseModel):
+    objects: list[BrepObject]
+    stock: StockSettings
+    tool_diameter: float = 6.35
+    clearance: float = 5.0
+
+
+class AutoNestingResponse(BaseModel):
+    placements: list[PlacementItem]
+    stock_count: int
+    warnings: list[str] = []
