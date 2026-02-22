@@ -181,9 +181,8 @@ const nodeStyle: React.CSSProperties = {
   background: "white",
   border: "1px solid #ddd",
   borderRadius: 8,
-  padding: "12px 12px 20px",
-  minWidth: 200,
-  maxWidth: 280,
+  padding: "12px",
+  width: 200,
   boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
 };
 

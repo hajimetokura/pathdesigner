@@ -204,7 +204,7 @@ export default function PlacementNode({ id, data }: NodeProps) {
   );
 }
 
-const nodeStyle: React.CSSProperties = { background: "white", border: "1px solid #ddd", borderRadius: 8, padding: "20px 12px", minWidth: 200, maxWidth: 280, boxShadow: "0 2px 6px rgba(0,0,0,0.08)" };
+const nodeStyle: React.CSSProperties = { background: "white", border: "1px solid #ddd", borderRadius: 8, padding: "12px", width: 200, boxShadow: "0 2px 6px rgba(0,0,0,0.08)" };
 const headerStyle: React.CSSProperties = { fontWeight: 700, fontSize: 13, marginBottom: 8, color: "#333" };
 const canvasStyle: React.CSSProperties = { width: "100%", border: "1px solid #eee", borderRadius: 4, cursor: "pointer", background: "#fafafa" };
 const hintStyle: React.CSSProperties = { fontSize: 10, color: "#aaa", textAlign: "center", marginTop: 2 };
