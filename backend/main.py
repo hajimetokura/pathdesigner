@@ -7,9 +7,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from nodes.brep_import import analyze_step_file
 from nodes.contour_extract import extract_contours
+from nodes.toolpath_gen import generate_toolpath
+from sbp_writer import SbpWriter
 from schemas import (
     BrepImportResult, ContourExtractRequest, ContourExtractResult,
     MachiningSettings, PresetItem, ValidateSettingsRequest, ValidateSettingsResponse,
+    ToolpathGenRequest, ToolpathGenResult,
+    SbpGenRequest, SbpGenResult,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -132,3 +136,24 @@ def get_presets():
             settings=MachiningSettings(**settings_fields),
         ))
     return result
+
+
+@app.post("/api/generate-toolpath", response_model=ToolpathGenResult)
+def generate_toolpath_endpoint(req: ToolpathGenRequest):
+    """Generate toolpath passes from contours + machining settings."""
+    try:
+        result = generate_toolpath(req.contour_result, req.machining_settings)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Toolpath generation failed: {e}")
+    return result
+
+
+@app.post("/api/generate-sbp", response_model=SbpGenResult)
+def generate_sbp_endpoint(req: SbpGenRequest):
+    """Generate SBP code from toolpath data + post processor settings."""
+    try:
+        writer = SbpWriter(req.post_processor, req.machining_settings)
+        sbp_code = writer.generate(req.toolpath_result.toolpaths)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"SBP generation failed: {e}")
+    return SbpGenResult(sbp_code=sbp_code, filename="output.sbp")
