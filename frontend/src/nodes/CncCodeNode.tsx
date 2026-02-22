@@ -1,0 +1,126 @@
+import { useState } from "react";
+import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import type { OutputResult } from "../types";
+import LabeledHandle from "./LabeledHandle";
+import CncCodePanel from "../components/CncCodePanel";
+
+export default function CncCodeNode({ id }: NodeProps) {
+  const [showPanel, setShowPanel] = useState(false);
+  const { getNode, getEdges } = useReactFlow();
+
+  // Get output data from upstream ToolpathGenNode
+  const edges = getEdges();
+  const inputEdge = edges.find(
+    (e) => e.target === id && e.targetHandle === `${id}-in`
+  );
+  const sourceNode = inputEdge ? getNode(inputEdge.source) : null;
+  const outputResult = sourceNode?.data?.outputResult as OutputResult | undefined;
+
+  const lineCount = outputResult ? outputResult.code.split("\n").length : 0;
+
+  const handleExport = () => {
+    if (!outputResult) return;
+    const blob = new Blob([outputResult.code], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = outputResult.filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <>
+      <div style={nodeStyle}>
+        <LabeledHandle
+          type="target"
+          position={Position.Top}
+          id={`${id}-in`}
+          label="output"
+          dataType="toolpath"
+        />
+
+        <div style={headerStyle}>CNC Code</div>
+
+        {outputResult ? (
+          <div style={resultStyle}>
+            <div style={fileInfoStyle}>
+              {outputResult.format.toUpperCase()} · {lineCount} lines
+            </div>
+            <button onClick={handleExport} style={exportBtnStyle}>
+              Export
+            </button>
+            <button onClick={() => setShowPanel(true)} style={viewBtnStyle}>
+              View Code
+            </button>
+          </div>
+        ) : (
+          <div style={emptyStyle}>No data</div>
+        )}
+      </div>
+
+      {showPanel && outputResult && (
+        <CncCodePanel
+          outputResult={outputResult}
+          onExport={handleExport}
+          onClose={() => setShowPanel(false)}
+        />
+      )}
+    </>
+  );
+}
+
+const nodeStyle: React.CSSProperties = {
+  background: "white",
+  border: "1px solid #ddd",
+  borderRadius: 8,
+  padding: "20px 12px",
+  minWidth: 200,
+  maxWidth: 280,
+  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+};
+
+const headerStyle: React.CSSProperties = {
+  fontWeight: 700,
+  fontSize: 13,
+  marginBottom: 8,
+  color: "#333",
+};
+
+const resultStyle: React.CSSProperties = {
+  fontSize: 12,
+};
+
+const fileInfoStyle: React.CSSProperties = {
+  color: "#666",
+  marginBottom: 8,
+};
+
+const exportBtnStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "8px 12px",
+  border: "1px solid #66bb6a",
+  borderRadius: 6,
+  background: "#66bb6a",
+  color: "white",
+  cursor: "pointer",
+  fontSize: 12,
+  fontWeight: 600,
+  marginBottom: 4,
+};
+
+const viewBtnStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "6px 12px",
+  border: "1px solid #ddd",
+  borderRadius: 6,
+  background: "white",
+  color: "#333",
+  cursor: "pointer",
+  fontSize: 11,
+};
+
+const emptyStyle: React.CSSProperties = {
+  color: "#999",
+  fontSize: 11,
+};
