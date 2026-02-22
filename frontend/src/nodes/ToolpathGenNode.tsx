@@ -20,6 +20,7 @@ interface OperationsUpstream {
   stockSettings: StockSettings;
   placements: PlacementItem[];
   objectOrigins: Record<string, [number, number]>;
+  activeStockId: string;
 }
 
 export default function ToolpathGenNode({ id }: NodeProps) {
@@ -36,8 +37,9 @@ export default function ToolpathGenNode({ id }: NodeProps) {
     const stockSettings = d.stockSettings as StockSettings | undefined;
     const placements = d.placements as PlacementItem[] | undefined;
     const objectOrigins = d.objectOrigins as Record<string, [number, number]> | undefined;
+    const activeStockId = (d.activeStockId as string) || "stock_1";
     if (!detectedOperations || !assignments?.length || !stockSettings || !placements) return undefined;
-    return { detectedOperations, assignments, stockSettings, placements, objectOrigins: objectOrigins ?? {} };
+    return { detectedOperations, assignments, stockSettings, placements, objectOrigins: objectOrigins ?? {}, activeStockId };
   }, []);
   const operations = useUpstreamData(id, `${id}-operations`, extractOperations);
 
@@ -49,18 +51,29 @@ export default function ToolpathGenNode({ id }: NodeProps) {
   useEffect(() => {
     if (!operations || !postProc) return;
 
-    const { detectedOperations, assignments, stockSettings, placements, objectOrigins } = operations;
+    const { detectedOperations, assignments, stockSettings, placements, objectOrigins, activeStockId } = operations;
 
     // Build a generation key from all upstream inputs to avoid redundant calls
-    const genKey = JSON.stringify({ assignments, placements, stockSettings, postProc });
+    const genKey = JSON.stringify({ assignments, placements, stockSettings, postProc, activeStockId });
     if (lastGenKeyRef.current === genKey && toolpathResult) return;
     lastGenKeyRef.current = genKey;
 
-    // Validate stock thickness
+    // Filter placements and assignments by active stock
+    const filteredPlacements = placements.filter(
+      (p: PlacementItem) => p.stock_id === activeStockId
+    );
+    const activeObjectIds = new Set(filteredPlacements.map((p: PlacementItem) => p.object_id));
+    const opToObj = new Map(detectedOperations.operations.map((op) => [op.operation_id, op.object_id]));
+    const filteredAssignments = assignments.filter((a: OperationAssignment) => {
+      const objId = opToObj.get(a.operation_id);
+      return objId ? activeObjectIds.has(objId) : false;
+    });
+
+    // Validate stock thickness (only for active stock's assignments)
     const matLookup = new Map(stockSettings.materials.map((m) => [m.material_id, m]));
     const opLookup = new Map(detectedOperations.operations.map((op) => [op.operation_id, op]));
     const thinOps: string[] = [];
-    for (const a of assignments) {
+    for (const a of filteredAssignments) {
       if (!a.enabled) continue;
       const mat = matLookup.get(a.material_id);
       const op = opLookup.get(a.operation_id);
@@ -81,20 +94,33 @@ export default function ToolpathGenNode({ id }: NodeProps) {
     (async () => {
       try {
         const tpResult = await generateToolpath(
-          assignments, detectedOperations, stockSettings, placements, objectOrigins
+          filteredAssignments, detectedOperations, stockSettings, filteredPlacements, objectOrigins
         );
         if (cancelled) return;
         setToolpathResult(tpResult);
 
-        const sbp = await generateSbp(tpResult, assignments, stockSettings, postProc);
+        const sbp = await generateSbp(tpResult, filteredAssignments, stockSettings, postProc);
         if (cancelled) return;
         setStatus("success");
 
         // Store results in own node.data only (downstream reads via useStore)
+        const allStockIds = [...new Set(placements.map((p: PlacementItem) => p.stock_id))].sort();
         setNodes((nds) =>
           nds.map((n) =>
             n.id === id
-              ? { ...n, data: { ...n.data, toolpathResult: tpResult, outputResult: sbp, stockSettings } }
+              ? {
+                  ...n,
+                  data: {
+                    ...n.data,
+                    toolpathResult: tpResult,
+                    outputResult: sbp,
+                    stockSettings,
+                    activeStockId,
+                    allStockIds,
+                    allPlacements: placements,
+                    allAssignments: assignments,
+                  },
+                }
               : n
           )
         );
