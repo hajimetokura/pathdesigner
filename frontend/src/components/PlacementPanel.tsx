@@ -7,7 +7,6 @@ interface Props {
   placements: PlacementItem[];
   onPlacementsChange: (placements: PlacementItem[]) => void;
   warnings: string[];
-  onClose: () => void;
 }
 
 export default function PlacementPanel({
@@ -16,7 +15,6 @@ export default function PlacementPanel({
   placements,
   onPlacementsChange,
   warnings,
-  onClose,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -157,11 +155,6 @@ export default function PlacementPanel({
 
   return (
     <div style={panelStyle}>
-      <div style={panelHeaderStyle}>
-        <span style={{ fontWeight: 700, fontSize: 14 }}>Placement</span>
-        <button onClick={onClose} style={closeBtnStyle}>{"\u00d7"}</button>
-      </div>
-
       <div style={{ padding: 16 }}>
         <canvas
           ref={canvasRef}
@@ -221,9 +214,7 @@ export default function PlacementPanel({
   );
 }
 
-const panelStyle: React.CSSProperties = { position: "fixed", top: 0, right: 0, width: 480, height: "100vh", background: "white", borderLeft: "1px solid #ddd", boxShadow: "-4px 0 16px rgba(0,0,0,0.1)", zIndex: 100, display: "flex", flexDirection: "column", overflow: "auto" };
-const panelHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #eee" };
-const closeBtnStyle: React.CSSProperties = { background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#999", padding: "4px 8px" };
+const panelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "auto" };
 const warningStyle: React.CSSProperties = { padding: "8px 16px", background: "#fff3e0", borderTop: "1px solid #ffe0b2" };
 const inputsStyle: React.CSSProperties = { padding: "12px 16px", borderTop: "1px solid #f0f0f0" };
 const inputsTitle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: 1, paddingBottom: 8 };
