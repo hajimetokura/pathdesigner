@@ -236,3 +236,20 @@ class OutputResult(BaseModel):
     code: str
     filename: str
     format: str  # "sbp" | "gcode" | ...
+
+
+# --- Mesh Data (3D Preview) ---
+
+
+class ObjectMesh(BaseModel):
+    object_id: str
+    vertices: list[float]  # flat [x0, y0, z0, x1, ...]
+    faces: list[int]       # flat [i0, j0, k0, i1, ...]
+
+
+class MeshDataRequest(BaseModel):
+    file_id: str
+
+
+class MeshDataResult(BaseModel):
+    objects: list[ObjectMesh]

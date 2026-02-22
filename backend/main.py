@@ -9,6 +9,7 @@ from pydantic import BaseModel as PydanticBaseModel
 
 from nodes.brep_import import analyze_step_file
 from nodes.contour_extract import extract_contours
+from nodes.mesh_export import tessellate_step_file
 from nodes.operation_detector import detect_operations
 from nodes.toolpath_gen import generate_toolpath, generate_toolpath_from_operations
 from sbp_writer import SbpWriter
@@ -19,6 +20,7 @@ from schemas import (
     SbpGenRequest, OutputResult,
     OperationDetectResult,
     StockSettings,
+    MeshDataRequest, MeshDataResult, ObjectMesh,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -197,3 +199,19 @@ def generate_sbp_endpoint(req: SbpGenRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SBP generation failed: {e}")
     return OutputResult(code=sbp_code, filename="output.sbp", format="sbp")
+
+
+@app.post("/api/mesh-data", response_model=MeshDataResult)
+def mesh_data_endpoint(req: MeshDataRequest):
+    """Return tessellated mesh data for 3D preview."""
+    matches = list(UPLOAD_DIR.glob(f"{req.file_id}.*"))
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"File not found: {req.file_id}")
+
+    try:
+        raw_meshes = tessellate_step_file(matches[0])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Tessellation failed: {e}")
+
+    objects = [ObjectMesh(**m) for m in raw_meshes]
+    return MeshDataResult(objects=objects)
