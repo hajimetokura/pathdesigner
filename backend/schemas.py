@@ -68,8 +68,26 @@ class OffsetApplied(BaseModel):
 class ContourExtractResult(BaseModel):
     object_id: str
     slice_z: float
+    thickness: float  # object thickness from bounding box (mm)
     contours: list[Contour]
     offset_applied: OffsetApplied
+
+
+# --- Node 2b: Stock Settings ---
+
+
+class StockMaterial(BaseModel):
+    material_id: str
+    label: str = ""
+    width: float = 600        # mm (X)
+    depth: float = 400        # mm (Y)
+    thickness: float = 18     # mm (Z)
+    x_position: float = 0     # position on CNC bed
+    y_position: float = 0
+
+
+class StockSettings(BaseModel):
+    materials: list[StockMaterial]
 
 
 # --- Node 3: Machining Settings ---
@@ -123,31 +141,55 @@ class ValidateSettingsResponse(BaseModel):
     warnings: list[str]
 
 
+# --- Node 3b: Operation Detection ---
+
+
+class OperationGeometry(BaseModel):
+    contours: list[Contour]
+    offset_applied: OffsetApplied
+    depth: float  # cutting depth for this operation (mm)
+
+
+class DetectedOperation(BaseModel):
+    operation_id: str
+    object_id: str
+    operation_type: str  # "contour" | "pocket" | "drill" | "engrave"
+    geometry: OperationGeometry
+    suggested_settings: MachiningSettings
+    enabled: bool = True
+
+
+class OperationDetectResult(BaseModel):
+    operations: list[DetectedOperation]
+
+
+# --- Node 4: Operation Editing ---
+
+
+class OperationAssignment(BaseModel):
+    operation_id: str
+    material_id: str
+    enabled: bool = True
+    settings: MachiningSettings
+    order: int
+
+
+class OperationEditResult(BaseModel):
+    assignments: list[OperationAssignment]
+
+
 # --- Node 5: Post Processor Settings ---
 
 
-class SpindleWarmup(BaseModel):
-    initial_rpm: int = 5000
-    wait_seconds: int = 2
-
-
-class MaterialSettings(BaseModel):
-    width: float = 600
-    depth: float = 400
-    thickness: float = 18
-    x_offset: float = 0
-    y_offset: float = 0
-
-
 class PostProcessorSettings(BaseModel):
-    machine: str = "shopbot"
+    machine_name: str = "ShopBot PRS-alpha 96-48"
     output_format: str = "sbp"
     unit: str = "mm"
+    bed_size: list[float] = [1220.0, 2440.0]  # [x, y] mm
     safe_z: float = 38.0
     home_position: list[float] = [0.0, 0.0]
     tool_number: int = 3
-    spindle_warmup: SpindleWarmup = SpindleWarmup()
-    material: MaterialSettings = MaterialSettings()
+    warmup_pause: int = 2  # seconds
 
 
 # --- Node 6: Toolpath Generation ---
@@ -172,8 +214,9 @@ class Toolpath(BaseModel):
 
 
 class ToolpathGenRequest(BaseModel):
-    contour_result: ContourExtractResult
-    machining_settings: MachiningSettings
+    operations: list[OperationAssignment]
+    detected_operations: OperationDetectResult
+    stock: StockSettings
 
 
 class ToolpathGenResult(BaseModel):
@@ -182,7 +225,8 @@ class ToolpathGenResult(BaseModel):
 
 class SbpGenRequest(BaseModel):
     toolpath_result: ToolpathGenResult
-    machining_settings: MachiningSettings
+    operations: list[OperationAssignment]
+    stock: StockSettings
     post_processor: PostProcessorSettings
 
 

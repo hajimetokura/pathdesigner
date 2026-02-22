@@ -3,6 +3,7 @@
 from schemas import (
     MachiningSettings,
     PostProcessorSettings,
+    StockSettings,
     Toolpath,
     ToolpathPass,
 )
@@ -15,9 +16,11 @@ class SbpWriter:
         self,
         settings: PostProcessorSettings,
         machining: MachiningSettings,
+        stock: StockSettings | None = None,
     ):
         self.s = settings
         self.m = machining
+        self.stock = stock
 
     def generate(self, toolpaths: list[Toolpath]) -> str:
         """Generate complete SBP file content."""
@@ -43,25 +46,28 @@ class SbpWriter:
         ]
 
     def _tool_spindle(self) -> list[str]:
-        sw = self.s.spindle_warmup
         return [
             f"&Tool = {self.s.tool_number}",
             "C9",
-            f"TR,{sw.initial_rpm}",
+            f"TR,{self.m.spindle_speed}",
             "C6",
-            f"PAUSE {sw.wait_seconds}",
+            f"PAUSE {self.s.warmup_pause}",
             "",
         ]
 
     def _material_metadata(self) -> list[str]:
-        mat = self.s.material
-        return [
-            f"'MATERIAL_WIDTH:{mat.width:g}",
-            f"'MATERIAL_DEPTH:{mat.depth:g}",
-            f"'MATERIAL_THICKNESS:{mat.thickness:g}",
-            f"'MILL_SIZE:{self.m.tool.diameter:g}",
-            "",
-        ]
+        lines: list[str] = []
+        if self.stock:
+            for mat in self.stock.materials:
+                lines.extend([
+                    f"'MATERIAL_ID:{mat.material_id}",
+                    f"'MATERIAL_WIDTH:{mat.width:g}",
+                    f"'MATERIAL_DEPTH:{mat.depth:g}",
+                    f"'MATERIAL_THICKNESS:{mat.thickness:g}",
+                ])
+        lines.append(f"'MILL_SIZE:{self.m.tool.diameter:g}")
+        lines.append("")
+        return lines
 
     def _speed_settings(self) -> list[str]:
         return [

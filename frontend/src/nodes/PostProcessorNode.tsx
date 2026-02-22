@@ -4,23 +4,20 @@ import type { PostProcessorSettings } from "../types";
 import LabeledHandle from "./LabeledHandle";
 
 const DEFAULT_SETTINGS: PostProcessorSettings = {
-  machine: "shopbot",
+  machine_name: "ShopBot PRS-alpha 96-48",
   output_format: "sbp",
   unit: "mm",
+  bed_size: [1220.0, 2440.0],
   safe_z: 38.0,
   home_position: [0.0, 0.0],
   tool_number: 3,
-  spindle_warmup: { initial_rpm: 5000, wait_seconds: 2 },
-  material: { width: 600, depth: 400, thickness: 18, x_offset: 0, y_offset: 0 },
+  warmup_pause: 2,
 };
 
 export default function PostProcessorNode({ id }: NodeProps) {
   const { setNodes } = useReactFlow();
   const [settings, setSettings] = useState<PostProcessorSettings>(DEFAULT_SETTINGS);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    machine: true,
-    material: true,
-  });
+  const [open, setOpen] = useState(true);
 
   // Sync settings to node data
   useEffect(() => {
@@ -31,21 +28,14 @@ export default function PostProcessorNode({ id }: NodeProps) {
     );
   }, [id, settings, setNodes]);
 
-  const toggleSection = useCallback((key: string) => {
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
+  const toggle = useCallback(() => setOpen((v) => !v), []);
 
   return (
     <div style={nodeStyle}>
       <div style={headerStyle}>Post Processor</div>
 
-      {/* Machine section */}
-      <SectionHeader
-        label="Machine"
-        open={openSections.machine}
-        onToggle={() => toggleSection("machine")}
-      />
-      {openSections.machine && (
+      <SectionHeader label="Machine" open={open} onToggle={toggle} />
+      {open && (
         <div style={sectionBody}>
           <NumberField
             label="Safe Z (mm)"
@@ -73,57 +63,11 @@ export default function PostProcessorNode({ id }: NodeProps) {
             }
           />
           <NumberField
-            label="Warmup RPM"
-            value={settings.spindle_warmup.initial_rpm}
-            step={1000}
-            onChange={(v) =>
-              setSettings((s) => ({
-                ...s,
-                spindle_warmup: { ...s.spindle_warmup, initial_rpm: Math.round(v) },
-              }))
-            }
-          />
-          <NumberField
             label="Warmup (s)"
-            value={settings.spindle_warmup.wait_seconds}
+            value={settings.warmup_pause}
             step={1}
             onChange={(v) =>
-              setSettings((s) => ({
-                ...s,
-                spindle_warmup: { ...s.spindle_warmup, wait_seconds: Math.round(v) },
-              }))
-            }
-          />
-        </div>
-      )}
-
-      {/* Material section */}
-      <SectionHeader
-        label="Material"
-        open={openSections.material}
-        onToggle={() => toggleSection("material")}
-      />
-      {openSections.material && (
-        <div style={sectionBody}>
-          <NumberField
-            label="Width (mm)"
-            value={settings.material.width}
-            onChange={(v) =>
-              setSettings((s) => ({ ...s, material: { ...s.material, width: v } }))
-            }
-          />
-          <NumberField
-            label="Depth (mm)"
-            value={settings.material.depth}
-            onChange={(v) =>
-              setSettings((s) => ({ ...s, material: { ...s.material, depth: v } }))
-            }
-          />
-          <NumberField
-            label="Thickness (mm)"
-            value={settings.material.thickness}
-            onChange={(v) =>
-              setSettings((s) => ({ ...s, material: { ...s.material, thickness: v } }))
+              setSettings((s) => ({ ...s, warmup_pause: Math.round(v) }))
             }
           />
         </div>

@@ -13,57 +13,27 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import BrepImportNode from "./nodes/BrepImportNode";
-import ContourExtractNode from "./nodes/ContourExtractNode";
-import MachiningSettingsNode from "./nodes/MachiningSettingsNode";
+import StockNode from "./nodes/StockNode";
+import OperationNode from "./nodes/OperationNode";
 import PostProcessorNode from "./nodes/PostProcessorNode";
 import ToolpathGenNode from "./nodes/ToolpathGenNode";
 import DebugNode from "./nodes/DebugNode";
 import Sidebar from "./Sidebar";
 
 const initialNodes = [
-  {
-    id: "1",
-    type: "brepImport",
-    position: { x: 100, y: 100 },
-    data: {},
-  },
-  {
-    id: "2",
-    type: "contourExtract",
-    position: { x: 100, y: 350 },
-    data: {},
-  },
-  {
-    id: "3",
-    type: "machiningSettings",
-    position: { x: 350, y: 350 },
-    data: {},
-  },
-  {
-    id: "5",
-    type: "postProcessor",
-    position: { x: 500, y: 350 },
-    data: {},
-  },
-  {
-    id: "6",
-    type: "toolpathGen",
-    position: { x: 250, y: 650 },
-    data: {},
-  },
-  {
-    id: "7",
-    type: "default",
-    position: { x: 350, y: 800 },
-    data: { label: "Preview" },
-  },
+  { id: "1", type: "brepImport", position: { x: 100, y: 100 }, data: {} },
+  { id: "2", type: "stock", position: { x: 400, y: 100 }, data: {} },
+  { id: "3", type: "operation", position: { x: 100, y: 350 }, data: {} },
+  { id: "5", type: "postProcessor", position: { x: 400, y: 350 }, data: {} },
+  { id: "6", type: "toolpathGen", position: { x: 250, y: 600 }, data: {} },
+  { id: "7", type: "default", position: { x: 250, y: 800 }, data: { label: "Preview" } },
 ];
 
 const initialEdges = [
-  { id: "e1-2", source: "1", sourceHandle: "1-out", target: "2", targetHandle: "2-brep" },
-  { id: "e3-2", source: "3", sourceHandle: "3-out", target: "2", targetHandle: "2-settings" },
-  { id: "e2-6", source: "2", sourceHandle: "2-out", target: "6", targetHandle: "6-contour" },
-  { id: "e3-6", source: "3", sourceHandle: "3-out", target: "6", targetHandle: "6-settings" },
+  { id: "e1-3", source: "1", sourceHandle: "1-out", target: "3", targetHandle: "3-brep" },
+  { id: "e2-3", source: "2", sourceHandle: "2-out", target: "3", targetHandle: "3-stock" },
+  { id: "e3-6", source: "3", sourceHandle: "3-out", target: "6", targetHandle: "6-operations" },
+  { id: "e2-6", source: "2", sourceHandle: "2-out", target: "6", targetHandle: "6-stock" },
   { id: "e5-6", source: "5", sourceHandle: "5-out", target: "6", targetHandle: "6-postprocessor" },
   { id: "e6-7", source: "6", sourceHandle: "6-out", target: "7" },
 ];
@@ -74,8 +44,8 @@ let nodeCounter = 100;
 
 const nodeTypes = {
   brepImport: BrepImportNode,
-  contourExtract: ContourExtractNode,
-  machiningSettings: MachiningSettingsNode,
+  stock: StockNode,
+  operation: OperationNode,
   postProcessor: PostProcessorNode,
   toolpathGen: ToolpathGenNode,
   debug: DebugNode,
