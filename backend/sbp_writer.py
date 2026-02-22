@@ -23,15 +23,32 @@ class SbpWriter:
         self.stock = stock
 
     def generate(self, toolpaths: list[Toolpath]) -> str:
-        """Generate complete SBP file content."""
+        """Generate complete SBP file content.
+
+        If individual toolpaths carry their own settings, per-toolpath
+        tool/speed commands are emitted only when they differ from the
+        previous toolpath.
+        """
         lines: list[str] = []
         lines += self._header()
         lines += self._tool_spindle()
         lines += self._material_metadata()
         lines += self._speed_settings()
         lines += self._initial_position()
+
+        # Track current active settings to avoid duplicate commands
+        active = self.m
+
         for tp in toolpaths:
+            tp_settings = tp.settings or self.m
+
+            # Emit setting changes if different from active
+            if tp.settings and tp_settings != active:
+                lines += self._settings_change(active, tp_settings)
+                active = tp_settings
+
             lines += self._cutting_passes(tp)
+
         lines += self._footer()
         return "\n".join(lines)
 
@@ -82,6 +99,28 @@ class SbpWriter:
             f"JZ,{self.s.safe_z}",
             f"J2,{home[0]},{home[1]}",
         ]
+
+    def _settings_change(
+        self, prev: MachiningSettings, curr: MachiningSettings
+    ) -> list[str]:
+        """Emit only the SBP commands needed for changed settings."""
+        lines: list[str] = []
+        lines.append("'")
+
+        # Spindle speed change
+        if curr.spindle_speed != prev.spindle_speed:
+            lines.append(f"TR,{curr.spindle_speed}")
+            lines.append(f"PAUSE {self.s.warmup_pause}")
+
+        # Feed rate change
+        if curr.feed_rate != prev.feed_rate:
+            lines.append(f"MS,{curr.feed_rate.xy},{curr.feed_rate.z}")
+
+        # Jog speed change
+        if curr.jog_speed != prev.jog_speed:
+            lines.append(f"JS,{curr.jog_speed}")
+
+        return lines
 
     def _cutting_passes(self, toolpath: Toolpath) -> list[str]:
         """Generate cutting commands for all passes in a toolpath."""

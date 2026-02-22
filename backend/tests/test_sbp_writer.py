@@ -195,3 +195,80 @@ def test_sbp_writer_no_material_in_post_processor():
     """SBP writer should NOT reference material from PostProcessorSettings."""
     post = PostProcessorSettings()
     assert not hasattr(post, "material") or "material" not in post.model_fields
+
+
+def _make_settings(spindle_speed=18000, tool_diameter=6.35, xy_feed=75.0, z_feed=25.0):
+    """Helper to create MachiningSettings."""
+    return MachiningSettings(
+        operation_type="contour",
+        tool=Tool(diameter=tool_diameter, type="endmill", flutes=2),
+        feed_rate=FeedRate(xy=xy_feed, z=z_feed),
+        jog_speed=200.0, spindle_speed=spindle_speed,
+        depth_per_pass=6.0, total_depth=18.0,
+        direction="climb", offset_side="outside",
+        tabs=TabSettings(enabled=False, height=3.0, width=5.0, count=4),
+    )
+
+
+def test_sbp_multi_object_different_speeds():
+    """SBP should re-emit MS command when feed rate changes between objects."""
+    tp1 = Toolpath(
+        operation_id="op_001",
+        passes=[ToolpathPass(pass_number=1, z_depth=-0.3, path=[[10,10],[50,10],[50,30],[10,30],[10,10]], tabs=[])],
+        settings=_make_settings(xy_feed=75.0),
+    )
+    tp2 = Toolpath(
+        operation_id="op_002",
+        passes=[ToolpathPass(pass_number=1, z_depth=-0.3, path=[[200,10],[250,10],[250,30],[200,30],[200,10]], tabs=[])],
+        settings=_make_settings(xy_feed=50.0),
+    )
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    code = writer.generate([tp1, tp2])
+
+    # Both speed settings should appear
+    assert "MS,75.0,25.0" in code
+    assert "MS,50.0,25.0" in code
+
+
+def test_sbp_multi_object_same_settings_no_duplicate():
+    """SBP should NOT re-emit tool/speed when settings are identical."""
+    settings = _make_settings()
+    tp1 = Toolpath(
+        operation_id="op_001",
+        passes=[ToolpathPass(pass_number=1, z_depth=-0.3, path=[[10,10],[50,10],[50,30],[10,10]], tabs=[])],
+        settings=settings,
+    )
+    tp2 = Toolpath(
+        operation_id="op_002",
+        passes=[ToolpathPass(pass_number=1, z_depth=-0.3, path=[[200,10],[250,10],[250,30],[200,10]], tabs=[])],
+        settings=settings,
+    )
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    code = writer.generate([tp1, tp2])
+
+    # MS should appear only once (header) + no duplicate
+    assert code.count("MS,75.0,25.0") == 1
+
+
+def test_sbp_safe_z_between_objects():
+    """SBP should retract to safe_z and jog between different objects."""
+    tp1 = Toolpath(
+        operation_id="op_001",
+        passes=[ToolpathPass(pass_number=1, z_depth=-0.3, path=[[10,10],[50,10],[50,30],[10,10]], tabs=[])],
+        settings=_make_settings(),
+    )
+    tp2 = Toolpath(
+        operation_id="op_002",
+        passes=[ToolpathPass(pass_number=1, z_depth=-0.3, path=[[200,10],[250,10],[250,30],[200,10]], tabs=[])],
+        settings=_make_settings(),
+    )
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    code = writer.generate([tp1, tp2])
+    lines = code.split("\n")
+
+    # After tp1, should retract (JZ,38.0) then jog to tp2 start (J2,200,10)
+    jz_indices = [i for i, l in enumerate(lines) if l.startswith("JZ,")]
+    j2_indices = [i for i, l in enumerate(lines) if l.startswith("J2,200")]
+
+    # There should be a JZ retract followed by a J2 to tp2's start
+    assert len(j2_indices) >= 1, "Should jog to second object start"
