@@ -170,8 +170,10 @@ export default function OperationNode({ id, data }: NodeProps) {
     }
   }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab]);
 
+  const dynamicBorder = status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : "#ddd";
+
   return (
-    <div style={nodeStyle}>
+    <div style={{ ...nodeStyle, borderColor: dynamicBorder }}>
       <LabeledHandle
         type="target"
         position={Position.Top}

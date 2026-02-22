@@ -109,8 +109,10 @@ export default function ToolpathGenNode({ id }: NodeProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operations, postProc]);
 
+  const dynamicBorder = status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : "#ddd";
+
   return (
-    <div style={nodeStyle}>
+    <div style={{ ...nodeStyle, borderColor: dynamicBorder }}>
       <LabeledHandle
         type="target"
         position={Position.Top}
