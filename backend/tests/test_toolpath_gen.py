@@ -473,6 +473,44 @@ def test_rotation_with_world_space_coords():
     assert (max(ys) - min(ys)) > 90, f"Height should be ~100, got {max(ys) - min(ys)}"
 
 
+def test_generate_toolpath_includes_settings():
+    """Each Toolpath should carry its operation's MachiningSettings."""
+    contour = _make_square_contour()
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_001",
+                object_id="obj_001",
+                operation_type="contour",
+                geometry=OperationGeometry(
+                    contours=[contour],
+                    offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                    depth=18.0,
+                ),
+                suggested_settings=_make_settings(),
+            )
+        ]
+    )
+    settings = _make_settings()
+    assignments = [
+        OperationAssignment(
+            operation_id="op_001",
+            material_id="mtl_1",
+            settings=settings,
+            order=1,
+        )
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=18.0)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock)
+
+    for tp in result.toolpaths:
+        assert tp.settings is not None
+        assert tp.settings.spindle_speed == 18000
+
+
 def test_rotation_0_no_change():
     """0-degree rotation should not modify coordinates."""
     contour = Contour(

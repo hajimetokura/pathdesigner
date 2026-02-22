@@ -138,6 +138,7 @@ def generate_toolpath_from_operations(
                 Toolpath(
                     operation_id=assignment.operation_id,
                     passes=passes,
+                    settings=assignment.settings,
                 )
             )
 
