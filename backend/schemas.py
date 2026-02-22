@@ -221,6 +221,8 @@ class ToolpathGenRequest(BaseModel):
 
 class ToolpathGenResult(BaseModel):
     toolpaths: list[Toolpath]
+    stock_width: float | None = None   # mm (X axis)
+    stock_depth: float | None = None   # mm (Y axis)
 
 
 class SbpGenRequest(BaseModel):

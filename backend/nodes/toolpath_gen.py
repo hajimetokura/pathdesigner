@@ -99,7 +99,13 @@ def generate_toolpath_from_operations(
                 )
             )
 
-    return ToolpathGenResult(toolpaths=toolpaths)
+    # Return result with stock dimensions for preview
+    first_material = stock.materials[0] if stock.materials else None
+    return ToolpathGenResult(
+        toolpaths=toolpaths,
+        stock_width=first_material.width if first_material else None,
+        stock_depth=first_material.depth if first_material else None,
+    )
 
 
 def _compute_passes(
