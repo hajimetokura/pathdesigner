@@ -23,9 +23,20 @@ function handleIndex(handleId: string): number {
 /**
  * After dagre layout, swap sibling node x-positions so edges
  * don't cross between nodes sharing the same target or source.
+ * Only swaps nodes at the same rank (same y position) to avoid
+ * causing overlaps with other nodes at different ranks.
  */
 function uncrossEdges(nodes: Node[], edges: Edge[]): void {
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+
+  // Compare center-y (dagre aligns centers, not top-left corners)
+  const centerY = (n: Node) => n.position.y + (n.measured?.height ?? 100) / 2;
+  const sameRank = (ids: string[]): boolean => {
+    const nodes = ids.map((id) => nodeMap.get(id)).filter(Boolean) as Node[];
+    if (nodes.length < 2) return false;
+    const cy0 = centerY(nodes[0]);
+    return nodes.every((n) => Math.abs(centerY(n) - cy0) < 1);
+  };
 
   // Fix source node ordering for edges sharing the same TARGET
   const byTarget = new Map<string, Edge[]>();
@@ -38,6 +49,8 @@ function uncrossEdges(nodes: Node[], edges: Edge[]): void {
 
   for (const [, group] of byTarget) {
     if (group.length < 2) continue;
+    const sourceIds = group.map((e) => e.source);
+    if (!sameRank(sourceIds)) continue;
     const sorted = [...group].sort(
       (a, b) => handleIndex(a.targetHandle!) - handleIndex(b.targetHandle!),
     );
@@ -65,6 +78,8 @@ function uncrossEdges(nodes: Node[], edges: Edge[]): void {
 
   for (const [, group] of bySource) {
     if (group.length < 2) continue;
+    const targetIds = group.map((e) => e.target);
+    if (!sameRank(targetIds)) continue;
     const sorted = [...group].sort(
       (a, b) => handleIndex(a.sourceHandle!) - handleIndex(b.sourceHandle!),
     );
@@ -87,7 +102,7 @@ export function getLayoutedElements(
   edges: Edge[],
   options: LayoutOptions = {},
 ): Node[] {
-  const { direction = "TB", nodesep = 50, ranksep = 60 } = options;
+  const { direction = "TB", nodesep = 50, ranksep = 80 } = options;
 
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
   g.setGraph({ rankdir: direction, nodesep, ranksep });

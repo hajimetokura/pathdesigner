@@ -22,6 +22,7 @@ interface UpstreamData {
 
 export default function OperationNode({ id, data }: NodeProps) {
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
+  const updateTab = (data as Record<string, unknown>).updateTab as ((tab: PanelTab) => void) | undefined;
   const [status, setStatus] = useState<Status>("idle");
   const [detected, setDetected] = useState<OperationDetectResult | null>(null);
   const [assignments, setAssignments] = useState<OperationAssignment[]>([]);
@@ -151,10 +152,10 @@ export default function OperationNode({ id, data }: NodeProps) {
     });
   }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab]);
 
-  // Update tab content when assignments change
+  // Update tab content when assignments change (only if tab is already open)
   useEffect(() => {
-    if (detected && openTab) {
-      openTab({
+    if (detected && updateTab) {
+      updateTab({
         id: `operations-${id}`,
         label: "Operations",
         icon: "\u2699",
@@ -168,7 +169,7 @@ export default function OperationNode({ id, data }: NodeProps) {
         ),
       });
     }
-  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab]);
 
   const dynamicBorder = status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : "#ddd";
 

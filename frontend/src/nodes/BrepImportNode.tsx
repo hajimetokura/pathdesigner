@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import { uploadStepFile, fetchMeshData } from "../api";
@@ -84,17 +84,6 @@ export default function BrepImportNode({ id, data }: NodeProps) {
     });
   }, [id, result, meshes, openTab]);
 
-  // Update tab content when result/meshes change
-  useEffect(() => {
-    if (result && meshes.length > 0 && openTab) {
-      openTab({
-        id: `brep-3d-${id}`,
-        label: "3D View",
-        icon: "📦",
-        content: <BrepImportPanel brepResult={result} meshes={meshes} />,
-      });
-    }
-  }, [id, result, meshes, openTab]);
 
   return (
     <div style={nodeStyle}>

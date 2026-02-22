@@ -99,6 +99,14 @@ function Flow() {
     }
   }, []);
 
+  // Update existing tab content only — does NOT create new tabs
+  const updateTab = useCallback((tab: PanelTab) => {
+    setPanelTabs((prev) => {
+      if (!prev.some((t) => t.id === tab.id)) return prev;
+      return prev.map((t) => (t.id === tab.id ? tab : t));
+    });
+  }, []);
+
   const closeTab = useCallback((tabId: string) => {
     setPanelTabs((prev) => {
       const next = prev.filter((t) => t.id !== tabId);
@@ -158,10 +166,10 @@ function Flow() {
     setNodes((nds) =>
       nds.map((n) => ({
         ...n,
-        data: { ...n.data, openTab, closeTab },
+        data: { ...n.data, openTab, updateTab, closeTab },
       }))
     );
-  }, [openTab, closeTab, setNodes]);
+  }, [openTab, updateTab, closeTab, setNodes]);
 
   return (
     <div style={{ display: "flex", width: "100vw", height: "100vh" }}>

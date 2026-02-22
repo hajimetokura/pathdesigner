@@ -13,6 +13,7 @@ import { useUpstreamData } from "../hooks/useUpstreamData";
 
 export default function PlacementNode({ id, data }: NodeProps) {
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
+  const updateTab = (data as Record<string, unknown>).updateTab as ((tab: PanelTab) => void) | undefined;
   const [placements, setPlacements] = useState<PlacementItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -172,10 +173,10 @@ export default function PlacementNode({ id, data }: NodeProps) {
     });
   }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, openTab]);
 
-  // Update tab content when placements/warnings change
+  // Update tab content when placements/warnings change (only if tab is already open)
   useEffect(() => {
-    if (hasData && openTab) {
-      openTab({
+    if (hasData && updateTab) {
+      updateTab({
         id: `placement-${id}`,
         label: "Placement",
         icon: "📐",
@@ -190,7 +191,7 @@ export default function PlacementNode({ id, data }: NodeProps) {
         ),
       });
     }
-  }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, openTab]);
+  }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, updateTab]);
 
   return (
     <div style={nodeStyle}>
