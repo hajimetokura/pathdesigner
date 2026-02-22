@@ -41,64 +41,43 @@ export default function OperationNode({ id, data }: NodeProps) {
   const handleDetect = useCallback(async () => {
     const edges = getEdges();
 
-    // Find upstream data — either PlacementResult or direct BrepImportResult
-    const brepEdge = edges.find(
+    // Find upstream PlacementNode
+    const placementEdge = edges.find(
       (e) => e.target === id && e.targetHandle === `${id}-brep`
     );
-    if (!brepEdge) {
-      setError("Connect Placement or BREP Import node first");
+    if (!placementEdge) {
+      setError("Connect Placement node first");
       setStatus("error");
       return;
     }
-    const upstreamNode = getNode(brepEdge.source);
+    const upstreamNode = getNode(placementEdge.source);
 
-    // Try PlacementResult first (from PlacementNode)
     const placementResult = upstreamNode?.data?.placementResult as
       | { placements: PlacementItem[]; stock: StockSettings; objects: BrepObject[] }
       | undefined;
 
-    let brepResult: BrepImportResult | undefined;
-    let upstreamStock: StockSettings | undefined;
-    let upstreamPlacements: PlacementItem[] = [];
-
-    if (placementResult) {
-      // PlacementNode upstream: extract brep + stock + placements from placement result
-      brepResult = {
-        file_id: (upstreamNode?.data as Record<string, unknown>)?.fileId as string ?? "",
-        objects: placementResult.objects,
-        object_count: placementResult.objects.length,
-      } as BrepImportResult;
-      upstreamStock = placementResult.stock;
-      upstreamPlacements = placementResult.placements;
-    } else {
-      // Direct BrepImportResult (backwards-compatible)
-      brepResult = upstreamNode?.data?.brepResult as BrepImportResult | undefined;
-      // Stock from separate edge
-      const stockEdge = edges.find(
-        (e) => e.target === id && e.targetHandle === `${id}-stock`
-      );
-      const stockNode = stockEdge ? getNode(stockEdge.source) : null;
-      upstreamStock = stockNode?.data?.stockSettings as StockSettings | undefined;
-    }
-
-    if (!brepResult) {
-      setError("Upload a STEP file first");
+    if (!placementResult) {
+      setError("Run Placement first (connect BREP + Stock)");
       setStatus("error");
       return;
     }
 
-    // Get file_id for API call
-    const fileId = placementResult
-      ? (upstreamNode?.data?.fileId as string)
-      : brepResult?.file_id;
+    const brepResult: BrepImportResult = {
+      file_id: (upstreamNode?.data as Record<string, unknown>)?.fileId as string ?? "",
+      objects: placementResult.objects,
+      object_count: placementResult.objects.length,
+    } as BrepImportResult;
+    const upstreamStock: StockSettings = placementResult.stock;
+    const upstreamPlacements: PlacementItem[] = placementResult.placements;
 
+    const fileId = (upstreamNode?.data?.fileId as string) ?? brepResult.file_id;
     if (!fileId) {
       setError("Upload a STEP file first");
       setStatus("error");
       return;
     }
 
-    setStockSettings(upstreamStock ?? null);
+    setStockSettings(upstreamStock);
     setPlacements(upstreamPlacements);
     setStatus("loading");
     setError("");
@@ -119,7 +98,7 @@ export default function OperationNode({ id, data }: NodeProps) {
       }));
       setAssignments(newAssignments);
 
-      syncToNodeData(result, newAssignments, upstreamStock ?? null, upstreamPlacements);
+      syncToNodeData(result, newAssignments, upstreamStock, upstreamPlacements);
       setStatus("success");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Detection failed");
@@ -192,19 +171,8 @@ export default function OperationNode({ id, data }: NodeProps) {
         type="target"
         position={Position.Top}
         id={`${id}-brep`}
-        label="brep"
+        label="placement"
         dataType="geometry"
-        index={0}
-        total={2}
-      />
-      <LabeledHandle
-        type="target"
-        position={Position.Top}
-        id={`${id}-stock`}
-        label="stock"
-        dataType="settings"
-        index={1}
-        total={2}
       />
 
       <div style={headerStyle}>Operation</div>
