@@ -5,15 +5,13 @@ import yaml
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from pydantic import BaseModel as PydanticBaseModel
+
 from nodes.brep_import import analyze_step_file
 from nodes.contour_extract import extract_contours
-from nodes.toolpath_gen import generate_toolpath
+from nodes.operation_detector import detect_operations
+from nodes.toolpath_gen import generate_toolpath, generate_toolpath_from_operations
 from sbp_writer import SbpWriter
-
-try:
-    from nodes.toolpath_gen import generate_toolpath_from_operations
-except ImportError:
-    generate_toolpath_from_operations = None  # Task 7 で追加予定
 from schemas import (
     BrepImportResult, ContourExtractRequest, ContourExtractResult,
     MachiningSettings, PresetItem, ValidateSettingsRequest, ValidateSettingsResponse,
@@ -145,15 +143,40 @@ def get_presets():
     return result
 
 
+class DetectOperationsRequest(PydanticBaseModel):
+    file_id: str
+    object_ids: list[str]
+    tool_diameter: float = 6.35
+    offset_side: str = "outside"
+
+
+@app.post("/api/detect-operations", response_model=OperationDetectResult)
+def detect_operations_endpoint(req: DetectOperationsRequest):
+    """Detect machining operations from uploaded STEP file."""
+    matches = list(UPLOAD_DIR.glob(f"{req.file_id}.*"))
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"File not found: {req.file_id}")
+
+    try:
+        result = detect_operations(
+            step_path=matches[0],
+            file_id=req.file_id,
+            object_ids=req.object_ids,
+            tool_diameter=req.tool_diameter,
+            offset_side=req.offset_side,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Operation detection failed: {e}")
+
+    return result
+
+
 @app.post("/api/generate-toolpath", response_model=ToolpathGenResult)
 def generate_toolpath_endpoint(req: ToolpathGenRequest):
     """Generate toolpath passes from operation assignments."""
     try:
-        if generate_toolpath_from_operations is None:
-            raise HTTPException(
-                status_code=501,
-                detail="generate_toolpath_from_operations not yet implemented (Task 7)",
-            )
         result = generate_toolpath_from_operations(
             req.operations, req.detected_operations, req.stock
         )

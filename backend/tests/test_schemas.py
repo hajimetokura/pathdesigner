@@ -137,3 +137,9 @@ def test_sbp_gen_request_new_format():
         post_processor=PostProcessorSettings(),
     )
     assert len(req.stock.materials) == 1
+
+
+def test_api_imports():
+    """Verify main.py can import all required schemas and functions."""
+    from main import app
+    assert app.title == "PathDesigner"
