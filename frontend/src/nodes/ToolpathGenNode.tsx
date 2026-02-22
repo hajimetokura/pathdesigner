@@ -250,7 +250,7 @@ const nodeStyle: React.CSSProperties = {
   background: "white",
   border: "1px solid #ddd",
   borderRadius: 8,
-  padding: "12px",
+  padding: "20px 12px",
   width: 200,
   boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
 };
