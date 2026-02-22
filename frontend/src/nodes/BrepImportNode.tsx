@@ -1,8 +1,10 @@
 import { useCallback, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
-import { uploadStepFile } from "../api";
-import type { BrepImportResult, BrepObject } from "../types";
+import { uploadStepFile, fetchMeshData } from "../api";
+import type { BrepImportResult, BrepObject, ObjectMesh } from "../types";
+import BrepImportPanel from "../components/BrepImportPanel";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -11,6 +13,8 @@ export default function BrepImportNode({ id }: NodeProps) {
   const [result, setResult] = useState<BrepImportResult | null>(null);
   const [error, setError] = useState<string>("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const [meshes, setMeshes] = useState<ObjectMesh[]>([]);
+  const [showPanel, setShowPanel] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { setNodes } = useReactFlow();
 
@@ -28,6 +32,13 @@ export default function BrepImportNode({ id }: NodeProps) {
             n.id === id ? { ...n, data: { ...n.data, brepResult: data } } : n
           )
         );
+        // Fetch mesh data for 3D preview
+        try {
+          const meshData = await fetchMeshData(data.file_id);
+          setMeshes(meshData.objects);
+        } catch {
+          // Mesh fetch failure is non-critical, preview just won't show
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Upload failed");
         setStatus("error");
@@ -110,10 +121,24 @@ export default function BrepImportNode({ id }: NodeProps) {
           {result.objects.map((obj) => (
             <ObjectSummary key={obj.object_id} obj={obj} />
           ))}
+          {meshes.length > 0 && (
+            <button onClick={() => setShowPanel(true)} style={viewBtnStyle}>
+              View 3D
+            </button>
+          )}
         </div>
       )}
 
       <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="out" dataType="geometry" />
+
+      {showPanel && result && createPortal(
+        <BrepImportPanel
+          brepResult={result}
+          meshes={meshes}
+          onClose={() => setShowPanel(false)}
+        />,
+        document.body
+      )}
     </div>
   );
 }
@@ -175,4 +200,16 @@ const objStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: "6px 8px",
   marginTop: 4,
+};
+
+const viewBtnStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "6px 12px",
+  border: "1px solid #ddd",
+  borderRadius: 6,
+  background: "white",
+  color: "#333",
+  cursor: "pointer",
+  fontSize: 11,
+  marginTop: 8,
 };

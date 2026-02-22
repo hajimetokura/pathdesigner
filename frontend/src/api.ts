@@ -10,6 +10,9 @@ import type {
   PostProcessorSettings,
   ToolpathGenResult,
   OutputResult,
+  MeshDataResult,
+  PlacementItem,
+  BoundingBox,
 } from "./types";
 
 const API_URL = "http://localhost:8000";
@@ -141,6 +144,42 @@ export async function generateSbp(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "SBP generation failed" }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function fetchMeshData(
+  fileId: string
+): Promise<MeshDataResult> {
+  const res = await fetch(`${API_URL}/api/mesh-data`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_id: fileId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Mesh data fetch failed" }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function validatePlacement(
+  placements: PlacementItem[],
+  stock: StockSettings,
+  boundingBoxes: Record<string, BoundingBox>
+): Promise<{ valid: boolean; warnings: string[] }> {
+  const res = await fetch(`${API_URL}/api/validate-placement`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      placements,
+      stock,
+      bounding_boxes: boundingBoxes,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Validation failed" }));
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
   return res.json();

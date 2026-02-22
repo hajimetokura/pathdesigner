@@ -34,6 +34,14 @@ export default function ToolpathPreviewNode({ id }: NodeProps) {
           }
         }
       }
+      // Include origin and stock bounds in view
+      if (result.stock_width && result.stock_depth) {
+        allPoints.push([0, 0]);
+        allPoints.push([result.stock_width, result.stock_depth]);
+      } else {
+        allPoints.push([0, 0]);
+      }
+
       if (allPoints.length === 0) return;
 
       const xs = allPoints.map((p) => p[0]);
@@ -64,6 +72,23 @@ export default function ToolpathPreviewNode({ id }: NodeProps) {
       const minZ = Math.min(...allZ);
       const maxZ = Math.max(...allZ);
       const zRange = maxZ - minZ || 1;
+
+      // Stock bounds (thumbnail)
+      if (result.stock_width && result.stock_depth) {
+        const [sx0, sy0] = toCanvas(0, 0);
+        const [sx1, sy1] = toCanvas(result.stock_width, result.stock_depth);
+        ctx.strokeStyle = "#ddd";
+        ctx.lineWidth = 0.5;
+        ctx.setLineDash([3, 2]);
+        ctx.strokeRect(sx0, sy1, sx1 - sx0, sy0 - sy1);
+        ctx.setLineDash([]);
+      }
+      // Origin marker (thumbnail)
+      const [ox, oy] = toCanvas(0, 0);
+      ctx.fillStyle = "#e53935";
+      ctx.beginPath();
+      ctx.arc(ox, oy, 2, 0, Math.PI * 2);
+      ctx.fill();
 
       for (const tp of result.toolpaths) {
         for (const pass of tp.passes) {

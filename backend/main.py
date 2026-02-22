@@ -9,6 +9,7 @@ from pydantic import BaseModel as PydanticBaseModel
 
 from nodes.brep_import import analyze_step_file
 from nodes.contour_extract import extract_contours
+from nodes.mesh_export import tessellate_step_file
 from nodes.operation_detector import detect_operations
 from nodes.toolpath_gen import generate_toolpath, generate_toolpath_from_operations
 from sbp_writer import SbpWriter
@@ -18,7 +19,9 @@ from schemas import (
     ToolpathGenRequest, ToolpathGenResult,
     SbpGenRequest, OutputResult,
     OperationDetectResult,
-    StockSettings,
+    StockSettings, StockMaterial, BoundingBox,
+    MeshDataRequest, MeshDataResult, ObjectMesh,
+    PlacementItem, ValidatePlacementRequest, ValidatePlacementResponse,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -197,3 +200,61 @@ def generate_sbp_endpoint(req: SbpGenRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SBP generation failed: {e}")
     return OutputResult(code=sbp_code, filename="output.sbp", format="sbp")
+
+
+@app.post("/api/mesh-data", response_model=MeshDataResult)
+def mesh_data_endpoint(req: MeshDataRequest):
+    """Return tessellated mesh data for 3D preview."""
+    matches = list(UPLOAD_DIR.glob(f"{req.file_id}.*"))
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"File not found: {req.file_id}")
+
+    try:
+        raw_meshes = tessellate_step_file(matches[0])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Tessellation failed: {e}")
+
+    objects = [ObjectMesh(**m) for m in raw_meshes]
+    return MeshDataResult(objects=objects)
+
+
+def _validate_placement(
+    placement: PlacementItem,
+    stock: StockMaterial,
+    bb: BoundingBox,
+) -> list[str]:
+    """Check if a placed object fits within stock bounds."""
+    warnings = []
+    if placement.x_offset + bb.x > stock.width:
+        warnings.append(
+            f"{placement.object_id}: X方向がStockを超えています "
+            f"({placement.x_offset + bb.x:.1f} > {stock.width:.1f}mm)"
+        )
+    if placement.y_offset + bb.y > stock.depth:
+        warnings.append(
+            f"{placement.object_id}: Y方向がStockを超えています "
+            f"({placement.y_offset + bb.y:.1f} > {stock.depth:.1f}mm)"
+        )
+    if placement.x_offset < 0:
+        warnings.append(f"{placement.object_id}: X方向が負の位置です")
+    if placement.y_offset < 0:
+        warnings.append(f"{placement.object_id}: Y方向が負の位置です")
+    return warnings
+
+
+@app.post("/api/validate-placement", response_model=ValidatePlacementResponse)
+def validate_placement_endpoint(req: ValidatePlacementRequest):
+    """Validate part placements on stock."""
+    mat_lookup = {m.material_id: m for m in req.stock.materials}
+    all_warnings: list[str] = []
+
+    for p in req.placements:
+        stock = mat_lookup.get(p.material_id)
+        bb = req.bounding_boxes.get(p.object_id)
+        if stock and bb:
+            all_warnings.extend(_validate_placement(p, stock, bb))
+
+    return ValidatePlacementResponse(
+        valid=len(all_warnings) == 0,
+        warnings=all_warnings,
+    )

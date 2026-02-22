@@ -190,10 +190,40 @@ export interface Toolpath {
 
 export interface ToolpathGenResult {
   toolpaths: Toolpath[];
+  stock_width: number | null;
+  stock_depth: number | null;
 }
 
 export interface OutputResult {
   code: string;
   filename: string;
   format: string;
+}
+
+/** Placement types */
+
+export interface PlacementItem {
+  object_id: string;
+  material_id: string;
+  x_offset: number;
+  y_offset: number;
+  rotation: number;
+}
+
+export interface PlacementResult {
+  placements: PlacementItem[];
+  stock: StockSettings;
+  objects: BrepObject[];
+}
+
+/** Mesh data for 3D preview */
+
+export interface ObjectMesh {
+  object_id: string;
+  vertices: number[];  // flat [x0, y0, z0, x1, ...]
+  faces: number[];     // flat [i0, j0, k0, i1, ...]
+}
+
+export interface MeshDataResult {
+  objects: ObjectMesh[];
 }

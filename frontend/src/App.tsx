@@ -14,6 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import BrepImportNode from "./nodes/BrepImportNode";
 import StockNode from "./nodes/StockNode";
+import PlacementNode from "./nodes/PlacementNode";
 import OperationNode from "./nodes/OperationNode";
 import PostProcessorNode from "./nodes/PostProcessorNode";
 import ToolpathGenNode from "./nodes/ToolpathGenNode";
@@ -25,16 +26,18 @@ import Sidebar from "./Sidebar";
 const initialNodes = [
   { id: "1", type: "brepImport", position: { x: 100, y: 100 }, data: {} },
   { id: "2", type: "stock", position: { x: 400, y: 100 }, data: {} },
-  { id: "3", type: "operation", position: { x: 100, y: 350 }, data: {} },
-  { id: "5", type: "postProcessor", position: { x: 400, y: 350 }, data: {} },
-  { id: "6", type: "toolpathGen", position: { x: 250, y: 600 }, data: {} },
-  { id: "7", type: "cncCode", position: { x: 150, y: 800 }, data: {} },
-  { id: "8", type: "toolpathPreview", position: { x: 400, y: 800 }, data: {} },
+  { id: "9", type: "placement", position: { x: 250, y: 300 }, data: {} },
+  { id: "3", type: "operation", position: { x: 100, y: 500 }, data: {} },
+  { id: "5", type: "postProcessor", position: { x: 400, y: 500 }, data: {} },
+  { id: "6", type: "toolpathGen", position: { x: 250, y: 700 }, data: {} },
+  { id: "7", type: "cncCode", position: { x: 150, y: 900 }, data: {} },
+  { id: "8", type: "toolpathPreview", position: { x: 400, y: 900 }, data: {} },
 ];
 
 const initialEdges = [
-  { id: "e1-3", source: "1", sourceHandle: "1-out", target: "3", targetHandle: "3-brep" },
-  { id: "e2-3", source: "2", sourceHandle: "2-out", target: "3", targetHandle: "3-stock" },
+  { id: "e1-9", source: "1", sourceHandle: "1-out", target: "9", targetHandle: "9-brep" },
+  { id: "e2-9", source: "2", sourceHandle: "2-out", target: "9", targetHandle: "9-stock" },
+  { id: "e9-3", source: "9", sourceHandle: "9-out", target: "3", targetHandle: "3-brep" },
   { id: "e3-6", source: "3", sourceHandle: "3-out", target: "6", targetHandle: "6-operations" },
   { id: "e5-6", source: "5", sourceHandle: "5-out", target: "6", targetHandle: "6-postprocessor" },
   { id: "e6-7", source: "6", sourceHandle: "6-output", target: "7", targetHandle: "7-in" },
@@ -48,6 +51,7 @@ let nodeCounter = 100;
 const nodeTypes = {
   brepImport: BrepImportNode,
   stock: StockNode,
+  placement: PlacementNode,
   operation: OperationNode,
   postProcessor: PostProcessorNode,
   toolpathGen: ToolpathGenNode,

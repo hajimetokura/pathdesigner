@@ -85,6 +85,24 @@ def test_post_processor_settings_defaults():
     assert pp.warmup_pause == 2
 
 
+def test_toolpath_gen_result_with_stock_dimensions():
+    """ToolpathGenResult should include optional stock dimensions."""
+    result = ToolpathGenResult(
+        toolpaths=[],
+        stock_width=600.0,
+        stock_depth=400.0,
+    )
+    assert result.stock_width == 600.0
+    assert result.stock_depth == 400.0
+
+
+def test_toolpath_gen_result_without_stock_dimensions():
+    """ToolpathGenResult stock dimensions should default to None."""
+    result = ToolpathGenResult(toolpaths=[])
+    assert result.stock_width is None
+    assert result.stock_depth is None
+
+
 def test_output_result():
     """OutputResult should contain code, filename, and format."""
     r = OutputResult(code="SA\nEND", filename="part.sbp", format="sbp")
