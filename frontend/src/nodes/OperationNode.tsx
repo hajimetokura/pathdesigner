@@ -1,5 +1,4 @@
-import { useCallback, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import { detectOperations } from "../api";
 import type {
@@ -11,17 +10,18 @@ import type {
   PlacementItem,
 } from "../types";
 import LabeledHandle from "./LabeledHandle";
+import type { PanelTab } from "../components/SidePanel";
 import OperationDetailPanel from "../components/OperationDetailPanel";
 
 type Status = "idle" | "loading" | "success" | "error";
 
-export default function OperationNode({ id }: NodeProps) {
+export default function OperationNode({ id, data }: NodeProps) {
+  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
   const [status, setStatus] = useState<Status>("idle");
   const [detected, setDetected] = useState<OperationDetectResult | null>(null);
   const [assignments, setAssignments] = useState<OperationAssignment[]>([]);
   const [stockSettings, setStockSettings] = useState<StockSettings | null>(null);
   const [placements, setPlacements] = useState<PlacementItem[]>([]);
-  const [showPanel, setShowPanel] = useState(false);
   const [error, setError] = useState("");
   const { getNode, getEdges, setNodes } = useReactFlow();
 
@@ -150,6 +150,42 @@ export default function OperationNode({ id }: NodeProps) {
 
   const enabledCount = assignments.filter((a) => a.enabled).length;
 
+  const handleEditSettings = useCallback(() => {
+    if (!detected || !openTab) return;
+    openTab({
+      id: `operations-${id}`,
+      label: "Operations",
+      icon: "⚙",
+      content: (
+        <OperationDetailPanel
+          detectedOperations={detected}
+          assignments={assignments}
+          stockSettings={stockSettings}
+          onAssignmentsChange={handleAssignmentsChange}
+        />
+      ),
+    });
+  }, [id, detected, assignments, stockSettings, handleAssignmentsChange, openTab]);
+
+  // Update tab content when assignments change
+  useEffect(() => {
+    if (detected && openTab) {
+      openTab({
+        id: `operations-${id}`,
+        label: "Operations",
+        icon: "⚙",
+        content: (
+          <OperationDetailPanel
+            detectedOperations={detected}
+            assignments={assignments}
+            stockSettings={stockSettings}
+            onAssignmentsChange={handleAssignmentsChange}
+          />
+        ),
+      });
+    }
+  }, [id, detected, assignments, stockSettings, handleAssignmentsChange, openTab]);
+
   return (
     <div style={nodeStyle}>
       <LabeledHandle
@@ -194,7 +230,7 @@ export default function OperationNode({ id }: NodeProps) {
           </div>
 
           <button
-            onClick={() => setShowPanel(true)}
+            onClick={handleEditSettings}
             style={editButtonStyle}
           >
             Edit Settings
@@ -234,17 +270,6 @@ export default function OperationNode({ id }: NodeProps) {
         label="operations"
         dataType="geometry"
       />
-
-      {showPanel && detected && createPortal(
-        <OperationDetailPanel
-          detectedOperations={detected}
-          assignments={assignments}
-          stockSettings={stockSettings}
-          onAssignmentsChange={handleAssignmentsChange}
-          onClose={() => setShowPanel(false)}
-        />,
-        document.body
-      )}
     </div>
   );
 }
