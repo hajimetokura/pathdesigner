@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BrepObject, StockSettings, PlacementItem } from "../types";
+import { autoNesting } from "../api";
 
 /** Rotate a 2D point (x,y) by `angle` degrees around (cx,cy). */
 function rotatePoint(
@@ -40,6 +41,8 @@ interface Props {
   placements: PlacementItem[];
   onPlacementsChange: (placements: PlacementItem[]) => void;
   warnings: string[];
+  activeStockId: string;
+  onActiveStockChange: (stockId: string) => void;
 }
 
 export default function PlacementPanel({
@@ -48,10 +51,42 @@ export default function PlacementPanel({
   placements,
   onPlacementsChange,
   warnings,
+  activeStockId,
+  onActiveStockChange,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState<{ mx: number; my: number; ox: number; oy: number } | null>(null);
+  const [clearance, setClearance] = useState(5);
+  const [nestingLoading, setNestingLoading] = useState(false);
+
+  // Stock list derived from placements
+  const stockIds = useMemo(() => {
+    const ids = [...new Set(placements.map((p) => p.stock_id))];
+    if (ids.length === 0) ids.push("stock_1");
+    return ids.sort();
+  }, [placements]);
+
+  // Filter placements to active stock
+  const activePlacements = useMemo(
+    () => placements.filter((p) => p.stock_id === activeStockId),
+    [placements, activeStockId],
+  );
+
+  const handleAutoNesting = async () => {
+    setNestingLoading(true);
+    try {
+      const result = await autoNesting(objects, stockSettings, 6.35, clearance);
+      onPlacementsChange(result.placements);
+      if (result.placements.length > 0) {
+        onActiveStockChange(result.placements[0].stock_id);
+      }
+    } catch (e) {
+      console.error("Auto nesting failed:", e);
+    } finally {
+      setNestingLoading(false);
+    }
+  };
 
   const stock = stockSettings.materials[0];
 
@@ -106,10 +141,10 @@ export default function PlacementPanel({
     ctx.fill();
     ctx.fillText("(0,0)", sx0 + 6, sy0 - 4);
 
-    // Parts
+    // Parts (only active stock)
     const colors = ["#4a90d9", "#7b61ff", "#43a047", "#ef5350"];
-    for (let i = 0; i < placements.length; i++) {
-      const p = placements[i];
+    for (let i = 0; i < activePlacements.length; i++) {
+      const p = activePlacements[i];
       const obj = objects.find((o) => o.object_id === p.object_id);
       if (!obj) continue;
 
@@ -172,7 +207,7 @@ export default function PlacementPanel({
       ctx.font = "bold 11px sans-serif";
       ctx.fillText(p.object_id, lx + 4, ly + 14);
     }
-  }, [placements, objects, stock, toCanvas]);
+  }, [activePlacements, objects, stock, toCanvas]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -182,8 +217,8 @@ export default function PlacementPanel({
     const cy = (e.clientY - rect.top) * (canvasH / rect.height);
 
     // Hit test: find which part is under cursor (using rotated AABB)
-    for (let i = placements.length - 1; i >= 0; i--) {
-      const p = placements[i];
+    for (let i = activePlacements.length - 1; i >= 0; i--) {
+      const p = activePlacements[i];
       const obj = objects.find((o) => o.object_id === p.object_id);
       if (!obj) continue;
       const bb = obj.bounding_box;
@@ -238,7 +273,56 @@ export default function PlacementPanel({
 
   return (
     <div style={panelStyle}>
-      <div style={{ padding: 16 }}>
+      <div style={{ padding: "12px 16px 0" }}>
+        {/* Auto Nesting + Clearance */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+          <button
+            onClick={handleAutoNesting}
+            disabled={nestingLoading || objects.length === 0}
+            style={nestingBtnStyle}
+          >
+            {nestingLoading ? "Nesting..." : "Auto Nesting"}
+          </button>
+          <label style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+            Clearance:
+            <input
+              type="number"
+              value={clearance}
+              onChange={(e) => setClearance(Number(e.target.value))}
+              style={{ width: 50, padding: "3px 6px", border: "1px solid #ddd", borderRadius: 4, fontSize: 12 }}
+              min={0}
+              step={1}
+            />
+            mm
+          </label>
+        </div>
+
+        {/* Stock Tabs */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+          {stockIds.map((sid) => {
+            const count = placements.filter((p) => p.stock_id === sid).length;
+            return (
+              <button
+                key={sid}
+                onClick={() => onActiveStockChange(sid)}
+                style={{
+                  padding: "4px 12px",
+                  fontSize: 12,
+                  background: sid === activeStockId ? "#4a90d9" : "#e0e0e0",
+                  color: sid === activeStockId ? "#fff" : "#333",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+              >
+                {sid.replace("stock_", "Sheet ")} ({count})
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ padding: "0 16px 16px" }}>
         <canvas
           ref={canvasRef}
           width={canvasW}
@@ -261,7 +345,7 @@ export default function PlacementPanel({
 
       <div style={inputsStyle}>
         <div style={inputsTitle}>Position (mm)</div>
-        {placements.map((p) => {
+        {activePlacements.map((p) => {
           const obj = objects.find((o) => o.object_id === p.object_id);
           return (
             <div key={p.object_id} style={inputRow}>
@@ -304,6 +388,7 @@ export default function PlacementPanel({
   );
 }
 
+const nestingBtnStyle: React.CSSProperties = { padding: "4px 12px", fontSize: 12, background: "#4a90d9", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 };
 const panelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "auto" };
 const warningStyle: React.CSSProperties = { padding: "8px 16px", background: "#fff3e0", borderTop: "1px solid #ffe0b2" };
 const inputsStyle: React.CSSProperties = { padding: "12px 16px", borderTop: "1px solid #f0f0f0" };
