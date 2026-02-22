@@ -314,3 +314,16 @@ class AutoNestingResponse(BaseModel):
     placements: list[PlacementItem]
     stock_count: int
     warnings: list[str] = []
+
+
+# --- SBP ZIP ---
+
+
+class SbpZipRequest(BaseModel):
+    operations: list[OperationAssignment]
+    detected_operations: OperationDetectResult
+    stock: StockSettings
+    placements: list[PlacementItem]
+    object_origins: dict[str, list[float]] = {}
+    bounding_boxes: dict[str, BoundingBox] = {}
+    post_processor: PostProcessorSettings
