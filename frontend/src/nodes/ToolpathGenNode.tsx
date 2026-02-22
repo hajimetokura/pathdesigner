@@ -55,7 +55,29 @@ export default function ToolpathGenNode({ id }: NodeProps) {
       return;
     }
 
-    // 3. Find post processor settings
+    // 3. Validate stock thickness for all enabled operations
+    const matLookup = new Map(
+      stockSettings.materials.map((m) => [m.material_id, m])
+    );
+    const opLookup = new Map(
+      detectedOperations.operations.map((op) => [op.operation_id, op])
+    );
+    const thinOps: string[] = [];
+    for (const a of assignments) {
+      if (!a.enabled) continue;
+      const mat = matLookup.get(a.material_id);
+      const op = opLookup.get(a.operation_id);
+      if (mat && op && mat.thickness < op.geometry.depth) {
+        thinOps.push(`${op.object_id}: stock ${mat.thickness}mm < depth ${op.geometry.depth}mm`);
+      }
+    }
+    if (thinOps.length > 0) {
+      setError(`Stock too thin: ${thinOps.join(", ")}`);
+      setStatus("error");
+      return;
+    }
+
+    // 4. Find post processor settings
     const ppEdge = edges.find(
       (e) => e.target === id && e.targetHandle === `${id}-postprocessor`
     );
