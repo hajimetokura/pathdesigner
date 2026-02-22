@@ -1,6 +1,7 @@
 const nodeItems = [
   { type: "brepImport", label: "BREP Import", color: "#4a90d9" },
   { type: "stock", label: "Stock", color: "#ff9800" },
+  { type: "placement", label: "Placement", color: "#26a69a" },
   { type: "operation", label: "Operation", color: "#7b61ff" },
   { type: "postProcessor", label: "Post Processor", color: "#66bb6a" },
   { type: "toolpathGen", label: "Toolpath Gen", color: "#ef5350" },
