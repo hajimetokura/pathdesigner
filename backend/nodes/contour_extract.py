@@ -1,5 +1,6 @@
 """Contour Extract Node — slice BREP at Z=0 and extract 2D contours."""
 
+import math
 from pathlib import Path
 
 from build123d import Plane, ShapeList, Solid, import_step
@@ -37,30 +38,46 @@ def extract_contours(
 
     # Section at bottom face (Z = bb.min.Z)
     slice_z = bb.min.Z
-    wires = _section_at_z(solid, slice_z)
+    typed_wires = _section_at_z(solid, slice_z)
 
-    # Convert wires to shapely polygons
-    raw_contours = _wires_to_polygons(wires)
+    # Convert wires to shapely polygons with type info
+    typed_polygons = _wires_to_polygons(typed_wires)
 
-    # Apply offset
+    # Apply offset and filter
     offset_distance = tool_diameter / 2.0
+    min_hole_area = math.pi * (tool_diameter / 2) ** 2
+
     if offset_side == "none" or offset_distance == 0:
-        offset_contours = raw_contours
         applied_distance = 0.0
         applied_side = "none"
     else:
-        offset_contours = _apply_offset(raw_contours, offset_distance, offset_side)
         applied_distance = offset_distance
         applied_side = offset_side
 
     # Convert to output schema
     contours = []
-    for i, poly in enumerate(offset_contours):
+    for poly, contour_type in typed_polygons:
+        # Filter: interior contours smaller than tool can reach
+        if contour_type == "interior" and poly.area < min_hole_area:
+            continue
+
+        # Apply offset: exterior → expand outward, interior → shrink inward
+        if applied_distance > 0:
+            if contour_type == "exterior":
+                d = applied_distance if offset_side == "outside" else -applied_distance
+            else:
+                # Interior: offset inward (negative buffer to shrink the hole path)
+                d = -applied_distance if offset_side == "outside" else applied_distance
+            buffered = poly.buffer(d, join_style="mitre")
+            if buffered.is_empty:
+                continue
+            poly = buffered
+
         coords = _polygon_to_coords(poly)
         contours.append(
             Contour(
-                id=f"contour_{i + 1:03d}",
-                type="exterior",
+                id=f"contour_{len(contours) + 1:03d}",
+                type=contour_type,
                 coords=coords,
                 closed=True,
             )
@@ -91,8 +108,8 @@ def _section_at_z(solid: Solid, z: float) -> list:
     return wires
 
 
-def _intersect_wires(solid: Solid, z: float) -> list:
-    """Intersect solid with XY plane at z and return wires."""
+def _intersect_wires(solid: Solid, z: float) -> list[tuple]:
+    """Intersect solid with XY plane at z and return (wire, contour_type) tuples."""
     plane = Plane.XY.offset(z)
     result = solid.intersect(plane)
     if result is None:
@@ -105,27 +122,28 @@ def _intersect_wires(solid: Solid, z: float) -> list:
     wires = []
     for item in items:
         if hasattr(item, "outer_wire"):
-            # It's a Face — extract wires
-            wires.append(item.outer_wire())
-            wires.extend(item.inner_wires())
+            # It's a Face — outer_wire is exterior, inner_wires are interior (holes)
+            wires.append((item.outer_wire(), "exterior"))
+            for iw in item.inner_wires():
+                wires.append((iw, "interior"))
         elif hasattr(item, "edges"):
-            # It's a Wire
-            wires.append(item)
+            # It's a Wire — assume exterior
+            wires.append((item, "exterior"))
     return wires
 
 
-def _wires_to_polygons(wires) -> list[Polygon]:
-    """Convert build123d wires to shapely Polygons."""
+def _wires_to_polygons(typed_wires: list[tuple]) -> list[tuple[Polygon, str]]:
+    """Convert build123d (wire, contour_type) tuples to (Polygon, contour_type) tuples."""
     polygons = []
-    for wire in wires:
-        vertices = wire.vertices()
-        if len(vertices) < 3:
+    for wire, contour_type in typed_wires:
+        edges = wire.edges()
+        if not edges:
             continue
         # Use the wire's edge sampling for smoother curves
         coords = _sample_wire_coords(wire)
         poly = Polygon(coords)
         if poly.is_valid and not poly.is_empty:
-            polygons.append(poly)
+            polygons.append((poly, contour_type))
     return polygons
 
 
@@ -148,18 +166,6 @@ def _sample_wire_coords(wire, num_points: int = 100) -> list[tuple[float, float]
         coords.append(coords[0])
     return coords
 
-
-def _apply_offset(
-    polygons: list[Polygon], distance: float, side: str
-) -> list[Polygon]:
-    """Apply offset to polygons. outside=expand, inside=shrink."""
-    result = []
-    for poly in polygons:
-        d = distance if side == "outside" else -distance
-        buffered = poly.buffer(d, join_style="mitre")
-        if not buffered.is_empty:
-            result.append(buffered)
-    return result
 
 
 def _polygon_to_coords(poly: Polygon) -> list[list[float]]:
