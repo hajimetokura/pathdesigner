@@ -2,8 +2,9 @@ import { useCallback, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import { generateToolpath, generateSbp } from "../api";
 import type {
-  ContourExtractResult,
-  MachiningSettings,
+  OperationDetectResult,
+  OperationAssignment,
+  StockSettings,
   PostProcessorSettings,
   ToolpathGenResult,
   SbpGenResult,
@@ -22,40 +23,43 @@ export default function ToolpathGenNode({ id }: NodeProps) {
   const handleGenerate = useCallback(async () => {
     const edges = getEdges();
 
-    // 1. Find contour data
-    const contourEdge = edges.find(
-      (e) => e.target === id && e.targetHandle === `${id}-contour`
+    // 1. Find operations data from OperationNode
+    const opsEdge = edges.find(
+      (e) => e.target === id && e.targetHandle === `${id}-operations`
     );
-    if (!contourEdge) {
-      setError("Connect Contour Extract node first");
+    if (!opsEdge) {
+      setError("Connect Operation node first");
       setStatus("error");
       return;
     }
-    const contourNode = getNode(contourEdge.source);
-    const contourResults = contourNode?.data?.contourResult as
-      | ContourExtractResult[]
+    const opsNode = getNode(opsEdge.source);
+    const detectedOperations = opsNode?.data?.detectedOperations as
+      | OperationDetectResult
       | undefined;
-    if (!contourResults || contourResults.length === 0) {
-      setError("Run Contour Extract first");
+    const assignments = opsNode?.data?.assignments as
+      | OperationAssignment[]
+      | undefined;
+    if (!detectedOperations || !assignments || assignments.length === 0) {
+      setError("Run Detect Operations first");
       setStatus("error");
       return;
     }
 
-    // 2. Find machining settings
-    const settingsEdge = edges.find(
-      (e) => e.target === id && e.targetHandle === `${id}-settings`
+    // 2. Find stock settings from StockNode
+    const stockEdge = edges.find(
+      (e) => e.target === id && e.targetHandle === `${id}-stock`
     );
-    if (!settingsEdge) {
-      setError("Connect Machining Settings node first");
+    if (!stockEdge) {
+      setError("Connect Stock node first");
       setStatus("error");
       return;
     }
-    const settingsNode = getNode(settingsEdge.source);
-    const machiningSettings = settingsNode?.data?.machiningSettings as
-      | MachiningSettings
+    const stockNode = getNode(stockEdge.source);
+    const stockSettings = stockNode?.data?.stockSettings as
+      | StockSettings
       | undefined;
-    if (!machiningSettings) {
-      setError("Configure Machining Settings first");
+    if (!stockSettings || stockSettings.materials.length === 0) {
+      setError("Configure Stock settings first");
       setStatus("error");
       return;
     }
@@ -83,12 +87,21 @@ export default function ToolpathGenNode({ id }: NodeProps) {
     setError("");
 
     try {
-      // 4. Generate toolpath (use first contour result)
-      const tpResult = await generateToolpath(contourResults[0], machiningSettings);
+      // 4. Generate toolpath from operations
+      const tpResult = await generateToolpath(
+        assignments,
+        detectedOperations,
+        stockSettings
+      );
       setToolpathResult(tpResult);
 
       // 5. Generate SBP
-      const sbp = await generateSbp(tpResult, machiningSettings, postProcessorSettings);
+      const sbp = await generateSbp(
+        tpResult,
+        assignments,
+        stockSettings,
+        postProcessorSettings
+      );
       setSbpResult(sbp);
 
       setStatus("success");
@@ -123,8 +136,8 @@ export default function ToolpathGenNode({ id }: NodeProps) {
       <LabeledHandle
         type="target"
         position={Position.Top}
-        id={`${id}-contour`}
-        label="contour"
+        id={`${id}-operations`}
+        label="operations"
         dataType="geometry"
         index={0}
         total={3}
@@ -132,8 +145,8 @@ export default function ToolpathGenNode({ id }: NodeProps) {
       <LabeledHandle
         type="target"
         position={Position.Top}
-        id={`${id}-settings`}
-        label="settings"
+        id={`${id}-stock`}
+        label="stock"
         dataType="settings"
         index={1}
         total={3}
