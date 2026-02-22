@@ -7,6 +7,7 @@ from schemas import (
     MachiningSettings,
     OperationAssignment,
     OperationDetectResult,
+    PlacementItem,
     StockSettings,
     TabSegment,
     Toolpath,
@@ -50,16 +51,25 @@ def generate_toolpath_from_operations(
     assignments: list[OperationAssignment],
     detected: OperationDetectResult,
     stock: StockSettings,
+    placements: list[PlacementItem] | None = None,
+    object_origins: dict[str, list[float]] | None = None,
 ) -> ToolpathGenResult:
     """Generate toolpaths from operation assignments.
 
     For contour operations, uses the assigned stock material's thickness
     as the cutting depth (to cut through the entire stock).
+
+    Coordinate transform: model_space → stock_space
+      stock_coord = (model_coord - object_origin) + placement_offset
     """
     # Build lookup: operation_id → DetectedOperation
     op_lookup = {op.operation_id: op for op in detected.operations}
     # Build lookup: material_id → StockMaterial
     mat_lookup = {m.material_id: m for m in stock.materials}
+    # Build lookup: object_id → PlacementItem
+    plc_lookup = {p.object_id: p for p in (placements or [])}
+    # Build lookup: object_id → (origin_x, origin_y)
+    ori_lookup = object_origins or {}
 
     toolpaths: list[Toolpath] = []
 
@@ -75,6 +85,16 @@ def generate_toolpath_from_operations(
         if not material:
             continue
 
+        # Compute coordinate transform: model → stock space
+        # stock_coord = (model_coord - origin) + placement_offset
+        placement = plc_lookup.get(detected_op.object_id)
+        origin = ori_lookup.get(detected_op.object_id, [0.0, 0.0])
+        origin_x, origin_y = origin[0], origin[1]
+        place_x = placement.x_offset if placement else 0.0
+        place_y = placement.y_offset if placement else 0.0
+        dx = -origin_x + place_x
+        dy = -origin_y + place_y
+
         # For contour operations, cut through entire stock
         if detected_op.operation_type == "contour":
             total_depth = material.thickness
@@ -85,8 +105,11 @@ def generate_toolpath_from_operations(
             if contour.type != "exterior":
                 continue
 
+            # Apply placement offset to contour coordinates
+            offset_coords = [[c[0] + dx, c[1] + dy] for c in contour.coords]
+
             passes = _compute_passes(
-                coords=contour.coords,
+                coords=offset_coords,
                 depth_per_pass=assignment.settings.depth_per_pass,
                 total_depth=total_depth,
                 tabs_settings=assignment.settings.tabs,

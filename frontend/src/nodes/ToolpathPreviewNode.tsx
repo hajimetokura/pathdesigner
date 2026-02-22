@@ -1,20 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { Position, type NodeProps } from "@xyflow/react";
 import type { ToolpathGenResult } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import ToolpathPreviewPanel from "../components/ToolpathPreviewPanel";
 
-export default function ToolpathPreviewNode({ id }: NodeProps) {
+export default function ToolpathPreviewNode({ id, data }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [showPanel, setShowPanel] = useState(false);
-  const { getNode, getEdges } = useReactFlow();
 
-  const edges = getEdges();
-  const inputEdge = edges.find(
-    (e) => e.target === id && e.targetHandle === `${id}-in`
-  );
-  const sourceNode = inputEdge ? getNode(inputEdge.source) : null;
-  const toolpathResult = sourceNode?.data?.toolpathResult as ToolpathGenResult | undefined;
+  // Read toolpathResult from own node data (pushed by ToolpathGenNode)
+  const toolpathResult = (data as Record<string, unknown>)?.toolpathResult as ToolpathGenResult | undefined;
 
   const drawToolpath = useCallback(
     (canvas: HTMLCanvasElement, result: ToolpathGenResult) => {

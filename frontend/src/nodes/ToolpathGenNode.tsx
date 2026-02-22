@@ -7,6 +7,7 @@ import type {
   StockSettings,
   PostProcessorSettings,
   ToolpathGenResult,
+  PlacementItem,
 } from "../types";
 import LabeledHandle from "./LabeledHandle";
 
@@ -47,6 +48,26 @@ export default function ToolpathGenNode({ id }: NodeProps) {
     const stockSettings = opsNode?.data?.stockSettings as
       | StockSettings
       | undefined;
+
+    // 2b. Get LIVE placements + object origins by tracing upstream: OperationNode → PlacementNode
+    let placements: PlacementItem[] = [];
+    let objectOrigins: Record<string, [number, number]> = {};
+    const opsBrepEdge = edges.find(
+      (e) => e.target === opsEdge.source && e.targetHandle?.endsWith("-brep")
+    );
+    if (opsBrepEdge) {
+      const placementNode = getNode(opsBrepEdge.source);
+      const placementResult = placementNode?.data?.placementResult as
+        | { placements: PlacementItem[]; objects: { object_id: string; origin: { position: number[] } }[] }
+        | undefined;
+      if (placementResult) {
+        placements = placementResult.placements;
+        // Extract model-space origin (bounding_box_min) for each object
+        for (const obj of placementResult.objects) {
+          objectOrigins[obj.object_id] = [obj.origin.position[0], obj.origin.position[1]];
+        }
+      }
+    }
     if (!stockSettings || stockSettings.materials.length === 0) {
       setError("Configure Stock settings first");
       setStatus("error");
@@ -98,11 +119,13 @@ export default function ToolpathGenNode({ id }: NodeProps) {
     setError("");
 
     try {
-      // 4. Generate toolpath from operations
+      // 4. Generate toolpath from operations (with placement offsets)
       const tpResult = await generateToolpath(
         assignments,
         detectedOperations,
-        stockSettings
+        stockSettings,
+        placements,
+        objectOrigins
       );
       setToolpathResult(tpResult);
 
@@ -115,13 +138,23 @@ export default function ToolpathGenNode({ id }: NodeProps) {
       );
       setStatus("success");
 
-      // Store results in node data
+      // Store results in self + push to downstream preview/output nodes
+      const currentEdges = getEdges();
+      const downstreamIds = new Set(
+        currentEdges
+          .filter((e) => e.source === id)
+          .map((e) => e.target)
+      );
       setNodes((nds) =>
-        nds.map((n) =>
-          n.id === id
-            ? { ...n, data: { ...n.data, toolpathResult: tpResult, outputResult: sbp } }
-            : n
-        )
+        nds.map((n) => {
+          if (n.id === id) {
+            return { ...n, data: { ...n.data, toolpathResult: tpResult, outputResult: sbp } };
+          }
+          if (downstreamIds.has(n.id)) {
+            return { ...n, data: { ...n.data, toolpathResult: tpResult, outputResult: sbp } };
+          }
+          return n;
+        })
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Generation failed");

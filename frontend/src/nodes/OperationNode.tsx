@@ -8,6 +8,7 @@ import type {
   StockSettings,
   OperationDetectResult,
   OperationAssignment,
+  PlacementItem,
 } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import OperationDetailPanel from "../components/OperationDetailPanel";
@@ -19,16 +20,17 @@ export default function OperationNode({ id }: NodeProps) {
   const [detected, setDetected] = useState<OperationDetectResult | null>(null);
   const [assignments, setAssignments] = useState<OperationAssignment[]>([]);
   const [stockSettings, setStockSettings] = useState<StockSettings | null>(null);
+  const [placements, setPlacements] = useState<PlacementItem[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const [error, setError] = useState("");
   const { getNode, getEdges, setNodes } = useReactFlow();
 
   const syncToNodeData = useCallback(
-    (det: OperationDetectResult, assign: OperationAssignment[], stock: StockSettings | null) => {
+    (det: OperationDetectResult, assign: OperationAssignment[], stock: StockSettings | null, plc: PlacementItem[]) => {
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, stockSettings: stock } }
+            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, stockSettings: stock, placements: plc } }
             : n
         )
       );
@@ -52,20 +54,22 @@ export default function OperationNode({ id }: NodeProps) {
 
     // Try PlacementResult first (from PlacementNode)
     const placementResult = upstreamNode?.data?.placementResult as
-      | { placements: unknown[]; stock: StockSettings; objects: BrepObject[] }
+      | { placements: PlacementItem[]; stock: StockSettings; objects: BrepObject[] }
       | undefined;
 
     let brepResult: BrepImportResult | undefined;
     let upstreamStock: StockSettings | undefined;
+    let upstreamPlacements: PlacementItem[] = [];
 
     if (placementResult) {
-      // PlacementNode upstream: extract brep + stock from placement result
+      // PlacementNode upstream: extract brep + stock + placements from placement result
       brepResult = {
         file_id: (upstreamNode?.data as Record<string, unknown>)?.fileId as string ?? "",
         objects: placementResult.objects,
         object_count: placementResult.objects.length,
       } as BrepImportResult;
       upstreamStock = placementResult.stock;
+      upstreamPlacements = placementResult.placements;
     } else {
       // Direct BrepImportResult (backwards-compatible)
       brepResult = upstreamNode?.data?.brepResult as BrepImportResult | undefined;
@@ -95,6 +99,7 @@ export default function OperationNode({ id }: NodeProps) {
     }
 
     setStockSettings(upstreamStock ?? null);
+    setPlacements(upstreamPlacements);
     setStatus("loading");
     setError("");
 
@@ -114,7 +119,7 @@ export default function OperationNode({ id }: NodeProps) {
       }));
       setAssignments(newAssignments);
 
-      syncToNodeData(result, newAssignments, upstreamStock ?? null);
+      syncToNodeData(result, newAssignments, upstreamStock ?? null, upstreamPlacements);
       setStatus("success");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Detection failed");
@@ -128,19 +133,19 @@ export default function OperationNode({ id }: NodeProps) {
         const updated = prev.map((a) =>
           a.operation_id === opId ? { ...a, enabled: !a.enabled } : a
         );
-        if (detected) syncToNodeData(detected, updated, stockSettings);
+        if (detected) syncToNodeData(detected, updated, stockSettings, placements);
         return updated;
       });
     },
-    [detected, stockSettings, syncToNodeData]
+    [detected, stockSettings, placements, syncToNodeData]
   );
 
   const handleAssignmentsChange = useCallback(
     (updated: OperationAssignment[]) => {
       setAssignments(updated);
-      if (detected) syncToNodeData(detected, updated, stockSettings);
+      if (detected) syncToNodeData(detected, updated, stockSettings, placements);
     },
-    [detected, stockSettings, syncToNodeData]
+    [detected, stockSettings, placements, syncToNodeData]
   );
 
   const enabledCount = assignments.filter((a) => a.enabled).length;

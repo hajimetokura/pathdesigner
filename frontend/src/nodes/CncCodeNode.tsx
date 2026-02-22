@@ -1,20 +1,14 @@
 import { useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { Position, type NodeProps } from "@xyflow/react";
 import type { OutputResult } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import CncCodePanel from "../components/CncCodePanel";
 
-export default function CncCodeNode({ id }: NodeProps) {
+export default function CncCodeNode({ id, data }: NodeProps) {
   const [showPanel, setShowPanel] = useState(false);
-  const { getNode, getEdges } = useReactFlow();
 
-  // Get output data from upstream ToolpathGenNode
-  const edges = getEdges();
-  const inputEdge = edges.find(
-    (e) => e.target === id && e.targetHandle === `${id}-in`
-  );
-  const sourceNode = inputEdge ? getNode(inputEdge.source) : null;
-  const outputResult = sourceNode?.data?.outputResult as OutputResult | undefined;
+  // Read outputResult from own node data (pushed by ToolpathGenNode)
+  const outputResult = (data as Record<string, unknown>)?.outputResult as OutputResult | undefined;
 
   const lineCount = outputResult ? outputResult.code.split("\n").length : 0;
 

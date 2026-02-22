@@ -1,5 +1,7 @@
 """Pydantic schemas for PathDesigner node data."""
 
+from __future__ import annotations
+
 from pydantic import BaseModel
 
 
@@ -217,6 +219,8 @@ class ToolpathGenRequest(BaseModel):
     operations: list[OperationAssignment]
     detected_operations: OperationDetectResult
     stock: StockSettings
+    placements: list[PlacementItem] = []
+    object_origins: dict[str, list[float]] = {}  # object_id → [origin_x, origin_y]
 
 
 class ToolpathGenResult(BaseModel):

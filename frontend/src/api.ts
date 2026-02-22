@@ -108,7 +108,9 @@ export async function detectOperations(
 export async function generateToolpath(
   operations: OperationAssignment[],
   detectedOperations: OperationDetectResult,
-  stock: StockSettings
+  stock: StockSettings,
+  placements: PlacementItem[] = [],
+  objectOrigins: Record<string, [number, number]> = {}
 ): Promise<ToolpathGenResult> {
   const res = await fetch(`${API_URL}/api/generate-toolpath`, {
     method: "POST",
@@ -117,6 +119,8 @@ export async function generateToolpath(
       operations,
       detected_operations: detectedOperations,
       stock,
+      placements,
+      object_origins: objectOrigins,
     }),
   });
   if (!res.ok) {
