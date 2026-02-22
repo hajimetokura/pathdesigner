@@ -250,3 +250,93 @@ def test_generate_from_operations_disabled():
 
     result = generate_toolpath_from_operations(assignments, detected, stock)
     assert len(result.toolpaths) == 0
+
+
+def test_interior_contours_processed():
+    """Interior contours should also produce toolpaths."""
+    exterior = Contour(
+        id="c_001", type="exterior",
+        coords=[[0, 0], [100, 0], [100, 50], [0, 50], [0, 0]], closed=True,
+    )
+    interior = Contour(
+        id="c_002", type="interior",
+        coords=[[30, 10], [70, 10], [70, 40], [30, 40], [30, 10]], closed=True,
+    )
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_001",
+                object_id="obj_001",
+                operation_type="contour",
+                geometry=OperationGeometry(
+                    contours=[exterior, interior],
+                    offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                    depth=10.0,
+                ),
+                suggested_settings=_make_settings(10.0),
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_001",
+            material_id="mtl_1",
+            settings=_make_settings(10.0),
+            order=1,
+        )
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock)
+
+    # Should have 2 toolpaths: interior first, then exterior
+    assert len(result.toolpaths) == 2
+
+
+def test_interior_before_exterior_order():
+    """Interior contours should be processed before exterior contours."""
+    exterior = Contour(
+        id="c_001", type="exterior",
+        coords=[[0, 0], [100, 0], [100, 50], [0, 50], [0, 0]], closed=True,
+    )
+    interior = Contour(
+        id="c_002", type="interior",
+        coords=[[30, 10], [70, 10], [70, 40], [30, 40], [30, 10]], closed=True,
+    )
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_001",
+                object_id="obj_001",
+                operation_type="contour",
+                geometry=OperationGeometry(
+                    contours=[exterior, interior],  # exterior first in input
+                    offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                    depth=10.0,
+                ),
+                suggested_settings=_make_settings(10.0),
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_001",
+            material_id="mtl_1",
+            settings=_make_settings(10.0),
+            order=1,
+        )
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock)
+
+    # First toolpath should be from interior, second from exterior
+    assert len(result.toolpaths) == 2
+    # Interior contour coords start at [30, 10]
+    assert result.toolpaths[0].passes[0].path[0][0] == 30.0
+    # Exterior contour coords start at [0, 0]
+    assert result.toolpaths[1].passes[0].path[0][0] == 0.0

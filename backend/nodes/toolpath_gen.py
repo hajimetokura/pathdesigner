@@ -26,10 +26,13 @@ def generate_toolpath(
     """Generate multi-pass toolpaths from contour + settings."""
     toolpaths = []
 
-    for contour in contour_result.contours:
-        if contour.type != "exterior":
-            continue
+    # Sort: interior first, then exterior
+    sorted_contours = sorted(
+        contour_result.contours,
+        key=lambda c: (0 if c.type == "interior" else 1),
+    )
 
+    for contour in sorted_contours:
         passes = _compute_passes(
             coords=contour.coords,
             depth_per_pass=settings.depth_per_pass,
@@ -101,10 +104,13 @@ def generate_toolpath_from_operations(
         else:
             total_depth = detected_op.geometry.depth
 
-        for contour in detected_op.geometry.contours:
-            if contour.type != "exterior":
-                continue
+        # Sort: interior first, then exterior
+        sorted_contours = sorted(
+            detected_op.geometry.contours,
+            key=lambda c: (0 if c.type == "interior" else 1),
+        )
 
+        for contour in sorted_contours:
             # Apply placement offset to contour coordinates
             offset_coords = [[c[0] + dx, c[1] + dy] for c in contour.coords]
 
