@@ -7,10 +7,13 @@ import {
   useEdgesState,
   useReactFlow,
   type OnConnect,
+  type Node,
   Background,
   Controls,
   MiniMap,
+  Panel,
 } from "@xyflow/react";
+import { getLayoutedElements } from "./utils/layout";
 import "@xyflow/react/dist/style.css";
 import BrepImportNode from "./nodes/BrepImportNode";
 import StockNode from "./nodes/StockNode";
@@ -25,15 +28,15 @@ import DebugNode from "./nodes/DebugNode";
 import Sidebar from "./Sidebar";
 import SidePanel, { type PanelTab } from "./components/SidePanel";
 
-const initialNodes = [
+const initialNodes: Node[] = [
   { id: "1", type: "brepImport", position: { x: 100, y: 100 }, data: {} },
   { id: "2", type: "stock", position: { x: 400, y: 100 }, data: {} },
   { id: "9", type: "placement", position: { x: 250, y: 300 }, data: {} },
   { id: "3", type: "operation", position: { x: 100, y: 500 }, data: {} },
   { id: "5", type: "postProcessor", position: { x: 400, y: 500 }, data: {} },
   { id: "6", type: "toolpathGen", position: { x: 250, y: 700 }, data: {} },
-  { id: "7", type: "cncCode", position: { x: 150, y: 900 }, data: {} },
-  { id: "8", type: "toolpathPreview", position: { x: 400, y: 900 }, data: {} },
+  { id: "8", type: "toolpathPreview", position: { x: 150, y: 900 }, data: {} },
+  { id: "7", type: "cncCode", position: { x: 400, y: 900 }, data: {} },
 ];
 
 const initialEdges = [
@@ -70,7 +73,15 @@ function Flow() {
   const [panelTabs, setPanelTabs] = useState<PanelTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
+  const onLayout = useCallback(() => {
+    setNodes((nds) => {
+      const allMeasured = nds.every((n) => n.measured?.width && n.measured?.height);
+      if (!allMeasured) return nds;
+      return getLayoutedElements(nds, edges);
+    });
+    window.requestAnimationFrame(() => fitView({ padding: 0.1 }));
+  }, [edges, setNodes, fitView]);
 
   const openTab = useCallback((tab: PanelTab) => {
     let isNew = false;
@@ -174,6 +185,11 @@ function Flow() {
           <Background />
           <Controls />
           <MiniMap />
+          <Panel position="top-right">
+            <button onClick={onLayout} style={layoutBtnStyle}>
+              Auto Layout
+            </button>
+          </Panel>
         </ReactFlow>
       </div>
       <SidePanel
@@ -204,4 +220,14 @@ const statusStyle: React.CSSProperties = {
   borderRadius: 8,
   boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
   fontSize: 14,
+};
+
+const layoutBtnStyle: React.CSSProperties = {
+  background: "white",
+  border: "1px solid #ddd",
+  borderRadius: 6,
+  padding: "6px 12px",
+  fontSize: 12,
+  cursor: "pointer",
+  boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
 };
