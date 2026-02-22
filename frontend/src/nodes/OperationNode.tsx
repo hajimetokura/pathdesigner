@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import { detectOperations } from "../api";
 import type {
@@ -12,12 +12,14 @@ import LabeledHandle from "./LabeledHandle";
 import type { PanelTab } from "../components/SidePanel";
 import OperationDetailPanel from "../components/OperationDetailPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
+import StockTabs from "../components/StockTabs";
 
 type Status = "idle" | "loading" | "success" | "error";
 
 interface UpstreamData {
   placementResult: { placements: PlacementItem[]; stock: StockSettings; objects: BrepObject[] };
   fileId: string;
+  activeStockId: string;
 }
 
 export default function OperationNode({ id, data }: NodeProps) {
@@ -29,18 +31,50 @@ export default function OperationNode({ id, data }: NodeProps) {
   const [error, setError] = useState("");
   const { setNodes } = useReactFlow();
   const lastFileIdRef = useRef<string | null>(null);
+  const [activeStockId, setActiveStockId] = useState("stock_1");
+  const prevUpstreamStockRef = useRef<string | undefined>();
 
   // Subscribe to upstream PlacementNode data (reactive)
   const extractUpstream = useCallback((d: Record<string, unknown>): UpstreamData | undefined => {
     const placementResult = d.placementResult as UpstreamData["placementResult"] | undefined;
     const fileId = d.fileId as string | undefined;
+    const activeStockId = (d.activeStockId as string) || "stock_1";
     if (!placementResult || !fileId) return undefined;
-    return { placementResult, fileId };
+    return { placementResult, fileId, activeStockId };
   }, []);
   const upstream = useUpstreamData(id, `${id}-brep`, extractUpstream);
 
+  // Sync activeStockId from upstream PlacementNode
+  useEffect(() => {
+    const upstreamStockId = upstream?.activeStockId;
+    if (upstreamStockId && upstreamStockId !== prevUpstreamStockRef.current) {
+      prevUpstreamStockRef.current = upstreamStockId;
+      setActiveStockId(upstreamStockId);
+    }
+  }, [upstream?.activeStockId]);
+
+  const allPlacements = upstream?.placementResult.placements ?? [];
+  const stockIds = useMemo(() => {
+    const ids = [...new Set(allPlacements.map((p) => p.stock_id))];
+    if (ids.length === 0) ids.push("stock_1");
+    return ids.sort();
+  }, [allPlacements]);
+
+  // Fallback if activeStockId is invalid
+  useEffect(() => {
+    if (stockIds.length > 0 && !stockIds.includes(activeStockId)) {
+      setActiveStockId(stockIds[0]);
+    }
+  }, [stockIds, activeStockId]);
+
+  // Filter operations by active stock
+  const activeObjectIds = useMemo(() => {
+    const ids = new Set(allPlacements.filter((p) => p.stock_id === activeStockId).map((p) => p.object_id));
+    return ids;
+  }, [allPlacements, activeStockId]);
+
   const syncToNodeData = useCallback(
-    (det: OperationDetectResult, assign: OperationAssignment[], stock: StockSettings | null, plc: PlacementItem[], objects: BrepObject[]) => {
+    (det: OperationDetectResult, assign: OperationAssignment[], stock: StockSettings | null, plc: PlacementItem[], objects: BrepObject[], stockId: string) => {
       // Build objectOrigins map for ToolpathGenNode
       const objectOrigins: Record<string, [number, number]> = {};
       for (const obj of objects) {
@@ -49,7 +83,7 @@ export default function OperationNode({ id, data }: NodeProps) {
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, stockSettings: stock, placements: plc, objectOrigins } }
+            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, stockSettings: stock, placements: plc, objectOrigins, activeStockId: stockId } }
             : n
         )
       );
@@ -87,7 +121,7 @@ export default function OperationNode({ id, data }: NodeProps) {
           order: i + 1,
         }));
         setAssignments(newAssignments);
-        syncToNodeData(result, newAssignments, upstreamStock, upstreamPlacements, objects);
+        syncToNodeData(result, newAssignments, upstreamStock, upstreamPlacements, objects, activeStockId);
         setStatus("success");
       } catch (e) {
         if (cancelled) return;
@@ -104,9 +138,9 @@ export default function OperationNode({ id, data }: NodeProps) {
   useEffect(() => {
     if (!upstream || !detected) return;
     const { placements: upstreamPlacements, stock: upstreamStock, objects } = upstream.placementResult;
-    syncToNodeData(detected, assignments, upstreamStock, upstreamPlacements, objects);
+    syncToNodeData(detected, assignments, upstreamStock, upstreamPlacements, objects, activeStockId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upstream?.placementResult]);
+  }, [upstream?.placementResult, activeStockId]);
 
   const handleToggleOp = useCallback(
     (opId: string) => {
@@ -115,25 +149,43 @@ export default function OperationNode({ id, data }: NodeProps) {
           a.operation_id === opId ? { ...a, enabled: !a.enabled } : a
         );
         if (detected && upstream) {
-          syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements, upstream.placementResult.objects);
+          syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements, upstream.placementResult.objects, activeStockId);
         }
         return updated;
       });
     },
-    [detected, upstream, syncToNodeData]
+    [detected, upstream, syncToNodeData, activeStockId]
   );
 
   const handleAssignmentsChange = useCallback(
     (updated: OperationAssignment[]) => {
       setAssignments(updated);
       if (detected && upstream) {
-        syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements, upstream.placementResult.objects);
+        syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements, upstream.placementResult.objects, activeStockId);
       }
     },
-    [detected, upstream, syncToNodeData]
+    [detected, upstream, syncToNodeData, activeStockId]
   );
 
-  const enabledCount = assignments.filter((a) => a.enabled).length;
+  const handleStockChange = useCallback((stockId: string) => {
+    setActiveStockId(stockId);
+    if (detected && upstream) {
+      syncToNodeData(detected, assignments, upstream.placementResult.stock, upstream.placementResult.placements, upstream.placementResult.objects, stockId);
+    }
+  }, [detected, upstream, assignments, syncToNodeData]);
+
+  const filteredOps = useMemo(() =>
+    detected ? detected.operations.filter((op) => activeObjectIds.has(op.object_id)) : [],
+    [detected, activeObjectIds]
+  );
+  const filteredAssignments = useMemo(() => {
+    if (!detected) return [];
+    return assignments.filter((a) => {
+      const op = detected.operations.find((o) => o.operation_id === a.operation_id);
+      return op ? activeObjectIds.has(op.object_id) : false;
+    });
+  }, [detected, assignments, activeObjectIds]);
+  const enabledCount = filteredAssignments.filter((a) => a.enabled).length;
 
   const handleEditSettings = useCallback(() => {
     if (!detected || !openTab) return;
@@ -185,6 +237,15 @@ export default function OperationNode({ id, data }: NodeProps) {
 
       <div style={headerStyle}>Operation</div>
 
+      {stockIds.length > 1 && (
+        <StockTabs
+          stockIds={stockIds}
+          activeStockId={activeStockId}
+          onChange={handleStockChange}
+          size="small"
+        />
+      )}
+
       {status === "loading" && (
         <div style={spinnerContainerStyle}>
           <div style={spinnerStyle} />
@@ -205,7 +266,7 @@ export default function OperationNode({ id, data }: NodeProps) {
       {status === "success" && detected && (
         <div style={resultStyle}>
           <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 12 }}>
-            {detected.operations.length} detected / {enabledCount} enabled
+            {filteredOps.length} detected / {enabledCount} enabled
           </div>
 
           <button
@@ -215,7 +276,7 @@ export default function OperationNode({ id, data }: NodeProps) {
             Edit Settings
           </button>
 
-          {detected.operations.map((op) => {
+          {filteredOps.map((op) => {
             const assignment = assignments.find(
               (a) => a.operation_id === op.operation_id
             );
