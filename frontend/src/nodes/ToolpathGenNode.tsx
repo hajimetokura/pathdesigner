@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Position, type NodeProps, useReactFlow, useStore } from "@xyflow/react";
 import { generateToolpath, generateSbp } from "../api";
 import type {
   OperationDetectResult,
@@ -13,74 +13,60 @@ import LabeledHandle from "./LabeledHandle";
 
 type Status = "idle" | "loading" | "success" | "error";
 
+interface OperationsUpstream {
+  detectedOperations: OperationDetectResult;
+  assignments: OperationAssignment[];
+  stockSettings: StockSettings;
+  placements: PlacementItem[];
+  objectOrigins: Record<string, [number, number]>;
+}
+
 export default function ToolpathGenNode({ id }: NodeProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [toolpathResult, setToolpathResult] = useState<ToolpathGenResult | null>(null);
   const [error, setError] = useState("");
-  const { getNode, getEdges, setNodes } = useReactFlow();
+  const { setNodes } = useReactFlow();
+  const lastGenKeyRef = useRef<string | null>(null);
 
-  const handleGenerate = useCallback(async () => {
-    const edges = getEdges();
+  // Subscribe to upstream OperationNode data
+  const operationsSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
+    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-operations`);
+    if (!edge) return undefined;
+    const node = s.nodeLookup.get(edge.source);
+    if (!node?.data) return undefined;
+    const detectedOperations = node.data.detectedOperations as OperationDetectResult | undefined;
+    const assignments = node.data.assignments as OperationAssignment[] | undefined;
+    const stockSettings = node.data.stockSettings as StockSettings | undefined;
+    const placements = node.data.placements as PlacementItem[] | undefined;
+    const objectOrigins = node.data.objectOrigins as Record<string, [number, number]> | undefined;
+    if (!detectedOperations || !assignments?.length || !stockSettings || !placements) return undefined;
+    return { detectedOperations, assignments, stockSettings, placements, objectOrigins: objectOrigins ?? {} } as OperationsUpstream;
+  }, [id]);
+  const operations = useStore(operationsSelector);
 
-    // 1. Find operations data from OperationNode
-    const opsEdge = edges.find(
-      (e) => e.target === id && e.targetHandle === `${id}-operations`
-    );
-    if (!opsEdge) {
-      setError("Connect Operation node first");
-      setStatus("error");
-      return;
-    }
-    const opsNode = getNode(opsEdge.source);
-    const detectedOperations = opsNode?.data?.detectedOperations as
-      | OperationDetectResult
-      | undefined;
-    const assignments = opsNode?.data?.assignments as
-      | OperationAssignment[]
-      | undefined;
-    if (!detectedOperations || !assignments || assignments.length === 0) {
-      setError("Run Detect Operations first");
-      setStatus("error");
-      return;
-    }
+  // Subscribe to upstream PostProcessorNode data
+  const postProcSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
+    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-postprocessor`);
+    if (!edge) return undefined;
+    return s.nodeLookup.get(edge.source)?.data?.postProcessorSettings as PostProcessorSettings | undefined;
+  }, [id]);
+  const postProc = useStore(postProcSelector);
 
-    // 2. Get stock settings from OperationNode (passed through)
-    const stockSettings = opsNode?.data?.stockSettings as
-      | StockSettings
-      | undefined;
+  // Auto-generate when upstream data changes
+  useEffect(() => {
+    if (!operations || !postProc) return;
 
-    // 2b. Get LIVE placements + object origins by tracing upstream: OperationNode → PlacementNode
-    let placements: PlacementItem[] = [];
-    let objectOrigins: Record<string, [number, number]> = {};
-    const opsBrepEdge = edges.find(
-      (e) => e.target === opsEdge.source && e.targetHandle?.endsWith("-brep")
-    );
-    if (opsBrepEdge) {
-      const placementNode = getNode(opsBrepEdge.source);
-      const placementResult = placementNode?.data?.placementResult as
-        | { placements: PlacementItem[]; objects: { object_id: string; origin: { position: number[] } }[] }
-        | undefined;
-      if (placementResult) {
-        placements = placementResult.placements;
-        // Extract model-space origin (bounding_box_min) for each object
-        for (const obj of placementResult.objects) {
-          objectOrigins[obj.object_id] = [obj.origin.position[0], obj.origin.position[1]];
-        }
-      }
-    }
-    if (!stockSettings || stockSettings.materials.length === 0) {
-      setError("Configure Stock settings first");
-      setStatus("error");
-      return;
-    }
+    const { detectedOperations, assignments, stockSettings, placements, objectOrigins } = operations;
 
-    // 3. Validate stock thickness for all enabled operations
-    const matLookup = new Map(
-      stockSettings.materials.map((m) => [m.material_id, m])
-    );
-    const opLookup = new Map(
-      detectedOperations.operations.map((op) => [op.operation_id, op])
-    );
+    // Build a generation key from enabled assignments to avoid redundant calls
+    const enabledIds = assignments.filter((a) => a.enabled).map((a) => a.operation_id).sort().join(",");
+    const genKey = `${enabledIds}|${JSON.stringify(postProc)}`;
+    if (lastGenKeyRef.current === genKey && toolpathResult) return;
+    lastGenKeyRef.current = genKey;
+
+    // Validate stock thickness
+    const matLookup = new Map(stockSettings.materials.map((m) => [m.material_id, m]));
+    const opLookup = new Map(detectedOperations.operations.map((op) => [op.operation_id, op]));
     const thinOps: string[] = [];
     for (const a of assignments) {
       if (!a.enabled) continue;
@@ -96,71 +82,40 @@ export default function ToolpathGenNode({ id }: NodeProps) {
       return;
     }
 
-    // 4. Find post processor settings
-    const ppEdge = edges.find(
-      (e) => e.target === id && e.targetHandle === `${id}-postprocessor`
-    );
-    if (!ppEdge) {
-      setError("Connect Post Processor node first");
-      setStatus("error");
-      return;
-    }
-    const ppNode = getNode(ppEdge.source);
-    const postProcessorSettings = ppNode?.data?.postProcessorSettings as
-      | PostProcessorSettings
-      | undefined;
-    if (!postProcessorSettings) {
-      setError("Configure Post Processor first");
-      setStatus("error");
-      return;
-    }
-
+    let cancelled = false;
     setStatus("loading");
     setError("");
 
-    try {
-      // 4. Generate toolpath from operations (with placement offsets)
-      const tpResult = await generateToolpath(
-        assignments,
-        detectedOperations,
-        stockSettings,
-        placements,
-        objectOrigins
-      );
-      setToolpathResult(tpResult);
+    (async () => {
+      try {
+        const tpResult = await generateToolpath(
+          assignments, detectedOperations, stockSettings, placements, objectOrigins
+        );
+        if (cancelled) return;
+        setToolpathResult(tpResult);
 
-      // 5. Generate SBP
-      const sbp = await generateSbp(
-        tpResult,
-        assignments,
-        stockSettings,
-        postProcessorSettings
-      );
-      setStatus("success");
+        const sbp = await generateSbp(tpResult, assignments, stockSettings, postProc);
+        if (cancelled) return;
+        setStatus("success");
 
-      // Store results in self + push to downstream preview/output nodes
-      const currentEdges = getEdges();
-      const downstreamIds = new Set(
-        currentEdges
-          .filter((e) => e.source === id)
-          .map((e) => e.target)
-      );
-      setNodes((nds) =>
-        nds.map((n) => {
-          if (n.id === id) {
-            return { ...n, data: { ...n.data, toolpathResult: tpResult, outputResult: sbp } };
-          }
-          if (downstreamIds.has(n.id)) {
-            return { ...n, data: { ...n.data, toolpathResult: tpResult, outputResult: sbp } };
-          }
-          return n;
-        })
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Generation failed");
-      setStatus("error");
-    }
-  }, [id, getNode, getEdges, setNodes]);
+        // Store results in own node.data only (downstream reads via useStore)
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === id
+              ? { ...n, data: { ...n.data, toolpathResult: tpResult, outputResult: sbp, stockSettings } }
+              : n
+          )
+        );
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Generation failed");
+        setStatus("error");
+      }
+    })();
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operations, postProc]);
 
   return (
     <div style={nodeStyle}>
@@ -185,18 +140,21 @@ export default function ToolpathGenNode({ id }: NodeProps) {
 
       <div style={headerStyle}>Toolpath Gen</div>
 
-      <button
-        onClick={handleGenerate}
-        disabled={status === "loading"}
-        style={buttonStyle}
-      >
-        {status === "loading" ? "Generating..." : "Generate"}
-      </button>
+      {status === "loading" && (
+        <div style={spinnerContainerStyle}>
+          <div style={spinnerStyle} />
+          <span style={{ fontSize: 11, color: "#888" }}>Generating...</span>
+        </div>
+      )}
 
       {status === "error" && (
         <div style={{ color: "#d32f2f", fontSize: 11, padding: "4px 0" }}>
           {error}
         </div>
+      )}
+
+      {!operations && !postProc && status !== "loading" && (
+        <div style={{ color: "#999", fontSize: 11 }}>Connect Operation + Post Proc</div>
       )}
 
       {status === "success" && toolpathResult && (
@@ -214,11 +172,10 @@ export default function ToolpathGenNode({ id }: NodeProps) {
                 {tp.passes.length} passes
               </div>
               <div style={{ fontSize: 10, color: "#777" }}>
-                Z: {tp.passes.map((p) => p.z_depth.toFixed(1)).join(" → ")}
+                Z: {tp.passes.map((p) => p.z_depth.toFixed(1)).join(" \u2192 ")}
               </div>
             </div>
           ))}
-
         </div>
       )}
 
@@ -262,18 +219,6 @@ const headerStyle: React.CSSProperties = {
   color: "#333",
 };
 
-const buttonStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 12px",
-  border: "1px solid #ff9800",
-  borderRadius: 6,
-  background: "#ff9800",
-  color: "white",
-  cursor: "pointer",
-  fontSize: 12,
-  fontWeight: 600,
-};
-
 const resultStyle: React.CSSProperties = {
   marginTop: 8,
   fontSize: 12,
@@ -286,3 +231,18 @@ const detailStyle: React.CSSProperties = {
   marginTop: 4,
 };
 
+const spinnerContainerStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "8px 0",
+};
+
+const spinnerStyle: React.CSSProperties = {
+  width: 16,
+  height: 16,
+  border: "2px solid #eee",
+  borderTopColor: "#ff9800",
+  borderRadius: "50%",
+  animation: "spin 0.8s linear infinite",
+};

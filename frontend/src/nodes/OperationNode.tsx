@@ -42,11 +42,16 @@ export default function OperationNode({ id, data }: NodeProps) {
   const upstream = useStore(upstreamSelector);
 
   const syncToNodeData = useCallback(
-    (det: OperationDetectResult, assign: OperationAssignment[], stock: StockSettings | null, plc: PlacementItem[]) => {
+    (det: OperationDetectResult, assign: OperationAssignment[], stock: StockSettings | null, plc: PlacementItem[], objects: BrepObject[]) => {
+      // Build objectOrigins map for ToolpathGenNode
+      const objectOrigins: Record<string, [number, number]> = {};
+      for (const obj of objects) {
+        objectOrigins[obj.object_id] = [obj.origin.position[0], obj.origin.position[1]];
+      }
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, stockSettings: stock, placements: plc } }
+            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, stockSettings: stock, placements: plc, objectOrigins } }
             : n
         )
       );
@@ -84,7 +89,7 @@ export default function OperationNode({ id, data }: NodeProps) {
           order: i + 1,
         }));
         setAssignments(newAssignments);
-        syncToNodeData(result, newAssignments, upstreamStock, upstreamPlacements);
+        syncToNodeData(result, newAssignments, upstreamStock, upstreamPlacements, objects);
         setStatus("success");
       } catch (e) {
         if (cancelled) return;
@@ -100,8 +105,8 @@ export default function OperationNode({ id, data }: NodeProps) {
   // Re-sync downstream when upstream placements/stock change (without re-detecting)
   useEffect(() => {
     if (!upstream || !detected) return;
-    const { placements: upstreamPlacements, stock: upstreamStock } = upstream.placementResult;
-    syncToNodeData(detected, assignments, upstreamStock, upstreamPlacements);
+    const { placements: upstreamPlacements, stock: upstreamStock, objects } = upstream.placementResult;
+    syncToNodeData(detected, assignments, upstreamStock, upstreamPlacements, objects);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upstream?.placementResult]);
 
@@ -112,7 +117,7 @@ export default function OperationNode({ id, data }: NodeProps) {
           a.operation_id === opId ? { ...a, enabled: !a.enabled } : a
         );
         if (detected && upstream) {
-          syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements);
+          syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements, upstream.placementResult.objects);
         }
         return updated;
       });
@@ -124,7 +129,7 @@ export default function OperationNode({ id, data }: NodeProps) {
     (updated: OperationAssignment[]) => {
       setAssignments(updated);
       if (detected && upstream) {
-        syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements);
+        syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements, upstream.placementResult.objects);
       }
     },
     [detected, upstream, syncToNodeData]
