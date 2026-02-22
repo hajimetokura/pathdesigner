@@ -16,7 +16,7 @@ from schemas import (
     BrepImportResult, ContourExtractRequest, ContourExtractResult,
     MachiningSettings, PresetItem, ValidateSettingsRequest, ValidateSettingsResponse,
     ToolpathGenRequest, ToolpathGenResult,
-    SbpGenRequest, SbpGenResult,
+    SbpGenRequest, OutputResult,
     OperationDetectResult,
     StockSettings,
 )
@@ -185,7 +185,7 @@ def generate_toolpath_endpoint(req: ToolpathGenRequest):
     return result
 
 
-@app.post("/api/generate-sbp", response_model=SbpGenResult)
+@app.post("/api/generate-sbp", response_model=OutputResult)
 def generate_sbp_endpoint(req: SbpGenRequest):
     """Generate SBP code from toolpath data + post processor settings."""
     try:
@@ -196,4 +196,4 @@ def generate_sbp_endpoint(req: SbpGenRequest):
         sbp_code = writer.generate(req.toolpath_result.toolpaths)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SBP generation failed: {e}")
-    return SbpGenResult(sbp_code=sbp_code, filename="output.sbp")
+    return OutputResult(code=sbp_code, filename="output.sbp", format="sbp")

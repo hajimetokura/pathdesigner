@@ -230,6 +230,7 @@ class SbpGenRequest(BaseModel):
     post_processor: PostProcessorSettings
 
 
-class SbpGenResult(BaseModel):
-    sbp_code: str
+class OutputResult(BaseModel):
+    code: str
     filename: str
+    format: str  # "sbp" | "gcode" | ...
