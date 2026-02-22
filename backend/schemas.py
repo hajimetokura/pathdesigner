@@ -162,6 +162,21 @@ class OperationDetectResult(BaseModel):
     operations: list[DetectedOperation]
 
 
+# --- Node 4: Operation Editing ---
+
+
+class OperationAssignment(BaseModel):
+    operation_id: str
+    material_id: str
+    enabled: bool = True
+    settings: MachiningSettings
+    order: int
+
+
+class OperationEditResult(BaseModel):
+    assignments: list[OperationAssignment]
+
+
 # --- Node 5: Post Processor Settings ---
 
 

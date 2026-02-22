@@ -6,6 +6,7 @@ from schemas import (
     Contour, OffsetApplied, MachiningSettings,
     Tool, FeedRate, TabSettings,
     OperationGeometry, DetectedOperation, OperationDetectResult,
+    OperationAssignment, OperationEditResult,
 )
 
 
@@ -79,3 +80,30 @@ def test_detected_operation_contour():
 def test_operation_detect_result():
     result = OperationDetectResult(operations=[])
     assert len(result.operations) == 0
+
+
+def test_operation_assignment():
+    assignment = OperationAssignment(
+        operation_id="op_001",
+        material_id="mtl_1",
+        settings=MachiningSettings(
+            operation_type="contour",
+            tool=Tool(diameter=6.35, type="endmill", flutes=2),
+            feed_rate=FeedRate(xy=75, z=25),
+            jog_speed=200,
+            spindle_speed=18000,
+            depth_per_pass=6.0,
+            total_depth=18.0,
+            direction="climb",
+            offset_side="outside",
+            tabs=TabSettings(enabled=True, height=8, width=5, count=4),
+        ),
+        order=1,
+    )
+    assert assignment.enabled is True
+    assert assignment.material_id == "mtl_1"
+
+
+def test_operation_edit_result():
+    result = OperationEditResult(assignments=[])
+    assert len(result.assignments) == 0
