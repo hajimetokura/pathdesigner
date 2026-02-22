@@ -15,6 +15,8 @@ import "@xyflow/react/dist/style.css";
 import BrepImportNode from "./nodes/BrepImportNode";
 import ContourExtractNode from "./nodes/ContourExtractNode";
 import MachiningSettingsNode from "./nodes/MachiningSettingsNode";
+import PostProcessorNode from "./nodes/PostProcessorNode";
+import ToolpathGenNode from "./nodes/ToolpathGenNode";
 import DebugNode from "./nodes/DebugNode";
 import Sidebar from "./Sidebar";
 
@@ -38,22 +40,16 @@ const initialNodes = [
     data: {},
   },
   {
-    id: "4",
-    type: "default",
-    position: { x: 250, y: 500 },
-    data: { label: "Merge" },
-  },
-  {
     id: "5",
-    type: "default",
-    position: { x: 500, y: 500 },
-    data: { label: "Post Processor" },
+    type: "postProcessor",
+    position: { x: 500, y: 350 },
+    data: {},
   },
   {
     id: "6",
-    type: "default",
-    position: { x: 350, y: 650 },
-    data: { label: "Toolpath Gen" },
+    type: "toolpathGen",
+    position: { x: 250, y: 650 },
+    data: {},
   },
   {
     id: "7",
@@ -66,10 +62,10 @@ const initialNodes = [
 const initialEdges = [
   { id: "e1-2", source: "1", sourceHandle: "1-out", target: "2", targetHandle: "2-brep" },
   { id: "e3-2", source: "3", sourceHandle: "3-out", target: "2", targetHandle: "2-settings" },
-  { id: "e2-4", source: "2", sourceHandle: "2-out", target: "4" },
-  { id: "e4-6", source: "4", target: "6" },
-  { id: "e5-6", source: "5", target: "6" },
-  { id: "e6-7", source: "6", target: "7" },
+  { id: "e2-6", source: "2", sourceHandle: "2-out", target: "6", targetHandle: "6-contour" },
+  { id: "e3-6", source: "3", sourceHandle: "3-out", target: "6", targetHandle: "6-settings" },
+  { id: "e5-6", source: "5", sourceHandle: "5-out", target: "6", targetHandle: "6-postprocessor" },
+  { id: "e6-7", source: "6", sourceHandle: "6-out", target: "7" },
 ];
 
 const API_URL = "http://localhost:8000";
@@ -80,6 +76,8 @@ const nodeTypes = {
   brepImport: BrepImportNode,
   contourExtract: ContourExtractNode,
   machiningSettings: MachiningSettingsNode,
+  postProcessor: PostProcessorNode,
+  toolpathGen: ToolpathGenNode,
   debug: DebugNode,
 };
 

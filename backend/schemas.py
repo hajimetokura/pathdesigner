@@ -121,3 +121,71 @@ class ValidateSettingsResponse(BaseModel):
     valid: bool
     settings: MachiningSettings
     warnings: list[str]
+
+
+# --- Node 5: Post Processor Settings ---
+
+
+class SpindleWarmup(BaseModel):
+    initial_rpm: int = 5000
+    wait_seconds: int = 2
+
+
+class MaterialSettings(BaseModel):
+    width: float = 600
+    depth: float = 400
+    thickness: float = 18
+    x_offset: float = 0
+    y_offset: float = 0
+
+
+class PostProcessorSettings(BaseModel):
+    machine: str = "shopbot"
+    output_format: str = "sbp"
+    unit: str = "mm"
+    safe_z: float = 38.0
+    home_position: list[float] = [0.0, 0.0]
+    tool_number: int = 3
+    spindle_warmup: SpindleWarmup = SpindleWarmup()
+    material: MaterialSettings = MaterialSettings()
+
+
+# --- Node 6: Toolpath Generation ---
+
+
+class TabSegment(BaseModel):
+    start_index: int  # index in path coords where tab starts
+    end_index: int  # index where tab ends
+    z_tab: float  # Z height at tab top
+
+
+class ToolpathPass(BaseModel):
+    pass_number: int  # 1-based
+    z_depth: float  # Z coordinate for this pass
+    path: list[list[float]]  # [[x, y], ...]
+    tabs: list[TabSegment]  # tabs (only on final pass)
+
+
+class Toolpath(BaseModel):
+    operation_id: str
+    passes: list[ToolpathPass]
+
+
+class ToolpathGenRequest(BaseModel):
+    contour_result: ContourExtractResult
+    machining_settings: MachiningSettings
+
+
+class ToolpathGenResult(BaseModel):
+    toolpaths: list[Toolpath]
+
+
+class SbpGenRequest(BaseModel):
+    toolpath_result: ToolpathGenResult
+    machining_settings: MachiningSettings
+    post_processor: PostProcessorSettings
+
+
+class SbpGenResult(BaseModel):
+    sbp_code: str
+    filename: str
