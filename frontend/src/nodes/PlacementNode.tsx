@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow, useStore } from "@xyflow/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import type {
   BrepImportResult,
   StockSettings,
@@ -9,6 +9,7 @@ import { validatePlacement } from "../api";
 import LabeledHandle from "./LabeledHandle";
 import type { PanelTab } from "../components/SidePanel";
 import PlacementPanel from "../components/PlacementPanel";
+import { useUpstreamData } from "../hooks/useUpstreamData";
 
 export default function PlacementNode({ id, data }: NodeProps) {
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
@@ -17,19 +18,11 @@ export default function PlacementNode({ id, data }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { setNodes } = useReactFlow();
 
-  // Subscribe to upstream nodes' data via useStore (re-renders when they change)
-  const brepSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
-    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-brep`);
-    if (!edge) return undefined;
-    return s.nodeLookup.get(edge.source)?.data?.brepResult as BrepImportResult | undefined;
-  }, [id]);
-  const stockSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
-    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-stock`);
-    if (!edge) return undefined;
-    return s.nodeLookup.get(edge.source)?.data?.stockSettings as StockSettings | undefined;
-  }, [id]);
-  const brepResult = useStore(brepSelector);
-  const stockSettings = useStore(stockSelector);
+  // Subscribe to upstream nodes' data (re-renders when they change)
+  const extractBrep = useCallback((d: Record<string, unknown>) => d.brepResult as BrepImportResult | undefined, []);
+  const extractStock = useCallback((d: Record<string, unknown>) => d.stockSettings as StockSettings | undefined, []);
+  const brepResult = useUpstreamData(id, `${id}-brep`, extractBrep);
+  const stockSettings = useUpstreamData(id, `${id}-stock`, extractStock);
 
   const syncToNodeData = useCallback(
     (p: PlacementItem[], brep: BrepImportResult, stock: StockSettings) => {

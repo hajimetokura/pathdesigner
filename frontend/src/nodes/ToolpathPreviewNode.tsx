@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Position, type NodeProps } from "@xyflow/react";
-import type { ToolpathGenResult } from "../types";
+import type { ToolpathGenResult, StockSettings } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import type { PanelTab } from "../components/SidePanel";
 import ToolpathPreviewPanel from "../components/ToolpathPreviewPanel";
+import { useUpstreamData } from "../hooks/useUpstreamData";
 
 export default function ToolpathPreviewNode({ id, data }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
 
-  // Read toolpathResult from own node data (pushed by ToolpathGenNode)
-  const toolpathResult = (data as Record<string, unknown>)?.toolpathResult as ToolpathGenResult | undefined;
+  // Subscribe to upstream ToolpathGenNode data
+  const extractUpstream = useCallback((d: Record<string, unknown>) => ({
+    toolpathResult: d.toolpathResult as ToolpathGenResult | undefined,
+    stockSettings: d.stockSettings as StockSettings | undefined,
+  }), []);
+  const upstream = useUpstreamData(id, `${id}-in`, extractUpstream);
+  const toolpathResult = upstream?.toolpathResult;
 
   const drawToolpath = useCallback(
     (canvas: HTMLCanvasElement, result: ToolpathGenResult) => {
@@ -89,7 +95,7 @@ export default function ToolpathPreviewNode({ id, data }: NodeProps) {
       for (const tp of result.toolpaths) {
         for (const pass of tp.passes) {
           const t = (pass.z_depth - minZ) / zRange;
-          // Light (shallow) → Dark (deep)
+          // Light (shallow) -> Dark (deep)
           const r = Math.round(0 + t * 0);
           const g = Math.round(188 - t * 120);
           const b = Math.round(212 - t * 100);
@@ -122,7 +128,7 @@ export default function ToolpathPreviewNode({ id, data }: NodeProps) {
     openTab({
       id: `preview-${id}`,
       label: "Preview",
-      icon: "👁",
+      icon: "\ud83d\udc41",
       content: <ToolpathPreviewPanel toolpathResult={toolpathResult} />,
     });
   }, [id, toolpathResult, openTab]);

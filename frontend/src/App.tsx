@@ -20,6 +20,7 @@ import PostProcessorNode from "./nodes/PostProcessorNode";
 import ToolpathGenNode from "./nodes/ToolpathGenNode";
 import CncCodeNode from "./nodes/CncCodeNode";
 import ToolpathPreviewNode from "./nodes/ToolpathPreviewNode";
+import DamNode from "./nodes/DamNode";
 import DebugNode from "./nodes/DebugNode";
 import Sidebar from "./Sidebar";
 import SidePanel, { type PanelTab } from "./components/SidePanel";
@@ -58,6 +59,7 @@ const nodeTypes = {
   toolpathGen: ToolpathGenNode,
   cncCode: CncCodeNode,
   toolpathPreview: ToolpathPreviewNode,
+  dam: DamNode,
   debug: DebugNode,
 };
 
@@ -71,25 +73,32 @@ function Flow() {
   const { screenToFlowPosition } = useReactFlow();
 
   const openTab = useCallback((tab: PanelTab) => {
+    let isNew = false;
     setPanelTabs((prev) => {
-      const exists = prev.find((t) => t.id === tab.id);
-      if (exists) {
+      if (prev.some((t) => t.id === tab.id)) {
+        // Update existing tab content only — don't change active tab
         return prev.map((t) => (t.id === tab.id ? tab : t));
       }
+      isNew = true;
       return [...prev, tab];
     });
-    setActiveTabId(tab.id);
+    // Only activate newly created tabs
+    if (isNew) {
+      setActiveTabId(tab.id);
+    }
   }, []);
 
   const closeTab = useCallback((tabId: string) => {
     setPanelTabs((prev) => {
       const next = prev.filter((t) => t.id !== tabId);
-      if (activeTabId === tabId) {
-        setActiveTabId(next.length > 0 ? next[next.length - 1].id : null);
-      }
+      setActiveTabId((prevActive) =>
+        prevActive === tabId
+          ? (next.length > 0 ? next[next.length - 1].id : null)
+          : prevActive
+      );
       return next;
     });
-  }, [activeTabId]);
+  }, []);
 
   const onConnect: OnConnect = useCallback(
     (params) => setEdges((eds) => addEdge(params, eds)),

@@ -4,12 +4,14 @@ import type { OutputResult } from "../types";
 import type { PanelTab } from "../components/SidePanel";
 import LabeledHandle from "./LabeledHandle";
 import CncCodePanel from "../components/CncCodePanel";
+import { useUpstreamData } from "../hooks/useUpstreamData";
 
 export default function CncCodeNode({ id, data }: NodeProps) {
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
 
-  // Read outputResult from own node data (pushed by ToolpathGenNode)
-  const outputResult = (data as Record<string, unknown>)?.outputResult as OutputResult | undefined;
+  // Subscribe to upstream ToolpathGenNode's outputResult
+  const extractOutput = useCallback((d: Record<string, unknown>) => d.outputResult as OutputResult | undefined, []);
+  const outputResult = useUpstreamData(id, `${id}-in`, extractOutput);
 
   const lineCount = outputResult ? outputResult.code.split("\n").length : 0;
 
@@ -29,7 +31,7 @@ export default function CncCodeNode({ id, data }: NodeProps) {
     openTab({
       id: `cnc-code-${id}`,
       label: "CNC Code",
-      icon: "📄",
+      icon: "\ud83d\udcc4",
       content: <CncCodePanel outputResult={outputResult} onExport={handleExport} />,
     });
   }, [id, outputResult, handleExport, openTab]);
@@ -40,7 +42,7 @@ export default function CncCodeNode({ id, data }: NodeProps) {
       openTab({
         id: `cnc-code-${id}`,
         label: "CNC Code",
-        icon: "📄",
+        icon: "\ud83d\udcc4",
         content: <CncCodePanel outputResult={outputResult} onExport={handleExport} />,
       });
     }
