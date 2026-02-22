@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import type { PostProcessorSettings } from "../types";
+import type { PanelTab } from "../components/SidePanel";
 import LabeledHandle from "./LabeledHandle";
+import PostProcessorPanel from "../components/PostProcessorPanel";
 
 const DEFAULT_SETTINGS: PostProcessorSettings = {
   machine_name: "ShopBot PRS-alpha 96-48",
@@ -14,10 +16,10 @@ const DEFAULT_SETTINGS: PostProcessorSettings = {
   warmup_pause: 2,
 };
 
-export default function PostProcessorNode({ id }: NodeProps) {
+export default function PostProcessorNode({ id, data }: NodeProps) {
   const { setNodes } = useReactFlow();
   const [settings, setSettings] = useState<PostProcessorSettings>(DEFAULT_SETTINGS);
-  const [open, setOpen] = useState(true);
+  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
 
   // Sync settings to node data
   useEffect(() => {
@@ -28,68 +30,39 @@ export default function PostProcessorNode({ id }: NodeProps) {
     );
   }, [id, settings, setNodes]);
 
-  const toggle = useCallback(() => setOpen((v) => !v), []);
+  const handleOpenPanel = useCallback(() => {
+    if (!openTab) return;
+    openTab({
+      id: `postproc-${id}`,
+      label: "Post Proc",
+      icon: "🔧",
+      content: (
+        <PostProcessorPanel
+          settings={settings}
+          onSettingsChange={setSettings}
+        />
+      ),
+    });
+  }, [id, settings, openTab]);
 
   return (
     <div style={nodeStyle}>
-      <div style={headerStyle}>Post Processor</div>
-
-      <SectionHeader label="Machine" open={open} onToggle={toggle} />
-      {open && (
-        <div style={sectionBody}>
-          <div style={fieldRow}>
-            <label style={labelStyle}>Machine</label>
-            <div style={{ fontSize: 11, color: "#333", fontWeight: 500 }}>
-              {settings.machine_name}
-            </div>
-          </div>
-          <div style={fieldRow}>
-            <label style={labelStyle}>Bed</label>
-            <div style={{ fontSize: 11, color: "#555" }}>
-              {settings.bed_size[0]} x {settings.bed_size[1]} mm
-            </div>
-          </div>
-          <div style={fieldRow}>
-            <label style={labelStyle}>Format</label>
-            <div style={{ fontSize: 11, color: "#555" }}>
-              {settings.output_format.toUpperCase()}
-            </div>
-          </div>
-          <NumberField
-            label="Safe Z (mm)"
-            value={settings.safe_z}
-            onChange={(v) => setSettings((s) => ({ ...s, safe_z: v }))}
-          />
-          <NumberField
-            label="Tool #"
-            value={settings.tool_number}
-            step={1}
-            onChange={(v) => setSettings((s) => ({ ...s, tool_number: Math.round(v) }))}
-          />
-          <NumberField
-            label="Home X"
-            value={settings.home_position[0]}
-            onChange={(v) =>
-              setSettings((s) => ({ ...s, home_position: [v, s.home_position[1]] }))
-            }
-          />
-          <NumberField
-            label="Home Y"
-            value={settings.home_position[1]}
-            onChange={(v) =>
-              setSettings((s) => ({ ...s, home_position: [s.home_position[0], v] }))
-            }
-          />
-          <NumberField
-            label="Warmup (s)"
-            value={settings.warmup_pause}
-            step={1}
-            onChange={(v) =>
-              setSettings((s) => ({ ...s, warmup_pause: Math.round(v) }))
-            }
-          />
-        </div>
-      )}
+      <div style={headerStyle}>
+        <span>Post Processor</span>
+        <button style={detailBtn} onClick={handleOpenPanel}>Details</button>
+      </div>
+      <div style={fieldRow}>
+        <span style={labelStyle}>Machine</span>
+        <span style={valueStyle}>ShopBot</span>
+      </div>
+      <div style={fieldRow}>
+        <span style={labelStyle}>Bed</span>
+        <span style={valueStyle}>{settings.bed_size[0]}x{settings.bed_size[1]}mm</span>
+      </div>
+      <div style={fieldRow}>
+        <span style={labelStyle}>Format</span>
+        <span style={valueStyle}>{settings.output_format.toUpperCase()}</span>
+      </div>
 
       <LabeledHandle
         type="source"
@@ -102,50 +75,6 @@ export default function PostProcessorNode({ id }: NodeProps) {
   );
 }
 
-/* --- Sub-components --- */
-
-function SectionHeader({
-  label,
-  open,
-  onToggle,
-}: {
-  label: string;
-  open: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div style={sectionHeaderStyle} onClick={onToggle}>
-      <span style={{ marginRight: 4 }}>{open ? "\u25BC" : "\u25B6"}</span>
-      {label}
-    </div>
-  );
-}
-
-function NumberField({
-  label,
-  value,
-  step = 0.1,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  step?: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div style={fieldRow}>
-      <label style={labelStyle}>{label}</label>
-      <input
-        type="number"
-        style={inputStyle}
-        value={value}
-        step={step}
-        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-      />
-    </div>
-  );
-}
-
 /* --- Styles --- */
 
 const nodeStyle: React.CSSProperties = {
@@ -153,32 +82,28 @@ const nodeStyle: React.CSSProperties = {
   border: "1px solid #ddd",
   borderRadius: 8,
   padding: "20px 12px",
-  minWidth: 220,
-  maxWidth: 280,
+  width: 200,
   boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
 };
 
 const headerStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 8,
   color: "#333",
 };
 
-const sectionHeaderStyle: React.CSSProperties = {
-  fontWeight: 600,
-  fontSize: 11,
-  padding: "4px 0",
-  cursor: "pointer",
-  borderTop: "1px solid #eee",
-  marginTop: 4,
+const detailBtn: React.CSSProperties = {
+  fontSize: 10,
+  padding: "2px 8px",
+  border: "1px solid #ddd",
+  borderRadius: 4,
+  background: "#f5f5f5",
   color: "#555",
-  userSelect: "none",
-};
-
-const sectionBody: React.CSSProperties = {
-  paddingLeft: 4,
-  paddingBottom: 4,
+  cursor: "pointer",
 };
 
 const fieldRow: React.CSSProperties = {
@@ -191,15 +116,9 @@ const fieldRow: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   fontSize: 11,
   color: "#555",
-  flexShrink: 0,
-  marginRight: 8,
 };
 
-const inputStyle: React.CSSProperties = {
+const valueStyle: React.CSSProperties = {
   fontSize: 11,
-  padding: "2px 4px",
-  borderRadius: 4,
-  border: "1px solid #ccc",
-  width: 70,
-  textAlign: "right",
+  color: "#333",
 };

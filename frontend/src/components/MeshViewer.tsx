@@ -71,9 +71,9 @@ export default function MeshViewer({ meshes, style }: Props) {
       <Canvas
         camera={{
           position: [
-            bounds.center[0] + bounds.size * 0.8,
-            bounds.center[1] - bounds.size * 0.6,
-            bounds.center[2] + bounds.size * 0.8,
+            bounds.size * 0.8,
+            bounds.size * 0.8,
+            bounds.size * 0.8,
           ],
           fov: 50,
           near: 0.1,
@@ -83,13 +83,16 @@ export default function MeshViewer({ meshes, style }: Props) {
         <ambientLight intensity={0.4} />
         <directionalLight position={[1, 1, 1]} intensity={0.8} />
         <directionalLight position={[-1, -0.5, 0.5]} intensity={0.3} />
-        <group position={[-bounds.center[0], -bounds.center[1], -bounds.center[2]]}>
-          {meshes.map((m) => (
-            <group key={m.object_id}>
-              <MeshObject mesh={m} />
-              <EdgeLines mesh={m} />
-            </group>
-          ))}
+        {/* Rotate from CAD Z-up to Three.js Y-up */}
+        <group rotation={[-Math.PI / 2, 0, 0]}>
+          <group position={[-bounds.center[0], -bounds.center[1], -bounds.center[2]]}>
+            {meshes.map((m) => (
+              <group key={m.object_id}>
+                <MeshObject mesh={m} />
+                <EdgeLines mesh={m} />
+              </group>
+            ))}
+          </group>
         </group>
         <OrbitControls />
       </Canvas>

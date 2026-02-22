@@ -7,7 +7,6 @@ interface Props {
   placements: PlacementItem[];
   onPlacementsChange: (placements: PlacementItem[]) => void;
   warnings: string[];
-  onClose: () => void;
 }
 
 export default function PlacementPanel({
@@ -16,7 +15,6 @@ export default function PlacementPanel({
   placements,
   onPlacementsChange,
   warnings,
-  onClose,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -83,24 +81,47 @@ export default function PlacementPanel({
       if (!obj) continue;
 
       const bb = obj.bounding_box;
-      const [px0, py0] = toCanvas(p.x_offset, p.y_offset);
-      const [px1, py1] = toCanvas(p.x_offset + bb.x, p.y_offset + bb.y);
-
       const isOut =
         p.x_offset + bb.x > stock.width ||
         p.y_offset + bb.y > stock.depth ||
         p.x_offset < 0 ||
         p.y_offset < 0;
 
-      ctx.fillStyle = isOut ? "rgba(229,57,53,0.15)" : `${colors[i % colors.length]}22`;
-      ctx.fillRect(px0, py1, px1 - px0, py0 - py1);
-      ctx.strokeStyle = isOut ? "#e53935" : colors[i % colors.length];
-      ctx.lineWidth = isOut ? 2 : 1.5;
-      ctx.strokeRect(px0, py1, px1 - px0, py0 - py1);
+      const fillColor = isOut ? "rgba(229,57,53,0.15)" : `${colors[i % colors.length]}22`;
+      const strokeColor = isOut ? "#e53935" : colors[i % colors.length];
+      const lineW = isOut ? 2 : 1.5;
 
+      if (obj.outline && obj.outline.length > 2) {
+        // Draw actual outline
+        ctx.beginPath();
+        const [cx0, cy0] = toCanvas(p.x_offset + obj.outline[0][0], p.y_offset + obj.outline[0][1]);
+        ctx.moveTo(cx0, cy0);
+        for (let j = 1; j < obj.outline.length; j++) {
+          const [cx, cy] = toCanvas(p.x_offset + obj.outline[j][0], p.y_offset + obj.outline[j][1]);
+          ctx.lineTo(cx, cy);
+        }
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = lineW;
+        ctx.stroke();
+      } else {
+        // Fallback: bounding box rectangle
+        const [px0, py0] = toCanvas(p.x_offset, p.y_offset);
+        const [px1, py1] = toCanvas(p.x_offset + bb.x, p.y_offset + bb.y);
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(px0, py1, px1 - px0, py0 - py1);
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = lineW;
+        ctx.strokeRect(px0, py1, px1 - px0, py0 - py1);
+      }
+
+      // Label
+      const [lx, ly] = toCanvas(p.x_offset, p.y_offset + bb.y);
       ctx.fillStyle = colors[i % colors.length];
       ctx.font = "bold 11px sans-serif";
-      ctx.fillText(p.object_id, px0 + 4, py1 + 14);
+      ctx.fillText(p.object_id, lx + 4, ly + 14);
     }
   }, [placements, objects, stock, toCanvas]);
 
@@ -157,11 +178,6 @@ export default function PlacementPanel({
 
   return (
     <div style={panelStyle}>
-      <div style={panelHeaderStyle}>
-        <span style={{ fontWeight: 700, fontSize: 14 }}>Placement</span>
-        <button onClick={onClose} style={closeBtnStyle}>{"\u00d7"}</button>
-      </div>
-
       <div style={{ padding: 16 }}>
         <canvas
           ref={canvasRef}
@@ -221,9 +237,7 @@ export default function PlacementPanel({
   );
 }
 
-const panelStyle: React.CSSProperties = { position: "fixed", top: 0, right: 0, width: 480, height: "100vh", background: "white", borderLeft: "1px solid #ddd", boxShadow: "-4px 0 16px rgba(0,0,0,0.1)", zIndex: 100, display: "flex", flexDirection: "column", overflow: "auto" };
-const panelHeaderStyle: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #eee" };
-const closeBtnStyle: React.CSSProperties = { background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#999", padding: "4px 8px" };
+const panelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "auto" };
 const warningStyle: React.CSSProperties = { padding: "8px 16px", background: "#fff3e0", borderTop: "1px solid #ffe0b2" };
 const inputsStyle: React.CSSProperties = { padding: "12px 16px", borderTop: "1px solid #f0f0f0" };
 const inputsTitle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: 1, paddingBottom: 8 };

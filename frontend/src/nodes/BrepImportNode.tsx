@@ -1,20 +1,20 @@
-import { useCallback, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import { uploadStepFile, fetchMeshData } from "../api";
 import type { BrepImportResult, BrepObject, ObjectMesh } from "../types";
+import type { PanelTab } from "../components/SidePanel";
 import BrepImportPanel from "../components/BrepImportPanel";
 
 type Status = "idle" | "loading" | "success" | "error";
 
-export default function BrepImportNode({ id }: NodeProps) {
+export default function BrepImportNode({ id, data }: NodeProps) {
+  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<BrepImportResult | null>(null);
   const [error, setError] = useState<string>("");
   const [isDragOver, setIsDragOver] = useState(false);
   const [meshes, setMeshes] = useState<ObjectMesh[]>([]);
-  const [showPanel, setShowPanel] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { setNodes } = useReactFlow();
 
@@ -74,6 +74,28 @@ export default function BrepImportNode({ id }: NodeProps) {
     [handleFile]
   );
 
+  const handleView3D = useCallback(() => {
+    if (!result || !openTab) return;
+    openTab({
+      id: `brep-3d-${id}`,
+      label: "3D View",
+      icon: "📦",
+      content: <BrepImportPanel brepResult={result} meshes={meshes} />,
+    });
+  }, [id, result, meshes, openTab]);
+
+  // Update tab content when result/meshes change
+  useEffect(() => {
+    if (result && meshes.length > 0 && openTab) {
+      openTab({
+        id: `brep-3d-${id}`,
+        label: "3D View",
+        icon: "📦",
+        content: <BrepImportPanel brepResult={result} meshes={meshes} />,
+      });
+    }
+  }, [id, result, meshes, openTab]);
+
   return (
     <div style={nodeStyle}>
       <div style={headerStyle}>BREP Import</div>
@@ -122,7 +144,7 @@ export default function BrepImportNode({ id }: NodeProps) {
             <ObjectSummary key={obj.object_id} obj={obj} />
           ))}
           {meshes.length > 0 && (
-            <button onClick={() => setShowPanel(true)} style={viewBtnStyle}>
+            <button onClick={handleView3D} style={viewBtnStyle}>
               View 3D
             </button>
           )}
@@ -130,15 +152,6 @@ export default function BrepImportNode({ id }: NodeProps) {
       )}
 
       <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="out" dataType="geometry" />
-
-      {showPanel && result && createPortal(
-        <BrepImportPanel
-          brepResult={result}
-          meshes={meshes}
-          onClose={() => setShowPanel(false)}
-        />,
-        document.body
-      )}
     </div>
   );
 }
@@ -168,9 +181,8 @@ const nodeStyle: React.CSSProperties = {
   background: "white",
   border: "1px solid #ddd",
   borderRadius: 8,
-  padding: "12px 12px 20px",
-  minWidth: 200,
-  maxWidth: 280,
+  padding: "20px 12px",
+  width: 200,
   boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
 };
 

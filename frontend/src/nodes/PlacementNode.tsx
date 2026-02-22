@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Position, type NodeProps, useReactFlow, useStore } from "@xyflow/react";
 import type {
   BrepImportResult,
   StockSettings,
@@ -8,23 +7,29 @@ import type {
 } from "../types";
 import { validatePlacement } from "../api";
 import LabeledHandle from "./LabeledHandle";
+import type { PanelTab } from "../components/SidePanel";
 import PlacementPanel from "../components/PlacementPanel";
 
-export default function PlacementNode({ id }: NodeProps) {
+export default function PlacementNode({ id, data }: NodeProps) {
+  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
   const [placements, setPlacements] = useState<PlacementItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [showPanel, setShowPanel] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { getNode, getEdges, setNodes } = useReactFlow();
+  const { setNodes } = useReactFlow();
 
-  // Read upstream data
-  const edges = getEdges();
-  const brepEdge = edges.find((e) => e.target === id && e.targetHandle === `${id}-brep`);
-  const stockEdge = edges.find((e) => e.target === id && e.targetHandle === `${id}-stock`);
-  const brepNode = brepEdge ? getNode(brepEdge.source) : null;
-  const stockNode = stockEdge ? getNode(stockEdge.source) : null;
-  const brepResult = brepNode?.data?.brepResult as BrepImportResult | undefined;
-  const stockSettings = stockNode?.data?.stockSettings as StockSettings | undefined;
+  // Subscribe to upstream nodes' data via useStore (re-renders when they change)
+  const brepSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
+    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-brep`);
+    if (!edge) return undefined;
+    return s.nodeLookup.get(edge.source)?.data?.brepResult as BrepImportResult | undefined;
+  }, [id]);
+  const stockSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
+    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-stock`);
+    if (!edge) return undefined;
+    return s.nodeLookup.get(edge.source)?.data?.stockSettings as StockSettings | undefined;
+  }, [id]);
+  const brepResult = useStore(brepSelector);
+  const stockSettings = useStore(stockSelector);
 
   const syncToNodeData = useCallback(
     (p: PlacementItem[], brep: BrepImportResult, stock: StockSettings) => {
@@ -63,6 +68,14 @@ export default function PlacementNode({ id }: NodeProps) {
     syncToNodeData(initial, brepResult, stockSettings);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brepResult, stockSettings]);
+
+  // Re-sync downstream when stock settings change (after initial setup)
+  useEffect(() => {
+    if (brepResult && stockSettings && placements.length > 0) {
+      syncToNodeData(placements, brepResult, stockSettings);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockSettings]);
 
   const handlePlacementsChange = useCallback(
     async (updated: PlacementItem[]) => {
@@ -116,15 +129,31 @@ export default function PlacementNode({ id }: NodeProps) {
       const p = placements[i];
       const obj = brepResult.objects.find((o) => o.object_id === p.object_id);
       if (!obj) continue;
-      const px = ox + p.x_offset * sc;
-      const py = h - oy - (p.y_offset + obj.bounding_box.y) * sc;
-      const pw = obj.bounding_box.x * sc;
-      const ph = obj.bounding_box.y * sc;
+
       ctx.fillStyle = `${colors[i % colors.length]}33`;
-      ctx.fillRect(px, py, pw, ph);
       ctx.strokeStyle = colors[i % colors.length];
       ctx.lineWidth = 1;
-      ctx.strokeRect(px, py, pw, ph);
+
+      if (obj.outline && obj.outline.length > 2) {
+        // Draw actual outline
+        ctx.beginPath();
+        const [x0, y0] = [ox + (p.x_offset + obj.outline[0][0]) * sc, h - oy - (p.y_offset + obj.outline[0][1]) * sc];
+        ctx.moveTo(x0, y0);
+        for (let j = 1; j < obj.outline.length; j++) {
+          ctx.lineTo(ox + (p.x_offset + obj.outline[j][0]) * sc, h - oy - (p.y_offset + obj.outline[j][1]) * sc);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Fallback: bounding box rectangle
+        const px = ox + p.x_offset * sc;
+        const py = h - oy - (p.y_offset + obj.bounding_box.y) * sc;
+        const pw = obj.bounding_box.x * sc;
+        const ph = obj.bounding_box.y * sc;
+        ctx.fillRect(px, py, pw, ph);
+        ctx.strokeRect(px, py, pw, ph);
+      }
     }
   }, [placements, brepResult, stockSettings]);
 
@@ -132,55 +161,79 @@ export default function PlacementNode({ id }: NodeProps) {
 
   const hasData = brepResult && stockSettings;
 
-  return (
-    <>
-      <div style={nodeStyle}>
-        <LabeledHandle type="target" position={Position.Top} id={`${id}-brep`} label="brep" dataType="geometry" index={0} total={2} />
-        <LabeledHandle type="target" position={Position.Top} id={`${id}-stock`} label="stock" dataType="settings" index={1} total={2} />
-
-        <div style={headerStyle}>Placement</div>
-
-        {hasData ? (
-          <>
-            <canvas
-              ref={canvasRef}
-              width={200}
-              height={150}
-              style={canvasStyle}
-              onClick={() => setShowPanel(true)}
-            />
-            <div style={hintStyle}>
-              {placements.length} part{placements.length > 1 ? "s" : ""} — Click to edit
-            </div>
-            {warnings.length > 0 && (
-              <div style={{ color: "#e65100", fontSize: 10, padding: "4px 0" }}>
-                {warnings.length} warning{warnings.length > 1 ? "s" : ""}
-              </div>
-            )}
-          </>
-        ) : (
-          <div style={emptyStyle}>Connect BREP + Stock</div>
-        )}
-
-        <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="placement" dataType="geometry" />
-      </div>
-
-      {showPanel && hasData && createPortal(
+  const handleOpenPanel = useCallback(() => {
+    if (!hasData || !openTab) return;
+    openTab({
+      id: `placement-${id}`,
+      label: "Placement",
+      icon: "📐",
+      content: (
         <PlacementPanel
           objects={brepResult.objects}
           stockSettings={stockSettings}
           placements={placements}
           onPlacementsChange={handlePlacementsChange}
           warnings={warnings}
-          onClose={() => setShowPanel(false)}
-        />,
-        document.body
+        />
+      ),
+    });
+  }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, openTab]);
+
+  // Update tab content when placements/warnings change
+  useEffect(() => {
+    if (hasData && openTab) {
+      openTab({
+        id: `placement-${id}`,
+        label: "Placement",
+        icon: "📐",
+        content: (
+          <PlacementPanel
+            objects={brepResult.objects}
+            stockSettings={stockSettings}
+            placements={placements}
+            onPlacementsChange={handlePlacementsChange}
+            warnings={warnings}
+          />
+        ),
+      });
+    }
+  }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, openTab]);
+
+  return (
+    <div style={nodeStyle}>
+      <LabeledHandle type="target" position={Position.Top} id={`${id}-brep`} label="brep" dataType="geometry" index={0} total={2} />
+      <LabeledHandle type="target" position={Position.Top} id={`${id}-stock`} label="stock" dataType="settings" index={1} total={2} />
+
+      <div style={headerStyle}>Placement</div>
+
+      {hasData ? (
+        <>
+          <canvas
+            ref={canvasRef}
+            width={200}
+            height={150}
+            style={canvasStyle}
+            onClick={handleOpenPanel}
+          />
+          <div style={hintStyle}>
+            {placements.length} part{placements.length > 1 ? "s" : ""} — Click to edit
+          </div>
+          {warnings.length > 0 && (
+            <div style={{ color: "#e65100", fontSize: 10, padding: "4px 0" }}>
+              {warnings.length} warning{warnings.length > 1 ? "s" : ""}
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={emptyStyle}>Connect BREP + Stock</div>
       )}
-    </>
+
+      <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="placement" dataType="geometry" />
+    </div>
   );
 }
 
-const nodeStyle: React.CSSProperties = { background: "white", border: "1px solid #ddd", borderRadius: 8, padding: "20px 12px", minWidth: 200, maxWidth: 280, boxShadow: "0 2px 6px rgba(0,0,0,0.08)" };
+const nodeStyle: React.CSSProperties = { background: "white", border: "1px solid #ddd", borderRadius: 8, padding: "20px 12px", width: 200, boxShadow: "0 2px 6px rgba(0,0,0,0.08)" };
 const headerStyle: React.CSSProperties = { fontWeight: 700, fontSize: 13, marginBottom: 8, color: "#333" };
 const canvasStyle: React.CSSProperties = { width: "100%", border: "1px solid #eee", borderRadius: 4, cursor: "pointer", background: "#fafafa" };
 const hintStyle: React.CSSProperties = { fontSize: 10, color: "#aaa", textAlign: "center", marginTop: 2 };

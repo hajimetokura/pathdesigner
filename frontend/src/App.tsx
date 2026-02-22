@@ -22,6 +22,7 @@ import CncCodeNode from "./nodes/CncCodeNode";
 import ToolpathPreviewNode from "./nodes/ToolpathPreviewNode";
 import DebugNode from "./nodes/DebugNode";
 import Sidebar from "./Sidebar";
+import SidePanel, { type PanelTab } from "./components/SidePanel";
 
 const initialNodes = [
   { id: "1", type: "brepImport", position: { x: 100, y: 100 }, data: {} },
@@ -64,8 +65,31 @@ function Flow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [backendStatus, setBackendStatus] = useState<string>("checking...");
+  const [panelTabs, setPanelTabs] = useState<PanelTab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
+
+  const openTab = useCallback((tab: PanelTab) => {
+    setPanelTabs((prev) => {
+      const exists = prev.find((t) => t.id === tab.id);
+      if (exists) {
+        return prev.map((t) => (t.id === tab.id ? tab : t));
+      }
+      return [...prev, tab];
+    });
+    setActiveTabId(tab.id);
+  }, []);
+
+  const closeTab = useCallback((tabId: string) => {
+    setPanelTabs((prev) => {
+      const next = prev.filter((t) => t.id !== tabId);
+      if (activeTabId === tabId) {
+        setActiveTabId(next.length > 0 ? next[next.length - 1].id : null);
+      }
+      return next;
+    });
+  }, [activeTabId]);
 
   const onConnect: OnConnect = useCallback(
     (params) => setEdges((eds) => addEdge(params, eds)),
@@ -109,6 +133,16 @@ function Flow() {
       .catch(() => setBackendStatus("offline"));
   }, []);
 
+  // Inject openTab/closeTab into all nodes
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((n) => ({
+        ...n,
+        data: { ...n.data, openTab, closeTab },
+      }))
+    );
+  }, [openTab, closeTab, setNodes]);
+
   return (
     <div style={{ display: "flex", width: "100vw", height: "100vh" }}>
       <Sidebar />
@@ -133,6 +167,12 @@ function Flow() {
           <MiniMap />
         </ReactFlow>
       </div>
+      <SidePanel
+        tabs={panelTabs}
+        activeTabId={activeTabId}
+        onSelectTab={setActiveTabId}
+        onCloseTab={closeTab}
+      />
     </div>
   );
 }

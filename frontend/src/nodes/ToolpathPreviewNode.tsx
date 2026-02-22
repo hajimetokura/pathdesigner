@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Position, type NodeProps } from "@xyflow/react";
 import type { ToolpathGenResult } from "../types";
 import LabeledHandle from "./LabeledHandle";
+import type { PanelTab } from "../components/SidePanel";
 import ToolpathPreviewPanel from "../components/ToolpathPreviewPanel";
 
 export default function ToolpathPreviewNode({ id, data }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [showPanel, setShowPanel] = useState(false);
+  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
 
   // Read toolpathResult from own node data (pushed by ToolpathGenNode)
   const toolpathResult = (data as Record<string, unknown>)?.toolpathResult as ToolpathGenResult | undefined;
@@ -116,42 +117,43 @@ export default function ToolpathPreviewNode({ id, data }: NodeProps) {
     }
   }, [toolpathResult, drawToolpath]);
 
+  const handleEnlarge = useCallback(() => {
+    if (!toolpathResult || !openTab) return;
+    openTab({
+      id: `preview-${id}`,
+      label: "Preview",
+      icon: "👁",
+      content: <ToolpathPreviewPanel toolpathResult={toolpathResult} />,
+    });
+  }, [id, toolpathResult, openTab]);
+
   return (
-    <>
-      <div style={nodeStyle}>
-        <LabeledHandle
-          type="target"
-          position={Position.Top}
-          id={`${id}-in`}
-          label="toolpath"
-          dataType="toolpath"
-        />
+    <div style={nodeStyle}>
+      <LabeledHandle
+        type="target"
+        position={Position.Top}
+        id={`${id}-in`}
+        label="toolpath"
+        dataType="toolpath"
+      />
 
-        <div style={headerStyle}>Toolpath Preview</div>
+      <div style={headerStyle}>Toolpath Preview</div>
 
-        {toolpathResult ? (
-          <div>
-            <canvas
-              ref={canvasRef}
-              width={200}
-              height={150}
-              style={canvasStyle}
-              onClick={() => setShowPanel(true)}
-            />
-            <div style={hintStyle}>Click to enlarge</div>
-          </div>
-        ) : (
-          <div style={emptyStyle}>No data</div>
-        )}
-      </div>
-
-      {showPanel && toolpathResult && (
-        <ToolpathPreviewPanel
-          toolpathResult={toolpathResult}
-          onClose={() => setShowPanel(false)}
-        />
+      {toolpathResult ? (
+        <div>
+          <canvas
+            ref={canvasRef}
+            width={200}
+            height={150}
+            style={canvasStyle}
+            onClick={handleEnlarge}
+          />
+          <div style={hintStyle}>Click to enlarge</div>
+        </div>
+      ) : (
+        <div style={emptyStyle}>No data</div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -160,8 +162,7 @@ const nodeStyle: React.CSSProperties = {
   border: "1px solid #ddd",
   borderRadius: 8,
   padding: "20px 12px",
-  minWidth: 200,
-  maxWidth: 280,
+  width: 200,
   boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
 };
 

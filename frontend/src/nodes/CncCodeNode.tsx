@@ -1,18 +1,19 @@
-import { useState } from "react";
+import { useCallback, useEffect } from "react";
 import { Position, type NodeProps } from "@xyflow/react";
 import type { OutputResult } from "../types";
+import type { PanelTab } from "../components/SidePanel";
 import LabeledHandle from "./LabeledHandle";
 import CncCodePanel from "../components/CncCodePanel";
 
 export default function CncCodeNode({ id, data }: NodeProps) {
-  const [showPanel, setShowPanel] = useState(false);
+  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
 
   // Read outputResult from own node data (pushed by ToolpathGenNode)
   const outputResult = (data as Record<string, unknown>)?.outputResult as OutputResult | undefined;
 
   const lineCount = outputResult ? outputResult.code.split("\n").length : 0;
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     if (!outputResult) return;
     const blob = new Blob([outputResult.code], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -21,46 +22,58 @@ export default function CncCodeNode({ id, data }: NodeProps) {
     a.download = outputResult.filename;
     a.click();
     URL.revokeObjectURL(url);
-  };
+  }, [outputResult]);
+
+  const handleViewCode = useCallback(() => {
+    if (!outputResult || !openTab) return;
+    openTab({
+      id: `cnc-code-${id}`,
+      label: "CNC Code",
+      icon: "📄",
+      content: <CncCodePanel outputResult={outputResult} onExport={handleExport} />,
+    });
+  }, [id, outputResult, handleExport, openTab]);
+
+  // Auto-open panel when outputResult arrives
+  useEffect(() => {
+    if (outputResult && openTab) {
+      openTab({
+        id: `cnc-code-${id}`,
+        label: "CNC Code",
+        icon: "📄",
+        content: <CncCodePanel outputResult={outputResult} onExport={handleExport} />,
+      });
+    }
+  }, [id, outputResult, handleExport, openTab]);
 
   return (
-    <>
-      <div style={nodeStyle}>
-        <LabeledHandle
-          type="target"
-          position={Position.Top}
-          id={`${id}-in`}
-          label="output"
-          dataType="toolpath"
-        />
+    <div style={nodeStyle}>
+      <LabeledHandle
+        type="target"
+        position={Position.Top}
+        id={`${id}-in`}
+        label="output"
+        dataType="toolpath"
+      />
 
-        <div style={headerStyle}>CNC Code</div>
+      <div style={headerStyle}>CNC Code</div>
 
-        {outputResult ? (
-          <div style={resultStyle}>
-            <div style={fileInfoStyle}>
-              {outputResult.format.toUpperCase()} · {lineCount} lines
-            </div>
-            <button onClick={handleExport} style={exportBtnStyle}>
-              Export
-            </button>
-            <button onClick={() => setShowPanel(true)} style={viewBtnStyle}>
-              View Code
-            </button>
+      {outputResult ? (
+        <div style={resultStyle}>
+          <div style={fileInfoStyle}>
+            {outputResult.format.toUpperCase()} · {lineCount} lines
           </div>
-        ) : (
-          <div style={emptyStyle}>No data</div>
-        )}
-      </div>
-
-      {showPanel && outputResult && (
-        <CncCodePanel
-          outputResult={outputResult}
-          onExport={handleExport}
-          onClose={() => setShowPanel(false)}
-        />
+          <button onClick={handleExport} style={exportBtnStyle}>
+            Export
+          </button>
+          <button onClick={handleViewCode} style={viewBtnStyle}>
+            View Code
+          </button>
+        </div>
+      ) : (
+        <div style={emptyStyle}>No data</div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -69,8 +82,7 @@ const nodeStyle: React.CSSProperties = {
   border: "1px solid #ddd",
   borderRadius: 8,
   padding: "20px 12px",
-  minWidth: 200,
-  maxWidth: 280,
+  width: 200,
   boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
 };
 

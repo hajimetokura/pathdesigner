@@ -11,7 +11,6 @@ interface Props {
   assignments: OperationAssignment[];
   stockSettings: StockSettings | null;
   onAssignmentsChange: (assignments: OperationAssignment[]) => void;
-  onClose: () => void;
 }
 
 export default function OperationDetailPanel({
@@ -19,7 +18,6 @@ export default function OperationDetailPanel({
   assignments,
   stockSettings,
   onAssignmentsChange,
-  onClose,
 }: Props) {
   const [expandedOp, setExpandedOp] = useState<string | null>(null);
 
@@ -49,13 +47,6 @@ export default function OperationDetailPanel({
 
   return (
     <div style={panelStyle}>
-      <div style={panelHeaderStyle}>
-        <span style={{ fontWeight: 700, fontSize: 14 }}>Operation Details</span>
-        <button onClick={onClose} style={closeBtnStyle}>
-          x
-        </button>
-      </div>
-
       <div style={panelBodyStyle}>
         {detectedOperations.operations.map((op) => {
           const assignment = assignments.find(
@@ -259,34 +250,9 @@ function NumberRow({
 /* --- Styles --- */
 
 const panelStyle: React.CSSProperties = {
-  position: "fixed",
-  top: 0,
-  right: 0,
-  width: 340,
-  height: "100vh",
-  background: "white",
-  borderLeft: "1px solid #ddd",
-  boxShadow: "-4px 0 16px rgba(0,0,0,0.1)",
-  zIndex: 100,
   display: "flex",
   flexDirection: "column",
-};
-
-const panelHeaderStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "12px 16px",
-  borderBottom: "1px solid #eee",
-};
-
-const closeBtnStyle: React.CSSProperties = {
-  background: "none",
-  border: "none",
-  fontSize: 16,
-  cursor: "pointer",
-  color: "#999",
-  padding: "4px 8px",
+  height: "100%",
 };
 
 const panelBodyStyle: React.CSSProperties = {

@@ -3,24 +3,16 @@ import type { OutputResult } from "../types";
 interface Props {
   outputResult: OutputResult;
   onExport: () => void;
-  onClose: () => void;
 }
 
-export default function CncCodePanel({ outputResult, onExport, onClose }: Props) {
+export default function CncCodePanel({ outputResult, onExport }: Props) {
   const lines = outputResult.code.split("\n");
 
   return (
     <div style={panelStyle}>
-      <div style={panelHeaderStyle}>
-        <span style={{ fontWeight: 700, fontSize: 14 }}>
-          CNC Code — {outputResult.filename}
-        </span>
-        <button onClick={onClose} style={closeBtnStyle}>×</button>
-      </div>
-
       <div style={toolbarStyle}>
         <span style={{ fontSize: 11, color: "#666" }}>
-          {outputResult.format.toUpperCase()} · {lines.length} lines
+          {outputResult.filename} · {outputResult.format.toUpperCase()} · {lines.length} lines
         </span>
         <button onClick={onExport} style={exportSmallBtnStyle}>Export</button>
       </div>
@@ -78,34 +70,9 @@ function highlightCommand(line: string): React.ReactNode {
 
 /* --- Styles --- */
 const panelStyle: React.CSSProperties = {
-  position: "fixed",
-  top: 0,
-  right: 0,
-  width: 420,
-  height: "100vh",
-  background: "white",
-  borderLeft: "1px solid #ddd",
-  boxShadow: "-4px 0 16px rgba(0,0,0,0.1)",
-  zIndex: 100,
   display: "flex",
   flexDirection: "column",
-};
-
-const panelHeaderStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  padding: "12px 16px",
-  borderBottom: "1px solid #eee",
-};
-
-const closeBtnStyle: React.CSSProperties = {
-  background: "none",
-  border: "none",
-  fontSize: 16,
-  cursor: "pointer",
-  color: "#999",
-  padding: "4px 8px",
+  height: "100%",
 };
 
 const toolbarStyle: React.CSSProperties = {
