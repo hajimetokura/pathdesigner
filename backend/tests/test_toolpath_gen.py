@@ -140,3 +140,113 @@ def test_uneven_depth_division():
     # ceil(18/7) = 3 passes
     assert len(passes) == 3
     assert passes[-1].z_depth < 0  # penetration
+
+
+# --- Operation-centric tests ---
+
+from nodes.toolpath_gen import generate_toolpath_from_operations
+from schemas import (
+    OperationAssignment, OperationGeometry, DetectedOperation, OperationDetectResult,
+    StockMaterial, StockSettings,
+)
+
+
+def _make_square_contour():
+    """Create a simple 100x50 square contour."""
+    return Contour(
+        id="c_001",
+        type="exterior",
+        coords=[[0, 0], [100, 0], [100, 50], [0, 50], [0, 0]],
+        closed=True,
+    )
+
+
+def _make_settings(total_depth: float = 18.0):
+    return MachiningSettings(
+        operation_type="contour",
+        tool=Tool(diameter=6.35, type="endmill", flutes=2),
+        feed_rate=FeedRate(xy=75, z=25),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=6.0,
+        total_depth=total_depth,
+        direction="climb",
+        offset_side="outside",
+        tabs=TabSettings(enabled=True, height=8, width=5, count=4),
+    )
+
+
+def test_generate_from_operations_single():
+    """Single contour operation should produce toolpath with correct Z depths."""
+    contour = _make_square_contour()
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_001",
+                object_id="obj_001",
+                operation_type="contour",
+                geometry=OperationGeometry(
+                    contours=[contour],
+                    offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                    depth=10.0,
+                ),
+                suggested_settings=_make_settings(10.0),
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_001",
+            material_id="mtl_1",
+            settings=_make_settings(10.0),
+            order=1,
+        )
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock)
+
+    assert isinstance(result, ToolpathGenResult)
+    assert len(result.toolpaths) == 1
+    # Stock is 12mm, depth_per_pass=6 → 2 passes
+    tp = result.toolpaths[0]
+    assert len(tp.passes) == 2
+    # Final pass should penetrate below stock bottom
+    assert tp.passes[-1].z_depth < 0
+
+
+def test_generate_from_operations_disabled():
+    """Disabled operations should be skipped."""
+    contour = _make_square_contour()
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_001",
+                object_id="obj_001",
+                operation_type="contour",
+                geometry=OperationGeometry(
+                    contours=[contour],
+                    offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                    depth=10.0,
+                ),
+                suggested_settings=_make_settings(10.0),
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_001",
+            material_id="mtl_1",
+            enabled=False,
+            settings=_make_settings(10.0),
+            order=1,
+        )
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock)
+    assert len(result.toolpaths) == 0

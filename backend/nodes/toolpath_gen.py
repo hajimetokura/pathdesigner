@@ -5,6 +5,9 @@ import math
 from schemas import (
     ContourExtractResult,
     MachiningSettings,
+    OperationAssignment,
+    OperationDetectResult,
+    StockSettings,
     TabSegment,
     Toolpath,
     ToolpathGenResult,
@@ -39,6 +42,62 @@ def generate_toolpath(
                 passes=passes,
             )
         )
+
+    return ToolpathGenResult(toolpaths=toolpaths)
+
+
+def generate_toolpath_from_operations(
+    assignments: list[OperationAssignment],
+    detected: OperationDetectResult,
+    stock: StockSettings,
+) -> ToolpathGenResult:
+    """Generate toolpaths from operation assignments.
+
+    For contour operations, uses the assigned stock material's thickness
+    as the cutting depth (to cut through the entire stock).
+    """
+    # Build lookup: operation_id → DetectedOperation
+    op_lookup = {op.operation_id: op for op in detected.operations}
+    # Build lookup: material_id → StockMaterial
+    mat_lookup = {m.material_id: m for m in stock.materials}
+
+    toolpaths: list[Toolpath] = []
+
+    for assignment in sorted(assignments, key=lambda a: a.order):
+        if not assignment.enabled:
+            continue
+
+        detected_op = op_lookup.get(assignment.operation_id)
+        if not detected_op:
+            continue
+
+        material = mat_lookup.get(assignment.material_id)
+        if not material:
+            continue
+
+        # For contour operations, cut through entire stock
+        if detected_op.operation_type == "contour":
+            total_depth = material.thickness
+        else:
+            total_depth = detected_op.geometry.depth
+
+        for contour in detected_op.geometry.contours:
+            if contour.type != "exterior":
+                continue
+
+            passes = _compute_passes(
+                coords=contour.coords,
+                depth_per_pass=assignment.settings.depth_per_pass,
+                total_depth=total_depth,
+                tabs_settings=assignment.settings.tabs,
+            )
+
+            toolpaths.append(
+                Toolpath(
+                    operation_id=assignment.operation_id,
+                    passes=passes,
+                )
+            )
 
     return ToolpathGenResult(toolpaths=toolpaths)
 
