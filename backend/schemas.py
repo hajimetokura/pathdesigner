@@ -253,3 +253,31 @@ class MeshDataRequest(BaseModel):
 
 class MeshDataResult(BaseModel):
     objects: list[ObjectMesh]
+
+
+# --- Placement ---
+
+
+class PlacementItem(BaseModel):
+    object_id: str
+    material_id: str
+    x_offset: float = 0       # mm, position on stock
+    y_offset: float = 0
+    rotation: float = 0        # degrees, v1 = 0 fixed
+
+
+class PlacementResult(BaseModel):
+    placements: list[PlacementItem]
+    stock: StockSettings
+    objects: list[BrepObject]
+
+
+class ValidatePlacementRequest(BaseModel):
+    placements: list[PlacementItem]
+    stock: StockSettings
+    bounding_boxes: dict[str, BoundingBox]  # object_id -> bounding_box
+
+
+class ValidatePlacementResponse(BaseModel):
+    valid: bool
+    warnings: list[str]
