@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 # --- Node 1: BREP Import ---
@@ -222,6 +222,7 @@ class ToolpathGenRequest(BaseModel):
     stock: StockSettings
     placements: list[PlacementItem] = []
     object_origins: dict[str, list[float]] = {}  # object_id → [origin_x, origin_y]
+    bounding_boxes: dict[str, BoundingBox] = {}  # object_id → bounding_box
 
 
 class ToolpathGenResult(BaseModel):
@@ -268,7 +269,14 @@ class PlacementItem(BaseModel):
     material_id: str
     x_offset: float = 0       # mm, position on stock
     y_offset: float = 0
-    rotation: float = 0        # degrees, v1 = 0 fixed
+    rotation: int = 0          # degrees, 0/45/90/135/180/225/270/315
+
+    @field_validator("rotation")
+    @classmethod
+    def validate_rotation(cls, v):
+        if v % 45 != 0 or v < 0 or v >= 360:
+            raise ValueError("rotation must be 0, 45, 90, 135, 180, 225, 270, or 315")
+        return v
 
 
 class PlacementResult(BaseModel):

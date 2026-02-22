@@ -182,7 +182,7 @@ def generate_toolpath_endpoint(req: ToolpathGenRequest):
     try:
         result = generate_toolpath_from_operations(
             req.operations, req.detected_operations, req.stock,
-            req.placements, req.object_origins
+            req.placements, req.object_origins, req.bounding_boxes
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Toolpath generation failed: {e}")
