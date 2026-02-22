@@ -2,7 +2,6 @@
 
 from schemas import (
     PlacementItem,
-    PlacementResult,
     StockMaterial,
     StockSettings,
     BoundingBox,

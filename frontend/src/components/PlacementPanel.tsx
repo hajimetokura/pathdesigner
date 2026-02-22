@@ -23,32 +23,32 @@ export default function PlacementPanel({
   const [dragStart, setDragStart] = useState<{ mx: number; my: number; ox: number; oy: number } | null>(null);
 
   const stock = stockSettings.materials[0];
-  if (!stock) return null;
 
   const canvasW = 560;
   const canvasH = 400;
   const padding = 40;
 
-  const scale = Math.min(
-    (canvasW - 2 * padding) / stock.width,
-    (canvasH - 2 * padding) / stock.depth
+  const scale = stock
+    ? Math.min(
+        (canvasW - 2 * padding) / stock.width,
+        (canvasH - 2 * padding) / stock.depth
+      )
+    : 1;
+  const offsetX = stock ? (canvasW - stock.width * scale) / 2 : 0;
+  const offsetY = stock ? (canvasH - stock.depth * scale) / 2 : 0;
+
+  const toCanvas = useCallback(
+    (x: number, y: number): [number, number] => [
+      x * scale + offsetX,
+      canvasH - (y * scale + offsetY),
+    ],
+    [scale, offsetX, offsetY]
   );
-  const offsetX = (canvasW - stock.width * scale) / 2;
-  const offsetY = (canvasH - stock.depth * scale) / 2;
-
-  const toCanvas = (x: number, y: number): [number, number] => [
-    x * scale + offsetX,
-    canvasH - (y * scale + offsetY),
-  ];
-
-  const fromCanvas = (_cx: number, _cy: number): [number, number] => [
-    (_cx - offsetX) / scale,
-    (canvasH - _cy - offsetY) / scale,
-  ];
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    if (!stock) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -102,8 +102,7 @@ export default function PlacementPanel({
       ctx.font = "bold 11px sans-serif";
       ctx.fillText(p.object_id, px0 + 4, py1 + 14);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placements, objects, stock, scale, offsetX, offsetY]);
+  }, [placements, objects, stock, toCanvas]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -154,8 +153,7 @@ export default function PlacementPanel({
     onPlacementsChange(updated);
   };
 
-  // suppress unused variable warning — fromCanvas is available for future use
-  void fromCanvas;
+  if (!stock) return null;
 
   return (
     <div style={panelStyle}>
