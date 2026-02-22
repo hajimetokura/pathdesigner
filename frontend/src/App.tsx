@@ -20,6 +20,7 @@ import PostProcessorNode from "./nodes/PostProcessorNode";
 import ToolpathGenNode from "./nodes/ToolpathGenNode";
 import CncCodeNode from "./nodes/CncCodeNode";
 import ToolpathPreviewNode from "./nodes/ToolpathPreviewNode";
+import DamNode from "./nodes/DamNode";
 import DebugNode from "./nodes/DebugNode";
 import Sidebar from "./Sidebar";
 import SidePanel, { type PanelTab } from "./components/SidePanel";
@@ -58,6 +59,7 @@ const nodeTypes = {
   toolpathGen: ToolpathGenNode,
   cncCode: CncCodeNode,
   toolpathPreview: ToolpathPreviewNode,
+  dam: DamNode,
   debug: DebugNode,
 };
 
