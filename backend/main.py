@@ -9,11 +9,18 @@ from nodes.brep_import import analyze_step_file
 from nodes.contour_extract import extract_contours
 from nodes.toolpath_gen import generate_toolpath
 from sbp_writer import SbpWriter
+
+try:
+    from nodes.toolpath_gen import generate_toolpath_from_operations
+except ImportError:
+    generate_toolpath_from_operations = None  # Task 7 で追加予定
 from schemas import (
     BrepImportResult, ContourExtractRequest, ContourExtractResult,
     MachiningSettings, PresetItem, ValidateSettingsRequest, ValidateSettingsResponse,
     ToolpathGenRequest, ToolpathGenResult,
     SbpGenRequest, SbpGenResult,
+    OperationDetectResult,
+    StockSettings,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -140,9 +147,16 @@ def get_presets():
 
 @app.post("/api/generate-toolpath", response_model=ToolpathGenResult)
 def generate_toolpath_endpoint(req: ToolpathGenRequest):
-    """Generate toolpath passes from contours + machining settings."""
+    """Generate toolpath passes from operation assignments."""
     try:
-        result = generate_toolpath(req.contour_result, req.machining_settings)
+        if generate_toolpath_from_operations is None:
+            raise HTTPException(
+                status_code=501,
+                detail="generate_toolpath_from_operations not yet implemented (Task 7)",
+            )
+        result = generate_toolpath_from_operations(
+            req.operations, req.detected_operations, req.stock
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Toolpath generation failed: {e}")
     return result
@@ -152,7 +166,10 @@ def generate_toolpath_endpoint(req: ToolpathGenRequest):
 def generate_sbp_endpoint(req: SbpGenRequest):
     """Generate SBP code from toolpath data + post processor settings."""
     try:
-        writer = SbpWriter(req.post_processor, req.machining_settings)
+        machining = req.operations[0].settings if req.operations else None
+        if not machining:
+            raise ValueError("No operations provided")
+        writer = SbpWriter(req.post_processor, machining, req.stock)
         sbp_code = writer.generate(req.toolpath_result.toolpaths)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SBP generation failed: {e}")

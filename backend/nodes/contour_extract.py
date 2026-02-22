@@ -58,9 +58,12 @@ def extract_contours(
             )
         )
 
+    thickness = round(bb.max.Z - bb.min.Z, 6)
+
     return ContourExtractResult(
         object_id=object_id,
         slice_z=round(slice_z, 6),
+        thickness=thickness,
         contours=contours,
         offset_applied=OffsetApplied(distance=applied_distance, side=applied_side),
     )

@@ -68,6 +68,7 @@ class OffsetApplied(BaseModel):
 class ContourExtractResult(BaseModel):
     object_id: str
     slice_z: float
+    thickness: float  # object thickness from bounding box (mm)
     contours: list[Contour]
     offset_applied: OffsetApplied
 

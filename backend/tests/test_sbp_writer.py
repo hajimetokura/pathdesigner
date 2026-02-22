@@ -9,6 +9,8 @@ from sbp_writer import SbpWriter
 from schemas import (
     PostProcessorSettings,
     MachiningSettings,
+    StockSettings,
+    StockMaterial,
     Tool,
     FeedRate,
     TabSettings,
@@ -18,6 +20,7 @@ from schemas import (
 )
 
 PP_SETTINGS = PostProcessorSettings()  # all defaults
+STOCK = StockSettings(materials=[StockMaterial(material_id="mtl_1")])
 
 MACHINING = MachiningSettings(
     operation_type="contour",
@@ -59,7 +62,7 @@ SIMPLE_TOOLPATH = Toolpath(
 
 def test_sbp_header():
     """SBP output should start with header comments and unit check."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
     code = writer.generate([SIMPLE_TOOLPATH])
     lines = code.split("\n")
 
@@ -71,19 +74,19 @@ def test_sbp_header():
 
 def test_sbp_tool_spindle():
     """SBP should include tool and spindle commands."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
     code = writer.generate([SIMPLE_TOOLPATH])
 
     assert "&Tool = 3" in code
     assert "C9" in code
-    assert "TR,5000" in code  # warmup RPM
+    assert "TR,18000" in code  # spindle speed
     assert "C6" in code
     assert "PAUSE 2" in code
 
 
 def test_sbp_speed_settings():
     """SBP should set MS and JS speeds."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
     code = writer.generate([SIMPLE_TOOLPATH])
 
     assert "MS,75.0,25.0" in code
@@ -92,7 +95,7 @@ def test_sbp_speed_settings():
 
 def test_sbp_material_metadata():
     """SBP should include material info as comments."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
     code = writer.generate([SIMPLE_TOOLPATH])
 
     assert "'MATERIAL_THICKNESS:18" in code
@@ -101,7 +104,7 @@ def test_sbp_material_metadata():
 
 def test_sbp_uses_j_for_jog_and_m_for_cut():
     """Non-cutting moves use J2/J3, cutting moves use M3."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
     code = writer.generate([SIMPLE_TOOLPATH])
 
     # Initial positioning should use J2
@@ -114,7 +117,7 @@ def test_sbp_uses_j_for_jog_and_m_for_cut():
 
 def test_sbp_footer():
     """SBP should end with spindle off, END, and unit error label."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
     code = writer.generate([SIMPLE_TOOLPATH])
     lines = code.strip().split("\n")
 
@@ -126,7 +129,7 @@ def test_sbp_footer():
 
 def test_sbp_multi_pass_z_sequence():
     """Cutting moves should step down through each pass depth."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
     code = writer.generate([SIMPLE_TOOLPATH])
 
     # All three Z depths should appear in M3 commands
@@ -148,7 +151,7 @@ def test_sbp_with_tabs():
             ),
         ],
     )
-    writer = SbpWriter(PP_SETTINGS, MACHINING)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
     code = writer.generate([tp_with_tabs])
 
     # The tab section should have z_tab=10.0 instead of -0.3

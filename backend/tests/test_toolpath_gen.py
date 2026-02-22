@@ -22,6 +22,7 @@ from schemas import (
 SQUARE_CONTOUR = ContourExtractResult(
     object_id="obj_001",
     slice_z=0.0,
+    thickness=18.0,
     contours=[
         Contour(
             id="contour_001",

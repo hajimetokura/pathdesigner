@@ -11,8 +11,6 @@ from schemas import (
     Toolpath,
     ToolpathGenRequest,
     ToolpathGenResult,
-    SpindleWarmup,
-    MaterialSettings,
     PostProcessorSettings,
     SbpGenRequest,
     SbpGenResult,
@@ -23,6 +21,10 @@ from schemas import (
     Tool,
     FeedRate,
     TabSettings,
+    OperationAssignment,
+    OperationDetectResult,
+    StockMaterial,
+    StockSettings,
 )
 
 
@@ -76,12 +78,11 @@ def test_toolpath_gen_result():
 def test_post_processor_settings_defaults():
     """PostProcessorSettings should have sensible defaults."""
     pp = PostProcessorSettings()
-    assert pp.machine == "shopbot"
+    assert pp.machine_name == "ShopBot PRS-alpha 96-48"
     assert pp.safe_z == 38.0
     assert pp.unit == "mm"
     assert pp.tool_number == 3
-    assert pp.spindle_warmup.initial_rpm == 5000
-    assert pp.material.thickness == 18
+    assert pp.warmup_pause == 2
 
 
 def test_sbp_gen_result():
