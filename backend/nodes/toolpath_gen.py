@@ -79,7 +79,22 @@ def generate_toolpath_from_operations(
     ori_lookup = object_origins or {}
     toolpaths: list[Toolpath] = []
 
-    for assignment in sorted(assignments, key=lambda a: a.order):
+    # Sort assignments by placement position (y asc → x asc) when placements exist
+    if placements:
+        op_to_obj = {op.operation_id: op.object_id for op in detected.operations}
+
+        def _placement_sort_key(a: OperationAssignment):
+            obj_id = op_to_obj.get(a.operation_id, "")
+            plc = plc_lookup.get(obj_id)
+            if plc:
+                return (plc.y_offset, plc.x_offset, a.order)
+            return (float("inf"), float("inf"), a.order)
+
+        sorted_assignments = sorted(assignments, key=_placement_sort_key)
+    else:
+        sorted_assignments = sorted(assignments, key=lambda a: a.order)
+
+    for assignment in sorted_assignments:
         if not assignment.enabled:
             continue
 

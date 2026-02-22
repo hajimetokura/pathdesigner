@@ -556,3 +556,53 @@ def test_rotation_0_no_change():
     path = result.toolpaths[0].passes[0].path
     assert path[0][0] == 10.0
     assert path[0][1] == 20.0
+
+
+def test_toolpath_ordering_by_placement():
+    """Toolpaths should be ordered by placement: y_offset asc, then x_offset asc."""
+    settings = _make_settings()
+    contour = _make_square_contour()
+
+    def make_op(op_id, obj_id):
+        return DetectedOperation(
+            operation_id=op_id, object_id=obj_id,
+            operation_type="contour",
+            geometry=OperationGeometry(
+                contours=[contour],
+                offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                depth=18.0,
+            ),
+            suggested_settings=settings,
+        )
+
+    detected = OperationDetectResult(operations=[
+        make_op("op_A", "obj_A"),
+        make_op("op_B", "obj_B"),
+        make_op("op_C", "obj_C"),
+    ])
+
+    # obj_C at top-right, obj_A at bottom-left, obj_B at bottom-right
+    placements = [
+        PlacementItem(object_id="obj_C", material_id="mtl_1", x_offset=200, y_offset=200),
+        PlacementItem(object_id="obj_A", material_id="mtl_1", x_offset=10, y_offset=10),
+        PlacementItem(object_id="obj_B", material_id="mtl_1", x_offset=200, y_offset=10),
+    ]
+
+    # order values intentionally reversed vs. expected placement order
+    assignments = [
+        OperationAssignment(operation_id="op_A", material_id="mtl_1", settings=settings, order=3),
+        OperationAssignment(operation_id="op_B", material_id="mtl_1", settings=settings, order=2),
+        OperationAssignment(operation_id="op_C", material_id="mtl_1", settings=settings, order=1),
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=18.0)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock, placements)
+
+    # Expected order by placement: obj_A (y=10,x=10), obj_B (y=10,x=200), obj_C (y=200,x=200)
+    # NOT by assignment.order (which would give C, B, A)
+    op_ids = [tp.operation_id for tp in result.toolpaths]
+    assert op_ids[0] == "op_A"
+    assert op_ids[1] == "op_B"
+    assert op_ids[2] == "op_C"
