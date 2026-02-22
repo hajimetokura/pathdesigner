@@ -289,6 +289,8 @@ class ValidatePlacementRequest(BaseModel):
     placements: list[PlacementItem]
     stock: StockSettings
     bounding_boxes: dict[str, BoundingBox]  # object_id -> bounding_box
+    outlines: dict[str, list[list[float]]] = {}  # object_id -> [[x,y], ...]
+    tool_diameter: float = 6.35
 
 
 class ValidatePlacementResponse(BaseModel):

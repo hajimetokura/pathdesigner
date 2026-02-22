@@ -171,16 +171,21 @@ export async function fetchMeshData(
 export async function validatePlacement(
   placements: PlacementItem[],
   stock: StockSettings,
-  boundingBoxes: Record<string, BoundingBox>
+  boundingBoxes: Record<string, BoundingBox>,
+  outlines?: Record<string, number[][]>,
+  toolDiameter?: number,
 ): Promise<{ valid: boolean; warnings: string[] }> {
+  const body: Record<string, unknown> = {
+    placements,
+    stock,
+    bounding_boxes: boundingBoxes,
+  };
+  if (outlines) body.outlines = outlines;
+  if (toolDiameter !== undefined) body.tool_diameter = toolDiameter;
   const res = await fetch(`${API_URL}/api/validate-placement`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      placements,
-      stock,
-      bounding_boxes: boundingBoxes,
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: "Validation failed" }));

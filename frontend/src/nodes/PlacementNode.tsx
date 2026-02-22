@@ -77,13 +77,17 @@ export default function PlacementNode({ id, data }: NodeProps) {
       if (brepResult && stockSettings) {
         syncToNodeData(updated, brepResult, stockSettings);
 
-        // Validate
+        // Validate (with outlines for collision detection)
         const bbs: Record<string, { x: number; y: number; z: number }> = {};
+        const outlines: Record<string, number[][]> = {};
         for (const obj of brepResult.objects) {
           bbs[obj.object_id] = obj.bounding_box;
+          if (obj.outline && obj.outline.length >= 3) {
+            outlines[obj.object_id] = obj.outline;
+          }
         }
         try {
-          const result = await validatePlacement(updated, stockSettings, bbs);
+          const result = await validatePlacement(updated, stockSettings, bbs, outlines);
           setWarnings(result.warnings);
         } catch {
           // validation failure is non-critical
