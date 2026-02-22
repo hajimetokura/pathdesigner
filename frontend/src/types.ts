@@ -199,3 +199,15 @@ export interface OutputResult {
   filename: string;
   format: string;
 }
+
+/** Mesh data for 3D preview */
+
+export interface ObjectMesh {
+  object_id: string;
+  vertices: number[];  // flat [x0, y0, z0, x1, ...]
+  faces: number[];     // flat [i0, j0, k0, i1, ...]
+}
+
+export interface MeshDataResult {
+  objects: ObjectMesh[];
+}
