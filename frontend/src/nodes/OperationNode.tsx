@@ -4,6 +4,7 @@ import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import { detectOperations } from "../api";
 import type {
   BrepImportResult,
+  BrepObject,
   StockSettings,
   OperationDetectResult,
   OperationAssignment,
@@ -38,37 +39,68 @@ export default function OperationNode({ id }: NodeProps) {
   const handleDetect = useCallback(async () => {
     const edges = getEdges();
 
-    // Find BREP data from upstream
+    // Find upstream data — either PlacementResult or direct BrepImportResult
     const brepEdge = edges.find(
       (e) => e.target === id && e.targetHandle === `${id}-brep`
     );
     if (!brepEdge) {
-      setError("Connect BREP Import node first");
+      setError("Connect Placement or BREP Import node first");
       setStatus("error");
       return;
     }
-    const brepNode = getNode(brepEdge.source);
-    const brepResult = brepNode?.data?.brepResult as BrepImportResult | undefined;
+    const upstreamNode = getNode(brepEdge.source);
+
+    // Try PlacementResult first (from PlacementNode)
+    const placementResult = upstreamNode?.data?.placementResult as
+      | { placements: unknown[]; stock: StockSettings; objects: BrepObject[] }
+      | undefined;
+
+    let brepResult: BrepImportResult | undefined;
+    let upstreamStock: StockSettings | undefined;
+
+    if (placementResult) {
+      // PlacementNode upstream: extract brep + stock from placement result
+      brepResult = {
+        file_id: (upstreamNode?.data as Record<string, unknown>)?.fileId as string ?? "",
+        objects: placementResult.objects,
+        object_count: placementResult.objects.length,
+      } as BrepImportResult;
+      upstreamStock = placementResult.stock;
+    } else {
+      // Direct BrepImportResult (backwards-compatible)
+      brepResult = upstreamNode?.data?.brepResult as BrepImportResult | undefined;
+      // Stock from separate edge
+      const stockEdge = edges.find(
+        (e) => e.target === id && e.targetHandle === `${id}-stock`
+      );
+      const stockNode = stockEdge ? getNode(stockEdge.source) : null;
+      upstreamStock = stockNode?.data?.stockSettings as StockSettings | undefined;
+    }
+
     if (!brepResult) {
       setError("Upload a STEP file first");
       setStatus("error");
       return;
     }
 
-    // Find stock data from upstream
-    const stockEdge = edges.find(
-      (e) => e.target === id && e.targetHandle === `${id}-stock`
-    );
-    const stockNode = stockEdge ? getNode(stockEdge.source) : null;
-    const upstreamStock = stockNode?.data?.stockSettings as StockSettings | undefined;
-    setStockSettings(upstreamStock ?? null);
+    // Get file_id for API call
+    const fileId = placementResult
+      ? (upstreamNode?.data?.fileId as string)
+      : brepResult?.file_id;
 
+    if (!fileId) {
+      setError("Upload a STEP file first");
+      setStatus("error");
+      return;
+    }
+
+    setStockSettings(upstreamStock ?? null);
     setStatus("loading");
     setError("");
 
     try {
       const objectIds = brepResult.objects.map((o) => o.object_id);
-      const result = await detectOperations(brepResult.file_id, objectIds);
+      const result = await detectOperations(fileId, objectIds);
       setDetected(result);
 
       // Auto-create assignments
