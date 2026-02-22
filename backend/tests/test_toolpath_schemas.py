@@ -109,3 +109,35 @@ def test_output_result():
     assert "SA" in r.code
     assert r.filename.endswith(".sbp")
     assert r.format == "sbp"
+
+
+def test_toolpath_with_settings():
+    """Toolpath should carry its own MachiningSettings."""
+    settings = MachiningSettings(
+        operation_type="contour",
+        tool=Tool(diameter=6.35, type="endmill", flutes=2),
+        feed_rate=FeedRate(xy=75.0, z=25.0),
+        jog_speed=200.0,
+        spindle_speed=18000,
+        depth_per_pass=6.0,
+        total_depth=18.0,
+        direction="climb",
+        offset_side="outside",
+        tabs=TabSettings(enabled=False, height=3.0, width=5.0, count=4),
+    )
+    tp = Toolpath(
+        operation_id="op_001",
+        passes=[ToolpathPass(pass_number=1, z_depth=12.0, path=[[0, 0], [10, 0]], tabs=[])],
+        settings=settings,
+    )
+    assert tp.settings is not None
+    assert tp.settings.spindle_speed == 18000
+
+
+def test_toolpath_settings_optional():
+    """Toolpath.settings should be optional for backward compat."""
+    tp = Toolpath(
+        operation_id="op_001",
+        passes=[ToolpathPass(pass_number=1, z_depth=12.0, path=[[0, 0], [10, 0]], tabs=[])],
+    )
+    assert tp.settings is None

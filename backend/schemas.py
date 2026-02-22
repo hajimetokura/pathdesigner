@@ -214,6 +214,7 @@ class ToolpathPass(BaseModel):
 class Toolpath(BaseModel):
     operation_id: str
     passes: list[ToolpathPass]
+    settings: MachiningSettings | None = None
 
 
 class ToolpathGenRequest(BaseModel):
