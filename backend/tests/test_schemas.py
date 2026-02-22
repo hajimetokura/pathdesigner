@@ -7,6 +7,7 @@ from schemas import (
     Tool, FeedRate, TabSettings,
     OperationGeometry, DetectedOperation, OperationDetectResult,
     OperationAssignment, OperationEditResult,
+    PostProcessorSettings,
 )
 
 
@@ -107,3 +108,10 @@ def test_operation_assignment():
 def test_operation_edit_result():
     result = OperationEditResult(assignments=[])
     assert len(result.assignments) == 0
+
+
+def test_post_processor_no_material():
+    """PostProcessorSettings should not have a material field."""
+    settings = PostProcessorSettings()
+    assert "material" not in PostProcessorSettings.model_fields
+    assert settings.safe_z == 38.0
