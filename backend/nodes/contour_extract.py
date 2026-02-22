@@ -23,8 +23,16 @@ def extract_contours(
     if not solids:
         raise ValueError("STEP file contains no solids")
 
-    # Use the first solid (multi-object selection by object_id is future work)
-    solid = solids[0]
+    # Map object_id (e.g. "obj_002") to solid index
+    try:
+        idx = int(object_id.split("_")[1]) - 1
+    except (IndexError, ValueError):
+        raise ValueError(f"Invalid object_id format: {object_id!r}")
+    if idx < 0 or idx >= len(solids):
+        raise ValueError(
+            f"object_id {object_id!r} out of range (file has {len(solids)} solids)"
+        )
+    solid = solids[idx]
     bb = solid.bounding_box()
 
     # Section at bottom face (Z = bb.min.Z)

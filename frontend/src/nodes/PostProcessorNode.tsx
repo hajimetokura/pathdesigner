@@ -37,6 +37,24 @@ export default function PostProcessorNode({ id }: NodeProps) {
       <SectionHeader label="Machine" open={open} onToggle={toggle} />
       {open && (
         <div style={sectionBody}>
+          <div style={fieldRow}>
+            <label style={labelStyle}>Machine</label>
+            <div style={{ fontSize: 11, color: "#333", fontWeight: 500 }}>
+              {settings.machine_name}
+            </div>
+          </div>
+          <div style={fieldRow}>
+            <label style={labelStyle}>Bed</label>
+            <div style={{ fontSize: 11, color: "#555" }}>
+              {settings.bed_size[0]} x {settings.bed_size[1]} mm
+            </div>
+          </div>
+          <div style={fieldRow}>
+            <label style={labelStyle}>Format</label>
+            <div style={{ fontSize: 11, color: "#555" }}>
+              {settings.output_format.toUpperCase()}
+            </div>
+          </div>
           <NumberField
             label="Safe Z (mm)"
             value={settings.safe_z}
