@@ -200,6 +200,22 @@ export interface OutputResult {
   format: string;
 }
 
+/** Placement types */
+
+export interface PlacementItem {
+  object_id: string;
+  material_id: string;
+  x_offset: number;
+  y_offset: number;
+  rotation: number;
+}
+
+export interface PlacementResult {
+  placements: PlacementItem[];
+  stock: StockSettings;
+  objects: BrepObject[];
+}
+
 /** Mesh data for 3D preview */
 
 export interface ObjectMesh {
