@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Position, type NodeProps, useReactFlow, useStore } from "@xyflow/react";
 import type {
   BrepImportResult,
   StockSettings,
@@ -15,16 +15,21 @@ export default function PlacementNode({ id, data }: NodeProps) {
   const [placements, setPlacements] = useState<PlacementItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { getNode, getEdges, setNodes } = useReactFlow();
+  const { setNodes } = useReactFlow();
 
-  // Read upstream data
-  const edges = getEdges();
-  const brepEdge = edges.find((e) => e.target === id && e.targetHandle === `${id}-brep`);
-  const stockEdge = edges.find((e) => e.target === id && e.targetHandle === `${id}-stock`);
-  const brepNode = brepEdge ? getNode(brepEdge.source) : null;
-  const stockNode = stockEdge ? getNode(stockEdge.source) : null;
-  const brepResult = brepNode?.data?.brepResult as BrepImportResult | undefined;
-  const stockSettings = stockNode?.data?.stockSettings as StockSettings | undefined;
+  // Subscribe to upstream nodes' data via useStore (re-renders when they change)
+  const brepSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
+    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-brep`);
+    if (!edge) return undefined;
+    return s.nodeLookup.get(edge.source)?.data?.brepResult as BrepImportResult | undefined;
+  }, [id]);
+  const stockSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
+    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-stock`);
+    if (!edge) return undefined;
+    return s.nodeLookup.get(edge.source)?.data?.stockSettings as StockSettings | undefined;
+  }, [id]);
+  const brepResult = useStore(brepSelector);
+  const stockSettings = useStore(stockSelector);
 
   const syncToNodeData = useCallback(
     (p: PlacementItem[], brep: BrepImportResult, stock: StockSettings) => {
@@ -63,6 +68,14 @@ export default function PlacementNode({ id, data }: NodeProps) {
     syncToNodeData(initial, brepResult, stockSettings);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brepResult, stockSettings]);
+
+  // Re-sync downstream when stock settings change (after initial setup)
+  useEffect(() => {
+    if (brepResult && stockSettings && placements.length > 0) {
+      syncToNodeData(placements, brepResult, stockSettings);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockSettings]);
 
   const handlePlacementsChange = useCallback(
     async (updated: PlacementItem[]) => {
@@ -116,15 +129,31 @@ export default function PlacementNode({ id, data }: NodeProps) {
       const p = placements[i];
       const obj = brepResult.objects.find((o) => o.object_id === p.object_id);
       if (!obj) continue;
-      const px = ox + p.x_offset * sc;
-      const py = h - oy - (p.y_offset + obj.bounding_box.y) * sc;
-      const pw = obj.bounding_box.x * sc;
-      const ph = obj.bounding_box.y * sc;
+
       ctx.fillStyle = `${colors[i % colors.length]}33`;
-      ctx.fillRect(px, py, pw, ph);
       ctx.strokeStyle = colors[i % colors.length];
       ctx.lineWidth = 1;
-      ctx.strokeRect(px, py, pw, ph);
+
+      if (obj.outline && obj.outline.length > 2) {
+        // Draw actual outline
+        ctx.beginPath();
+        const [x0, y0] = [ox + (p.x_offset + obj.outline[0][0]) * sc, h - oy - (p.y_offset + obj.outline[0][1]) * sc];
+        ctx.moveTo(x0, y0);
+        for (let j = 1; j < obj.outline.length; j++) {
+          ctx.lineTo(ox + (p.x_offset + obj.outline[j][0]) * sc, h - oy - (p.y_offset + obj.outline[j][1]) * sc);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Fallback: bounding box rectangle
+        const px = ox + p.x_offset * sc;
+        const py = h - oy - (p.y_offset + obj.bounding_box.y) * sc;
+        const pw = obj.bounding_box.x * sc;
+        const ph = obj.bounding_box.y * sc;
+        ctx.fillRect(px, py, pw, ph);
+        ctx.strokeRect(px, py, pw, ph);
+      }
     }
   }, [placements, brepResult, stockSettings]);
 

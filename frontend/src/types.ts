@@ -29,6 +29,7 @@ export interface BrepObject {
   is_planar: boolean;
   machining_type: string;
   faces_analysis: FacesAnalysis;
+  outline: [number, number][];  // bottom-face outline, relative to BB min
 }
 
 export interface BrepImportResult {

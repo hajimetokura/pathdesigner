@@ -81,24 +81,47 @@ export default function PlacementPanel({
       if (!obj) continue;
 
       const bb = obj.bounding_box;
-      const [px0, py0] = toCanvas(p.x_offset, p.y_offset);
-      const [px1, py1] = toCanvas(p.x_offset + bb.x, p.y_offset + bb.y);
-
       const isOut =
         p.x_offset + bb.x > stock.width ||
         p.y_offset + bb.y > stock.depth ||
         p.x_offset < 0 ||
         p.y_offset < 0;
 
-      ctx.fillStyle = isOut ? "rgba(229,57,53,0.15)" : `${colors[i % colors.length]}22`;
-      ctx.fillRect(px0, py1, px1 - px0, py0 - py1);
-      ctx.strokeStyle = isOut ? "#e53935" : colors[i % colors.length];
-      ctx.lineWidth = isOut ? 2 : 1.5;
-      ctx.strokeRect(px0, py1, px1 - px0, py0 - py1);
+      const fillColor = isOut ? "rgba(229,57,53,0.15)" : `${colors[i % colors.length]}22`;
+      const strokeColor = isOut ? "#e53935" : colors[i % colors.length];
+      const lineW = isOut ? 2 : 1.5;
 
+      if (obj.outline && obj.outline.length > 2) {
+        // Draw actual outline
+        ctx.beginPath();
+        const [cx0, cy0] = toCanvas(p.x_offset + obj.outline[0][0], p.y_offset + obj.outline[0][1]);
+        ctx.moveTo(cx0, cy0);
+        for (let j = 1; j < obj.outline.length; j++) {
+          const [cx, cy] = toCanvas(p.x_offset + obj.outline[j][0], p.y_offset + obj.outline[j][1]);
+          ctx.lineTo(cx, cy);
+        }
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = lineW;
+        ctx.stroke();
+      } else {
+        // Fallback: bounding box rectangle
+        const [px0, py0] = toCanvas(p.x_offset, p.y_offset);
+        const [px1, py1] = toCanvas(p.x_offset + bb.x, p.y_offset + bb.y);
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(px0, py1, px1 - px0, py0 - py1);
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = lineW;
+        ctx.strokeRect(px0, py1, px1 - px0, py0 - py1);
+      }
+
+      // Label
+      const [lx, ly] = toCanvas(p.x_offset, p.y_offset + bb.y);
       ctx.fillStyle = colors[i % colors.length];
       ctx.font = "bold 11px sans-serif";
-      ctx.fillText(p.object_id, px0 + 4, py1 + 14);
+      ctx.fillText(p.object_id, lx + 4, ly + 14);
     }
   }, [placements, objects, stock, toCanvas]);
 

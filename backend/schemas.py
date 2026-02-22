@@ -37,6 +37,7 @@ class BrepObject(BaseModel):
     is_planar: bool
     machining_type: str  # "2d" | "2.5d" | "double_sided" | "3d"
     faces_analysis: FacesAnalysis
+    outline: list[list[float]] = []  # [[x, y], ...] bottom-face outline, relative to BB min
 
 
 class BrepImportResult(BaseModel):

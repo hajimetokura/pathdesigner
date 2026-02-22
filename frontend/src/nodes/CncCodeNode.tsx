@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { Position, type NodeProps } from "@xyflow/react";
 import type { OutputResult } from "../types";
 import type { PanelTab } from "../components/SidePanel";
@@ -32,6 +32,18 @@ export default function CncCodeNode({ id, data }: NodeProps) {
       icon: "📄",
       content: <CncCodePanel outputResult={outputResult} onExport={handleExport} />,
     });
+  }, [id, outputResult, handleExport, openTab]);
+
+  // Auto-open panel when outputResult arrives
+  useEffect(() => {
+    if (outputResult && openTab) {
+      openTab({
+        id: `cnc-code-${id}`,
+        label: "CNC Code",
+        icon: "📄",
+        content: <CncCodePanel outputResult={outputResult} onExport={handleExport} />,
+      });
+    }
   }, [id, outputResult, handleExport, openTab]);
 
   return (
