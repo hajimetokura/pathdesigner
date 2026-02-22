@@ -8,6 +8,7 @@ from schemas import (
     OperationGeometry, DetectedOperation, OperationDetectResult,
     OperationAssignment, OperationEditResult,
     PostProcessorSettings,
+    ToolpathGenRequest, SbpGenRequest, ToolpathGenResult,
 )
 
 
@@ -115,3 +116,24 @@ def test_post_processor_no_material():
     settings = PostProcessorSettings()
     assert "material" not in PostProcessorSettings.model_fields
     assert settings.safe_z == 38.0
+
+
+def test_toolpath_gen_request_new_format():
+    """ToolpathGenRequest should accept operations + detected_operations + stock."""
+    req = ToolpathGenRequest(
+        operations=[],
+        detected_operations=OperationDetectResult(operations=[]),
+        stock=StockSettings(materials=[StockMaterial(material_id="mtl_1")]),
+    )
+    assert len(req.operations) == 0
+
+
+def test_sbp_gen_request_new_format():
+    """SbpGenRequest should accept stock instead of material in post_processor."""
+    req = SbpGenRequest(
+        toolpath_result=ToolpathGenResult(toolpaths=[]),
+        operations=[],
+        stock=StockSettings(materials=[StockMaterial(material_id="mtl_1")]),
+        post_processor=PostProcessorSettings(),
+    )
+    assert len(req.stock.materials) == 1

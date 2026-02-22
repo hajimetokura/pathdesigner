@@ -213,8 +213,9 @@ class Toolpath(BaseModel):
 
 
 class ToolpathGenRequest(BaseModel):
-    contour_result: ContourExtractResult
-    machining_settings: MachiningSettings
+    operations: list[OperationAssignment]
+    detected_operations: OperationDetectResult
+    stock: StockSettings
 
 
 class ToolpathGenResult(BaseModel):
@@ -223,7 +224,8 @@ class ToolpathGenResult(BaseModel):
 
 class SbpGenRequest(BaseModel):
     toolpath_result: ToolpathGenResult
-    machining_settings: MachiningSettings
+    operations: list[OperationAssignment]
+    stock: StockSettings
     post_processor: PostProcessorSettings
 
 
