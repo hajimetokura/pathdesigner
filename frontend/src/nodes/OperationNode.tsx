@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import { detectOperations } from "../api";
 import type {
@@ -8,6 +9,7 @@ import type {
   OperationAssignment,
 } from "../types";
 import LabeledHandle from "./LabeledHandle";
+import OperationDetailPanel from "../components/OperationDetailPanel";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -15,6 +17,8 @@ export default function OperationNode({ id }: NodeProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [detected, setDetected] = useState<OperationDetectResult | null>(null);
   const [assignments, setAssignments] = useState<OperationAssignment[]>([]);
+  const [stockSettings, setStockSettings] = useState<StockSettings | null>(null);
+  const [showPanel, setShowPanel] = useState(false);
   const [error, setError] = useState("");
   const { getNode, getEdges, setNodes } = useReactFlow();
 
@@ -56,7 +60,8 @@ export default function OperationNode({ id }: NodeProps) {
       (e) => e.target === id && e.targetHandle === `${id}-stock`
     );
     const stockNode = stockEdge ? getNode(stockEdge.source) : null;
-    const stockSettings = stockNode?.data?.stockSettings as StockSettings | undefined;
+    const upstreamStock = stockNode?.data?.stockSettings as StockSettings | undefined;
+    setStockSettings(upstreamStock ?? null);
 
     setStatus("loading");
     setError("");
@@ -67,7 +72,7 @@ export default function OperationNode({ id }: NodeProps) {
       setDetected(result);
 
       // Auto-create assignments
-      const defaultMaterialId = stockSettings?.materials?.[0]?.material_id ?? "mtl_1";
+      const defaultMaterialId = upstreamStock?.materials?.[0]?.material_id ?? "mtl_1";
       const newAssignments: OperationAssignment[] = result.operations.map((op, i) => ({
         operation_id: op.operation_id,
         material_id: defaultMaterialId,
@@ -94,6 +99,14 @@ export default function OperationNode({ id }: NodeProps) {
         if (detected) syncToNodeData(detected, updated);
         return updated;
       });
+    },
+    [detected, syncToNodeData]
+  );
+
+  const handleAssignmentsChange = useCallback(
+    (updated: OperationAssignment[]) => {
+      setAssignments(updated);
+      if (detected) syncToNodeData(detected, updated);
     },
     [detected, syncToNodeData]
   );
@@ -143,6 +156,13 @@ export default function OperationNode({ id }: NodeProps) {
             {detected.operations.length} detected / {enabledCount} enabled
           </div>
 
+          <button
+            onClick={() => setShowPanel(true)}
+            style={editButtonStyle}
+          >
+            Edit Settings
+          </button>
+
           {detected.operations.map((op) => {
             const assignment = assignments.find(
               (a) => a.operation_id === op.operation_id
@@ -177,6 +197,17 @@ export default function OperationNode({ id }: NodeProps) {
         label="operations"
         dataType="geometry"
       />
+
+      {showPanel && detected && createPortal(
+        <OperationDetailPanel
+          detectedOperations={detected}
+          assignments={assignments}
+          stockSettings={stockSettings}
+          onAssignmentsChange={handleAssignmentsChange}
+          onClose={() => setShowPanel(false)}
+        />,
+        document.body
+      )}
     </div>
   );
 }
@@ -215,6 +246,19 @@ const buttonStyle: React.CSSProperties = {
 const resultStyle: React.CSSProperties = {
   marginTop: 8,
   fontSize: 12,
+};
+
+const editButtonStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "6px 10px",
+  border: "1px solid #ccc",
+  borderRadius: 6,
+  background: "#f5f5f5",
+  color: "#333",
+  cursor: "pointer",
+  fontSize: 11,
+  fontWeight: 600,
+  marginBottom: 4,
 };
 
 const opRowStyle: React.CSSProperties = {
