@@ -72,6 +72,23 @@ class ContourExtractResult(BaseModel):
     offset_applied: OffsetApplied
 
 
+# --- Node 2b: Stock Settings ---
+
+
+class StockMaterial(BaseModel):
+    material_id: str
+    label: str = ""
+    width: float = 600        # mm (X)
+    depth: float = 400        # mm (Y)
+    thickness: float = 18     # mm (Z)
+    x_position: float = 0     # position on CNC bed
+    y_position: float = 0
+
+
+class StockSettings(BaseModel):
+    materials: list[StockMaterial]
+
+
 # --- Node 3: Machining Settings ---
 
 
