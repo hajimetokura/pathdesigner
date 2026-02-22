@@ -13,7 +13,7 @@ from schemas import (
     ToolpathGenResult,
     PostProcessorSettings,
     SbpGenRequest,
-    SbpGenResult,
+    OutputResult,
     ContourExtractResult,
     MachiningSettings,
     Contour,
@@ -85,8 +85,9 @@ def test_post_processor_settings_defaults():
     assert pp.warmup_pause == 2
 
 
-def test_sbp_gen_result():
-    """SbpGenResult should contain code and filename."""
-    r = SbpGenResult(sbp_code="SA\nEND", filename="part.sbp")
-    assert "SA" in r.sbp_code
+def test_output_result():
+    """OutputResult should contain code, filename, and format."""
+    r = OutputResult(code="SA\nEND", filename="part.sbp", format="sbp")
+    assert "SA" in r.code
     assert r.filename.endswith(".sbp")
+    assert r.format == "sbp"

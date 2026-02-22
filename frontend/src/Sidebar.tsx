@@ -4,6 +4,8 @@ const nodeItems = [
   { type: "operation", label: "Operation", color: "#7b61ff" },
   { type: "postProcessor", label: "Post Processor", color: "#66bb6a" },
   { type: "toolpathGen", label: "Toolpath Gen", color: "#ef5350" },
+  { type: "cncCode", label: "CNC Code", color: "#66bb6a" },
+  { type: "toolpathPreview", label: "Toolpath Preview", color: "#00bcd4" },
   { type: "debug", label: "Debug", color: "#4fc3f7" },
 ] as const;
 
