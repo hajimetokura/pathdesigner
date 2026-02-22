@@ -17,6 +17,8 @@ import StockNode from "./nodes/StockNode";
 import OperationNode from "./nodes/OperationNode";
 import PostProcessorNode from "./nodes/PostProcessorNode";
 import ToolpathGenNode from "./nodes/ToolpathGenNode";
+import CncCodeNode from "./nodes/CncCodeNode";
+import ToolpathPreviewNode from "./nodes/ToolpathPreviewNode";
 import DebugNode from "./nodes/DebugNode";
 import Sidebar from "./Sidebar";
 
@@ -26,7 +28,8 @@ const initialNodes = [
   { id: "3", type: "operation", position: { x: 100, y: 350 }, data: {} },
   { id: "5", type: "postProcessor", position: { x: 400, y: 350 }, data: {} },
   { id: "6", type: "toolpathGen", position: { x: 250, y: 600 }, data: {} },
-  { id: "7", type: "default", position: { x: 250, y: 800 }, data: { label: "Preview" } },
+  { id: "7", type: "cncCode", position: { x: 150, y: 800 }, data: {} },
+  { id: "8", type: "toolpathPreview", position: { x: 400, y: 800 }, data: {} },
 ];
 
 const initialEdges = [
@@ -34,7 +37,8 @@ const initialEdges = [
   { id: "e2-3", source: "2", sourceHandle: "2-out", target: "3", targetHandle: "3-stock" },
   { id: "e3-6", source: "3", sourceHandle: "3-out", target: "6", targetHandle: "6-operations" },
   { id: "e5-6", source: "5", sourceHandle: "5-out", target: "6", targetHandle: "6-postprocessor" },
-  { id: "e6-7", source: "6", sourceHandle: "6-out", target: "7" },
+  { id: "e6-7", source: "6", sourceHandle: "6-output", target: "7", targetHandle: "7-in" },
+  { id: "e6-8", source: "6", sourceHandle: "6-toolpath", target: "8", targetHandle: "8-in" },
 ];
 
 const API_URL = "http://localhost:8000";
@@ -47,6 +51,8 @@ const nodeTypes = {
   operation: OperationNode,
   postProcessor: PostProcessorNode,
   toolpathGen: ToolpathGenNode,
+  cncCode: CncCodeNode,
+  toolpathPreview: ToolpathPreviewNode,
   debug: DebugNode,
 };
 
