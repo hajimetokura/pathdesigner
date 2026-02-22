@@ -66,7 +66,7 @@ def generate_toolpath_from_operations(
     as the cutting depth (to cut through the entire stock).
 
     Coordinate transform: model_space → stock_space
-      1. Rotate around BB center (if rotation != 0)
+      1. Rotate around contour geometric center (if rotation != 0)
       2. Translate: stock_coord = (model_coord - origin) + placement_offset
     """
     # Build lookup: operation_id → DetectedOperation
@@ -77,9 +77,6 @@ def generate_toolpath_from_operations(
     plc_lookup = {p.object_id: p for p in (placements or [])}
     # Build lookup: object_id → (origin_x, origin_y)
     ori_lookup = object_origins or {}
-    # Build lookup: object_id → BoundingBox
-    bb_lookup = bounding_boxes or {}
-
     toolpaths: list[Toolpath] = []
 
     for assignment in sorted(assignments, key=lambda a: a.order):
@@ -104,10 +101,11 @@ def generate_toolpath_from_operations(
         dx = -origin_x + place_x
         dy = -origin_y + place_y
 
-        # Get BB center for rotation pivot (in model space, relative to origin)
-        bb = bb_lookup.get(detected_op.object_id)
-        rot_cx = bb.x / 2 if bb else 0.0
-        rot_cy = bb.y / 2 if bb else 0.0
+        # Compute rotation pivot: geometric center of all contours (world space)
+        all_cx = [c[0] for ct in detected_op.geometry.contours for c in ct.coords]
+        all_cy = [c[1] for ct in detected_op.geometry.contours for c in ct.coords]
+        rot_cx = (min(all_cx) + max(all_cx)) / 2 if all_cx else 0.0
+        rot_cy = (min(all_cy) + max(all_cy)) / 2 if all_cy else 0.0
 
         # For contour operations, cut through entire stock
         if detected_op.operation_type == "contour":

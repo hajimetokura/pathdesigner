@@ -400,6 +400,79 @@ def test_rotation_90_transforms_coords():
     assert (max(ys) - min(ys)) > 90  # was 50, now ~100
 
 
+def test_rotation_with_world_space_coords():
+    """Rotation must work for contours in world-space (not BB-min-relative).
+
+    In real usage, contour_extract produces world-space coords (e.g. centered box
+    has coords from -50 to 50), and objectOrigins provides bb.min for offset.
+    The rotation center must be the geometric center of the contour, not (0,0)
+    or (bb.x/2, bb.y/2).
+    """
+    # Simulate a Box(100, 50, 10) at position (200, 100) in world space
+    # (e.g. 2nd object in a multi-object STEP file)
+    contour = Contour(
+        id="c_001", type="exterior",
+        coords=[[150, 75], [250, 75], [250, 125], [150, 125], [150, 75]], closed=True,
+    )
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_001",
+                object_id="obj_001",
+                operation_type="contour",
+                geometry=OperationGeometry(
+                    contours=[contour],
+                    offset_applied=OffsetApplied(distance=3.175, side="outside"),
+                    depth=10.0,
+                ),
+                suggested_settings=_make_settings(10.0),
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_001",
+            material_id="mtl_1",
+            settings=_make_settings(10.0),
+            order=1,
+        )
+    ]
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    )
+    # origin = bb.min = (150, 75), placement at (10, 10)
+    object_origins = {"obj_001": [150.0, 75.0]}
+
+    # Without rotation: should map to (10, 10) → (110, 60)
+    result_no_rot = generate_toolpath_from_operations(
+        assignments, detected, stock,
+        [PlacementItem(object_id="obj_001", material_id="mtl_1", x_offset=10, y_offset=10, rotation=0)],
+        object_origins=object_origins,
+    )
+    path_no_rot = result_no_rot.toolpaths[0].passes[0].path
+    assert path_no_rot[0][0] == 10.0  # min-X maps to x_offset
+    assert path_no_rot[0][1] == 10.0  # min-Y maps to y_offset
+
+    # With 90° rotation: rotated 100x50 becomes 50x100
+    # The part should still be near placement offset, not fly off to negative coords
+    result_with_rot = generate_toolpath_from_operations(
+        assignments, detected, stock,
+        [PlacementItem(object_id="obj_001", material_id="mtl_1", x_offset=10, y_offset=10, rotation=90)],
+        object_origins=object_origins,
+    )
+    path_with_rot = result_with_rot.toolpaths[0].passes[0].path
+    xs = [p[0] for p in path_with_rot]
+    ys = [p[1] for p in path_with_rot]
+
+    # After rotation, all coords should be near the placement area, not negative
+    assert min(xs) >= -30, f"X went too negative: {min(xs)} (rotation center is wrong)"
+    assert min(ys) >= -30, f"Y went too negative: {min(ys)} (rotation center is wrong)"
+
+    # Width and height should swap: ~50 wide, ~100 tall (was 100x50)
+    assert (max(xs) - min(xs)) < 60, f"Width should be ~50, got {max(xs) - min(xs)}"
+    assert (max(ys) - min(ys)) > 90, f"Height should be ~100, got {max(ys) - min(ys)}"
+
+
 def test_rotation_0_no_change():
     """0-degree rotation should not modify coordinates."""
     contour = Contour(
