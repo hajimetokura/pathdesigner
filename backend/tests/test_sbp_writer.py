@@ -157,3 +157,41 @@ def test_sbp_with_tabs():
     # The tab section should have z_tab=10.0 instead of -0.3
     assert "M3,50.0,0.0,10.0" in code
     assert "M3,100.0,0.0,10.0" in code
+
+
+def test_sbp_writer_with_stock():
+    """SBP output should include stock material metadata."""
+    stock = StockSettings(
+        materials=[StockMaterial(material_id="mtl_1", width=600, depth=400, thickness=18)]
+    )
+    toolpaths = [
+        Toolpath(
+            operation_id="op_001",
+            passes=[
+                ToolpathPass(
+                    pass_number=1,
+                    z_depth=12.0,
+                    path=[[0, 0], [100, 0], [100, 50], [0, 50], [0, 0]],
+                    tabs=[],
+                )
+            ],
+        )
+    ]
+
+    writer = SbpWriter(
+        settings=PP_SETTINGS,
+        machining=MACHINING,
+        stock=stock,
+    )
+    sbp = writer.generate(toolpaths)
+
+    assert "'SHOPBOT ROUTER FILE IN MM" in sbp
+    assert "mtl_1" in sbp
+    assert "600" in sbp
+    assert "TR,18000" in sbp
+
+
+def test_sbp_writer_no_material_in_post_processor():
+    """SBP writer should NOT reference material from PostProcessorSettings."""
+    post = PostProcessorSettings()
+    assert not hasattr(post, "material") or "material" not in post.model_fields
