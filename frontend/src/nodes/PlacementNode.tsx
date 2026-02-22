@@ -135,10 +135,14 @@ export default function PlacementNode({ id, data }: NodeProps) {
     ctx.lineWidth = 0.5;
     ctx.strokeRect(ox, h - oy - stock.depth * sc, stock.width * sc, stock.depth * sc);
 
-    // Parts
+    // Filter placements by active stock
+    const activePlacements = placements.filter((p) => p.stock_id === activeStockId);
+    const stockIds = [...new Set(placements.map((p) => p.stock_id))].sort();
+
+    // Parts (only active stock)
     const colors = ["#4a90d9", "#7b61ff", "#43a047", "#ef5350"];
-    for (let i = 0; i < placements.length; i++) {
-      const p = placements[i];
+    for (let i = 0; i < activePlacements.length; i++) {
+      const p = activePlacements[i];
       const obj = brepResult.objects.find((o) => o.object_id === p.object_id);
       if (!obj) continue;
 
@@ -189,7 +193,18 @@ export default function PlacementNode({ id, data }: NodeProps) {
         ctx.stroke();
       }
     }
-  }, [placements, brepResult, stockSettings]);
+
+    // Stock indicator (top-right)
+    if (stockIds.length > 1) {
+      const stockIndex = stockIds.indexOf(activeStockId) + 1;
+      const label = `${stockIndex}/${stockIds.length}`;
+      ctx.fillStyle = "#666";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(label, w - 6, 12);
+      ctx.textAlign = "left";
+    }
+  }, [placements, brepResult, stockSettings, activeStockId]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -254,7 +269,7 @@ export default function PlacementNode({ id, data }: NodeProps) {
             onClick={handleOpenPanel}
           />
           <div style={hintStyle}>
-            {placements.length} part{placements.length > 1 ? "s" : ""} — Click to edit
+            {placements.filter((p) => p.stock_id === activeStockId).length} part{placements.filter((p) => p.stock_id === activeStockId).length > 1 ? "s" : ""} — Click to edit
           </div>
           {warnings.length > 0 && (
             <div style={{ color: "#e65100", fontSize: 10, padding: "4px 0" }}>
