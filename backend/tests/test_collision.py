@@ -145,3 +145,43 @@ def test_single_placement_no_collision():
     data = resp.json()
     collision_warnings = [w for w in data["warnings"] if "衝突" in w.lower() or "collision" in w.lower()]
     assert len(collision_warnings) == 0
+
+
+def test_different_stocks_no_collision():
+    """Parts on different stocks should not collide even at the same position."""
+    placements = [
+        {"object_id": "obj_001", "material_id": "mtl_1", "stock_id": "stock_1",
+         "x_offset": 10, "y_offset": 10, "rotation": 0},
+        {"object_id": "obj_002", "material_id": "mtl_1", "stock_id": "stock_2",
+         "x_offset": 10, "y_offset": 10, "rotation": 0},
+    ]
+    bbs = {
+        "obj_001": {"x": 100, "y": 50, "z": 10},
+        "obj_002": {"x": 100, "y": 50, "z": 10},
+    }
+    resp = _make_request(placements, bbs)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["valid"] is True
+    collision_warnings = [w for w in data["warnings"] if "衝突" in w.lower() or "collision" in w.lower()]
+    assert len(collision_warnings) == 0
+
+
+def test_same_stock_collision():
+    """Parts on the same stock at same position should collide."""
+    placements = [
+        {"object_id": "obj_001", "material_id": "mtl_1", "stock_id": "stock_1",
+         "x_offset": 10, "y_offset": 10, "rotation": 0},
+        {"object_id": "obj_002", "material_id": "mtl_1", "stock_id": "stock_1",
+         "x_offset": 10, "y_offset": 10, "rotation": 0},
+    ]
+    bbs = {
+        "obj_001": {"x": 100, "y": 50, "z": 10},
+        "obj_002": {"x": 100, "y": 50, "z": 10},
+    }
+    resp = _make_request(placements, bbs)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["valid"] is False
+    collision_warnings = [w for w in data["warnings"] if "衝突" in w.lower() or "collision" in w.lower()]
+    assert len(collision_warnings) >= 1

@@ -1,9 +1,12 @@
+import io
 import uuid
+import zipfile
 from pathlib import Path
 
 import yaml
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from pydantic import BaseModel as PydanticBaseModel
 
@@ -23,6 +26,7 @@ from schemas import (
     MeshDataRequest, MeshDataResult, ObjectMesh,
     PlacementItem, ValidatePlacementRequest, ValidatePlacementResponse,
     AutoNestingRequest, AutoNestingResponse,
+    SbpZipRequest,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -286,9 +290,10 @@ def validate_placement_endpoint(req: ValidatePlacementRequest):
         if stock and bb:
             all_warnings.extend(_validate_placement(p, stock, bb))
 
-    # 2. Collision check between all pairs
+    # 2. Collision check between pairs on the same stock
     if len(req.placements) >= 2:
-        polygons: dict[str, Polygon] = {}
+        # Build polygon per placement
+        placement_polys: list[tuple[PlacementItem, Polygon]] = []
         for p in req.placements:
             bb = req.bounding_boxes.get(p.object_id)
             if not bb:
@@ -310,17 +315,68 @@ def validate_placement_endpoint(req: ValidatePlacementRequest):
 
             # Translate to placement position
             poly = translate(poly, p.x_offset, p.y_offset)
-            polygons[p.object_id] = poly
+            placement_polys.append((p, poly))
 
-        ids = list(polygons.keys())
-        for i in range(len(ids)):
-            for j in range(i + 1, len(ids)):
-                if polygons[ids[i]].intersects(polygons[ids[j]]):
-                    all_warnings.append(
-                        f"衝突: {ids[i]} と {ids[j]} が重なっています"
-                    )
+        # Group by stock_id and check collisions within each group
+        from itertools import groupby
+        sorted_by_stock = sorted(placement_polys, key=lambda x: x[0].stock_id)
+        for _stock_id, group in groupby(sorted_by_stock, key=lambda x: x[0].stock_id):
+            items = list(group)
+            for i in range(len(items)):
+                for j in range(i + 1, len(items)):
+                    if items[i][1].intersects(items[j][1]):
+                        all_warnings.append(
+                            f"衝突: {items[i][0].object_id} と {items[j][0].object_id} が重なっています"
+                        )
 
     return ValidatePlacementResponse(
         valid=len(all_warnings) == 0,
         warnings=all_warnings,
+    )
+
+
+@app.post("/api/generate-sbp-zip")
+def generate_sbp_zip_endpoint(req: SbpZipRequest):
+    """Generate SBP files for all stocks and return as ZIP."""
+    # Group placements by stock_id
+    stock_groups: dict[str, list[PlacementItem]] = {}
+    for p in req.placements:
+        stock_groups.setdefault(p.stock_id, []).append(p)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for stock_id in sorted(stock_groups.keys()):
+            stock_placements = stock_groups[stock_id]
+            stock_object_ids = {p.object_id for p in stock_placements}
+
+            # Filter assignments for this stock
+            op_to_obj = {
+                op.operation_id: op.object_id
+                for op in req.detected_operations.operations
+            }
+            filtered_ops = [
+                a for a in req.operations
+                if op_to_obj.get(a.operation_id) in stock_object_ids
+            ]
+            if not filtered_ops:
+                continue
+
+            # Generate toolpath for this stock
+            tp_result = generate_toolpath_from_operations(
+                filtered_ops, req.detected_operations, req.stock,
+                stock_placements, req.object_origins, req.bounding_boxes,
+            )
+
+            # Generate SBP
+            machining = filtered_ops[0].settings
+            writer = SbpWriter(req.post_processor, machining, req.stock)
+            sbp_code = writer.generate(tp_result.toolpaths)
+
+            zf.writestr(f"{stock_id}.sbp", sbp_code)
+
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=pathdesigner_stocks.zip"},
     )
