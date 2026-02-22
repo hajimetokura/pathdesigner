@@ -207,6 +207,7 @@ export interface OutputResult {
 export interface PlacementItem {
   object_id: string;
   material_id: string;
+  stock_id: string;
   x_offset: number;
   y_offset: number;
   rotation: number;

@@ -268,6 +268,7 @@ class MeshDataResult(BaseModel):
 class PlacementItem(BaseModel):
     object_id: str
     material_id: str
+    stock_id: str = "stock_1"  # physical sheet identifier
     x_offset: float = 0       # mm, position on stock
     y_offset: float = 0
     rotation: int = 0          # degrees, 0/45/90/135/180/225/270/315
