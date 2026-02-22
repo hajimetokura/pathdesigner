@@ -22,6 +22,7 @@ from schemas import (
     StockSettings, StockMaterial, BoundingBox,
     MeshDataRequest, MeshDataResult, ObjectMesh,
     PlacementItem, ValidatePlacementRequest, ValidatePlacementResponse,
+    AutoNestingRequest, AutoNestingResponse,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -217,6 +218,31 @@ def mesh_data_endpoint(req: MeshDataRequest):
 
     objects = [ObjectMesh(**m) for m in raw_meshes]
     return MeshDataResult(objects=objects)
+
+
+@app.post("/api/auto-nesting", response_model=AutoNestingResponse)
+def auto_nesting_endpoint(req: AutoNestingRequest):
+    """Run BLF auto-nesting to distribute parts across stock sheets."""
+    from nodes.nesting import auto_nesting
+
+    placements = auto_nesting(
+        req.objects, req.stock, req.tool_diameter, req.clearance,
+    )
+    stock_ids = set(p.stock_id for p in placements)
+    # Warn about parts that don't fit
+    warnings = []
+    for p in placements:
+        obj = next((o for o in req.objects if o.object_id == p.object_id), None)
+        if obj and p.x_offset == 0 and p.y_offset == 0 and p.rotation == 0:
+            bb = obj.bounding_box
+            tmpl = req.stock.materials[0] if req.stock.materials else None
+            if tmpl and (bb.x > tmpl.width or bb.y > tmpl.depth):
+                warnings.append(f"{p.object_id}: ストックに収まりません")
+    return AutoNestingResponse(
+        placements=placements,
+        stock_count=len(stock_ids),
+        warnings=warnings,
+    )
 
 
 def _validate_placement(
