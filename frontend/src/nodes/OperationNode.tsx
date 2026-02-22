@@ -23,11 +23,11 @@ export default function OperationNode({ id }: NodeProps) {
   const { getNode, getEdges, setNodes } = useReactFlow();
 
   const syncToNodeData = useCallback(
-    (det: OperationDetectResult, assign: OperationAssignment[]) => {
+    (det: OperationDetectResult, assign: OperationAssignment[], stock: StockSettings | null) => {
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign } }
+            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, stockSettings: stock } }
             : n
         )
       );
@@ -82,7 +82,7 @@ export default function OperationNode({ id }: NodeProps) {
       }));
       setAssignments(newAssignments);
 
-      syncToNodeData(result, newAssignments);
+      syncToNodeData(result, newAssignments, upstreamStock ?? null);
       setStatus("success");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Detection failed");
@@ -96,19 +96,19 @@ export default function OperationNode({ id }: NodeProps) {
         const updated = prev.map((a) =>
           a.operation_id === opId ? { ...a, enabled: !a.enabled } : a
         );
-        if (detected) syncToNodeData(detected, updated);
+        if (detected) syncToNodeData(detected, updated, stockSettings);
         return updated;
       });
     },
-    [detected, syncToNodeData]
+    [detected, stockSettings, syncToNodeData]
   );
 
   const handleAssignmentsChange = useCallback(
     (updated: OperationAssignment[]) => {
       setAssignments(updated);
-      if (detected) syncToNodeData(detected, updated);
+      if (detected) syncToNodeData(detected, updated, stockSettings);
     },
-    [detected, syncToNodeData]
+    [detected, stockSettings, syncToNodeData]
   );
 
   const enabledCount = assignments.filter((a) => a.enabled).length;

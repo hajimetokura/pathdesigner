@@ -45,17 +45,8 @@ export default function ToolpathGenNode({ id }: NodeProps) {
       return;
     }
 
-    // 2. Find stock settings from StockNode
-    const stockEdge = edges.find(
-      (e) => e.target === id && e.targetHandle === `${id}-stock`
-    );
-    if (!stockEdge) {
-      setError("Connect Stock node first");
-      setStatus("error");
-      return;
-    }
-    const stockNode = getNode(stockEdge.source);
-    const stockSettings = stockNode?.data?.stockSettings as
+    // 2. Get stock settings from OperationNode (passed through)
+    const stockSettings = opsNode?.data?.stockSettings as
       | StockSettings
       | undefined;
     if (!stockSettings || stockSettings.materials.length === 0) {
@@ -140,16 +131,7 @@ export default function ToolpathGenNode({ id }: NodeProps) {
         label="operations"
         dataType="geometry"
         index={0}
-        total={3}
-      />
-      <LabeledHandle
-        type="target"
-        position={Position.Top}
-        id={`${id}-stock`}
-        label="stock"
-        dataType="settings"
-        index={1}
-        total={3}
+        total={2}
       />
       <LabeledHandle
         type="target"
@@ -157,8 +139,8 @@ export default function ToolpathGenNode({ id }: NodeProps) {
         id={`${id}-postprocessor`}
         label="post proc"
         dataType="settings"
-        index={2}
-        total={3}
+        index={1}
+        total={2}
       />
 
       <div style={headerStyle}>Toolpath Gen</div>

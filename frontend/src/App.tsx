@@ -33,7 +33,6 @@ const initialEdges = [
   { id: "e1-3", source: "1", sourceHandle: "1-out", target: "3", targetHandle: "3-brep" },
   { id: "e2-3", source: "2", sourceHandle: "2-out", target: "3", targetHandle: "3-stock" },
   { id: "e3-6", source: "3", sourceHandle: "3-out", target: "6", targetHandle: "6-operations" },
-  { id: "e2-6", source: "2", sourceHandle: "2-out", target: "6", targetHandle: "6-stock" },
   { id: "e5-6", source: "5", sourceHandle: "5-out", target: "6", targetHandle: "6-postprocessor" },
   { id: "e6-7", source: "6", sourceHandle: "6-out", target: "7" },
 ];
