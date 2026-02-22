@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Position, type NodeProps, useReactFlow, useStore } from "@xyflow/react";
 import { detectOperations } from "../api";
 import type {
-  BrepImportResult,
   BrepObject,
   StockSettings,
   OperationDetectResult,
@@ -15,15 +14,32 @@ import OperationDetailPanel from "../components/OperationDetailPanel";
 
 type Status = "idle" | "loading" | "success" | "error";
 
+interface UpstreamData {
+  placementResult: { placements: PlacementItem[]; stock: StockSettings; objects: BrepObject[] };
+  fileId: string;
+}
+
 export default function OperationNode({ id, data }: NodeProps) {
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
   const [status, setStatus] = useState<Status>("idle");
   const [detected, setDetected] = useState<OperationDetectResult | null>(null);
   const [assignments, setAssignments] = useState<OperationAssignment[]>([]);
-  const [stockSettings, setStockSettings] = useState<StockSettings | null>(null);
-  const [placements, setPlacements] = useState<PlacementItem[]>([]);
   const [error, setError] = useState("");
-  const { getNode, getEdges, setNodes } = useReactFlow();
+  const { setNodes } = useReactFlow();
+  const lastFileIdRef = useRef<string | null>(null);
+
+  // Subscribe to upstream PlacementNode data via useStore (reactive)
+  const upstreamSelector = useMemo(() => (s: { edges: { target: string; targetHandle?: string | null; source: string }[]; nodeLookup: Map<string, { data: Record<string, unknown> }> }) => {
+    const edge = s.edges.find((e) => e.target === id && e.targetHandle === `${id}-brep`);
+    if (!edge) return undefined;
+    const node = s.nodeLookup.get(edge.source);
+    if (!node?.data) return undefined;
+    const placementResult = node.data.placementResult as UpstreamData["placementResult"] | undefined;
+    const fileId = node.data.fileId as string | undefined;
+    if (!placementResult || !fileId) return undefined;
+    return { placementResult, fileId } as UpstreamData;
+  }, [id]);
+  const upstream = useStore(upstreamSelector);
 
   const syncToNodeData = useCallback(
     (det: OperationDetectResult, assign: OperationAssignment[], stock: StockSettings | null, plc: PlacementItem[]) => {
@@ -38,73 +54,56 @@ export default function OperationNode({ id, data }: NodeProps) {
     [id, setNodes]
   );
 
-  const handleDetect = useCallback(async () => {
-    const edges = getEdges();
+  // Auto-detect operations when upstream data changes
+  useEffect(() => {
+    if (!upstream) return;
+    const { placementResult, fileId } = upstream;
+    // Skip if fileId hasn't changed (avoid re-detect on assignment edits)
+    if (lastFileIdRef.current === fileId && detected) return;
+    lastFileIdRef.current = fileId;
 
-    // Find upstream PlacementNode
-    const placementEdge = edges.find(
-      (e) => e.target === id && e.targetHandle === `${id}-brep`
-    );
-    if (!placementEdge) {
-      setError("Connect Placement node first");
-      setStatus("error");
-      return;
-    }
-    const upstreamNode = getNode(placementEdge.source);
+    const { placements: upstreamPlacements, stock: upstreamStock, objects } = placementResult;
+    const objectIds = objects.map((o) => o.object_id);
 
-    const placementResult = upstreamNode?.data?.placementResult as
-      | { placements: PlacementItem[]; stock: StockSettings; objects: BrepObject[] }
-      | undefined;
-
-    if (!placementResult) {
-      setError("Run Placement first (connect BREP + Stock)");
-      setStatus("error");
-      return;
-    }
-
-    const brepResult: BrepImportResult = {
-      file_id: (upstreamNode?.data as Record<string, unknown>)?.fileId as string ?? "",
-      objects: placementResult.objects,
-      object_count: placementResult.objects.length,
-    } as BrepImportResult;
-    const upstreamStock: StockSettings = placementResult.stock;
-    const upstreamPlacements: PlacementItem[] = placementResult.placements;
-
-    const fileId = (upstreamNode?.data?.fileId as string) ?? brepResult.file_id;
-    if (!fileId) {
-      setError("Upload a STEP file first");
-      setStatus("error");
-      return;
-    }
-
-    setStockSettings(upstreamStock);
-    setPlacements(upstreamPlacements);
+    let cancelled = false;
     setStatus("loading");
     setError("");
 
-    try {
-      const objectIds = brepResult.objects.map((o) => o.object_id);
-      const result = await detectOperations(fileId, objectIds);
-      setDetected(result);
+    (async () => {
+      try {
+        const result = await detectOperations(fileId, objectIds);
+        if (cancelled) return;
+        setDetected(result);
 
-      // Auto-create assignments
-      const defaultMaterialId = upstreamStock?.materials?.[0]?.material_id ?? "mtl_1";
-      const newAssignments: OperationAssignment[] = result.operations.map((op, i) => ({
-        operation_id: op.operation_id,
-        material_id: defaultMaterialId,
-        enabled: op.enabled,
-        settings: op.suggested_settings,
-        order: i + 1,
-      }));
-      setAssignments(newAssignments);
+        const defaultMaterialId = upstreamStock?.materials?.[0]?.material_id ?? "mtl_1";
+        const newAssignments: OperationAssignment[] = result.operations.map((op, i) => ({
+          operation_id: op.operation_id,
+          material_id: defaultMaterialId,
+          enabled: op.enabled,
+          settings: op.suggested_settings,
+          order: i + 1,
+        }));
+        setAssignments(newAssignments);
+        syncToNodeData(result, newAssignments, upstreamStock, upstreamPlacements);
+        setStatus("success");
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Detection failed");
+        setStatus("error");
+      }
+    })();
 
-      syncToNodeData(result, newAssignments, upstreamStock, upstreamPlacements);
-      setStatus("success");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Detection failed");
-      setStatus("error");
-    }
-  }, [id, getNode, getEdges, syncToNodeData]);
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [upstream?.fileId]);
+
+  // Re-sync downstream when upstream placements/stock change (without re-detecting)
+  useEffect(() => {
+    if (!upstream || !detected) return;
+    const { placements: upstreamPlacements, stock: upstreamStock } = upstream.placementResult;
+    syncToNodeData(detected, assignments, upstreamStock, upstreamPlacements);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [upstream?.placementResult]);
 
   const handleToggleOp = useCallback(
     (opId: string) => {
@@ -112,19 +111,23 @@ export default function OperationNode({ id, data }: NodeProps) {
         const updated = prev.map((a) =>
           a.operation_id === opId ? { ...a, enabled: !a.enabled } : a
         );
-        if (detected) syncToNodeData(detected, updated, stockSettings, placements);
+        if (detected && upstream) {
+          syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements);
+        }
         return updated;
       });
     },
-    [detected, stockSettings, placements, syncToNodeData]
+    [detected, upstream, syncToNodeData]
   );
 
   const handleAssignmentsChange = useCallback(
     (updated: OperationAssignment[]) => {
       setAssignments(updated);
-      if (detected) syncToNodeData(detected, updated, stockSettings, placements);
+      if (detected && upstream) {
+        syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements);
+      }
     },
-    [detected, stockSettings, placements, syncToNodeData]
+    [detected, upstream, syncToNodeData]
   );
 
   const enabledCount = assignments.filter((a) => a.enabled).length;
@@ -134,17 +137,17 @@ export default function OperationNode({ id, data }: NodeProps) {
     openTab({
       id: `operations-${id}`,
       label: "Operations",
-      icon: "⚙",
+      icon: "\u2699",
       content: (
         <OperationDetailPanel
           detectedOperations={detected}
           assignments={assignments}
-          stockSettings={stockSettings}
+          stockSettings={upstream?.placementResult.stock ?? null}
           onAssignmentsChange={handleAssignmentsChange}
         />
       ),
     });
-  }, [id, detected, assignments, stockSettings, handleAssignmentsChange, openTab]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab]);
 
   // Update tab content when assignments change
   useEffect(() => {
@@ -152,18 +155,18 @@ export default function OperationNode({ id, data }: NodeProps) {
       openTab({
         id: `operations-${id}`,
         label: "Operations",
-        icon: "⚙",
+        icon: "\u2699",
         content: (
           <OperationDetailPanel
             detectedOperations={detected}
             assignments={assignments}
-            stockSettings={stockSettings}
+            stockSettings={upstream?.placementResult.stock ?? null}
             onAssignmentsChange={handleAssignmentsChange}
           />
         ),
       });
     }
-  }, [id, detected, assignments, stockSettings, handleAssignmentsChange, openTab]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab]);
 
   return (
     <div style={nodeStyle}>
@@ -177,18 +180,21 @@ export default function OperationNode({ id, data }: NodeProps) {
 
       <div style={headerStyle}>Operation</div>
 
-      <button
-        onClick={handleDetect}
-        disabled={status === "loading"}
-        style={buttonStyle}
-      >
-        {status === "loading" ? "Detecting..." : "Detect Operations"}
-      </button>
+      {status === "loading" && (
+        <div style={spinnerContainerStyle}>
+          <div style={spinnerStyle} />
+          <span style={{ fontSize: 11, color: "#888" }}>Detecting...</span>
+        </div>
+      )}
 
       {status === "error" && (
         <div style={{ color: "#d32f2f", fontSize: 11, padding: "4px 0" }}>
           {error}
         </div>
+      )}
+
+      {!upstream && status !== "loading" && (
+        <div style={{ color: "#999", fontSize: 11 }}>Connect Placement node</div>
       )}
 
       {status === "success" && detected && (
@@ -260,18 +266,6 @@ const headerStyle: React.CSSProperties = {
   color: "#333",
 };
 
-const buttonStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 12px",
-  border: "1px solid #7b61ff",
-  borderRadius: 6,
-  background: "#7b61ff",
-  color: "white",
-  cursor: "pointer",
-  fontSize: 12,
-  fontWeight: 600,
-};
-
 const resultStyle: React.CSSProperties = {
   marginTop: 8,
   fontSize: 12,
@@ -300,4 +294,20 @@ const opRowStyle: React.CSSProperties = {
   marginTop: 3,
   cursor: "pointer",
   userSelect: "none",
+};
+
+const spinnerContainerStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "8px 0",
+};
+
+const spinnerStyle: React.CSSProperties = {
+  width: 16,
+  height: 16,
+  border: "2px solid #eee",
+  borderTopColor: "#7b61ff",
+  borderRadius: "50%",
+  animation: "spin 0.8s linear infinite",
 };
