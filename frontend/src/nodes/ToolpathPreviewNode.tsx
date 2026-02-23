@@ -5,6 +5,7 @@ import LabeledHandle from "./LabeledHandle";
 import type { PanelTab } from "../components/SidePanel";
 import ToolpathPreviewPanel from "../components/ToolpathPreviewPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
+import StockTabs from "../components/StockTabs";
 
 export default function ToolpathPreviewNode({ id, data }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -14,6 +15,8 @@ export default function ToolpathPreviewNode({ id, data }: NodeProps) {
   const extractUpstream = useCallback((d: Record<string, unknown>) => ({
     toolpathResult: d.toolpathResult as ToolpathGenResult | undefined,
     stockSettings: d.stockSettings as StockSettings | undefined,
+    activeStockId: (d.activeStockId as string) || "stock_1",
+    allStockIds: (d.allStockIds as string[]) || [],
   }), []);
   const upstream = useUpstreamData(id, `${id}-in`, extractUpstream);
   const toolpathResult = upstream?.toolpathResult;
@@ -144,6 +147,15 @@ export default function ToolpathPreviewNode({ id, data }: NodeProps) {
       />
 
       <div style={headerStyle}>Toolpath Preview</div>
+
+      {upstream && upstream.allStockIds.length > 1 && (
+        <StockTabs
+          stockIds={upstream.allStockIds}
+          activeStockId={upstream.activeStockId}
+          readOnly
+          size="small"
+        />
+      )}
 
       {toolpathResult ? (
         <div>

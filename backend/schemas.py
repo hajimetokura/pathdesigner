@@ -268,6 +268,7 @@ class MeshDataResult(BaseModel):
 class PlacementItem(BaseModel):
     object_id: str
     material_id: str
+    stock_id: str = "stock_1"  # physical sheet identifier
     x_offset: float = 0       # mm, position on stock
     y_offset: float = 0
     rotation: int = 0          # degrees, 0/45/90/135/180/225/270/315
@@ -297,3 +298,32 @@ class ValidatePlacementRequest(BaseModel):
 class ValidatePlacementResponse(BaseModel):
     valid: bool
     warnings: list[str]
+
+
+# --- Auto Nesting ---
+
+
+class AutoNestingRequest(BaseModel):
+    objects: list[BrepObject]
+    stock: StockSettings
+    tool_diameter: float = 6.35
+    clearance: float = 5.0
+
+
+class AutoNestingResponse(BaseModel):
+    placements: list[PlacementItem]
+    stock_count: int
+    warnings: list[str] = []
+
+
+# --- SBP ZIP ---
+
+
+class SbpZipRequest(BaseModel):
+    operations: list[OperationAssignment]
+    detected_operations: OperationDetectResult
+    stock: StockSettings
+    placements: list[PlacementItem]
+    object_origins: dict[str, list[float]] = {}
+    bounding_boxes: dict[str, BoundingBox] = {}
+    post_processor: PostProcessorSettings

@@ -1,5 +1,7 @@
 import type {
   BrepImportResult,
+  BrepObject,
+  BoundingBox,
   ContourExtractResult,
   PresetItem,
   ValidateSettingsResponse,
@@ -12,7 +14,7 @@ import type {
   OutputResult,
   MeshDataResult,
   PlacementItem,
-  BoundingBox,
+  AutoNestingResponse,
 } from "./types";
 
 const API_URL = "http://localhost:8000";
@@ -192,4 +194,56 @@ export async function validatePlacement(
     throw new Error(err.detail || `HTTP ${res.status}`);
   }
   return res.json();
+}
+
+export async function autoNesting(
+  objects: BrepObject[],
+  stock: StockSettings,
+  toolDiameter: number = 6.35,
+  clearance: number = 5.0,
+): Promise<AutoNestingResponse> {
+  const res = await fetch(`${API_URL}/api/auto-nesting`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      objects,
+      stock,
+      tool_diameter: toolDiameter,
+      clearance,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Auto nesting failed" }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function generateSbpZip(
+  operations: OperationAssignment[],
+  detectedOperations: OperationDetectResult,
+  stock: StockSettings,
+  placements: PlacementItem[],
+  objectOrigins: Record<string, [number, number]>,
+  boundingBoxes: Record<string, BoundingBox>,
+  postProcessor: PostProcessorSettings,
+): Promise<Blob> {
+  const res = await fetch(`${API_URL}/api/generate-sbp-zip`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      operations,
+      detected_operations: detectedOperations,
+      stock,
+      placements,
+      object_origins: objectOrigins,
+      bounding_boxes: boundingBoxes,
+      post_processor: postProcessor,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "ZIP generation failed" }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.blob();
 }

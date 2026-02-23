@@ -16,6 +16,7 @@ export default function PlacementNode({ id, data }: NodeProps) {
   const updateTab = (data as Record<string, unknown>).updateTab as ((tab: PanelTab) => void) | undefined;
   const [placements, setPlacements] = useState<PlacementItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [activeStockId, setActiveStockId] = useState("stock_1");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { setNodes } = useReactFlow();
 
@@ -26,7 +27,8 @@ export default function PlacementNode({ id, data }: NodeProps) {
   const stockSettings = useUpstreamData(id, `${id}-stock`, extractStock);
 
   const syncToNodeData = useCallback(
-    (p: PlacementItem[], brep: BrepImportResult, stock: StockSettings) => {
+    (p: PlacementItem[], brep: BrepImportResult, stock: StockSettings, stockId?: string) => {
+      const sid = stockId ?? activeStockId;
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
@@ -35,14 +37,15 @@ export default function PlacementNode({ id, data }: NodeProps) {
                 data: {
                   ...n.data,
                   placementResult: { placements: p, stock, objects: brep.objects },
-                  fileId: brep.file_id,  // Pass file_id through for downstream
+                  fileId: brep.file_id,
+                  activeStockId: sid,
                 },
               }
             : n
         )
       );
     },
-    [id, setNodes]
+    [id, setNodes, activeStockId]
   );
 
   // Auto-create placements when BREP data arrives
@@ -54,6 +57,7 @@ export default function PlacementNode({ id, data }: NodeProps) {
     const initial: PlacementItem[] = brepResult.objects.map((obj, i) => ({
       object_id: obj.object_id,
       material_id: defaultMtl,
+      stock_id: "stock_1",
       x_offset: 10 + i * 20,
       y_offset: 10 + i * 20,
       rotation: 0,
@@ -70,6 +74,16 @@ export default function PlacementNode({ id, data }: NodeProps) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stockSettings]);
+
+  const handleActiveStockChange = useCallback(
+    (stockId: string) => {
+      setActiveStockId(stockId);
+      if (brepResult && stockSettings) {
+        syncToNodeData(placements, brepResult, stockSettings, stockId);
+      }
+    },
+    [brepResult, stockSettings, placements, syncToNodeData]
+  );
 
   const handlePlacementsChange = useCallback(
     async (updated: PlacementItem[]) => {
@@ -121,10 +135,14 @@ export default function PlacementNode({ id, data }: NodeProps) {
     ctx.lineWidth = 0.5;
     ctx.strokeRect(ox, h - oy - stock.depth * sc, stock.width * sc, stock.depth * sc);
 
-    // Parts
+    // Filter placements by active stock
+    const activePlacements = placements.filter((p) => p.stock_id === activeStockId);
+    const stockIds = [...new Set(placements.map((p) => p.stock_id))].sort();
+
+    // Parts (only active stock)
     const colors = ["#4a90d9", "#7b61ff", "#43a047", "#ef5350"];
-    for (let i = 0; i < placements.length; i++) {
-      const p = placements[i];
+    for (let i = 0; i < activePlacements.length; i++) {
+      const p = activePlacements[i];
       const obj = brepResult.objects.find((o) => o.object_id === p.object_id);
       if (!obj) continue;
 
@@ -175,7 +193,18 @@ export default function PlacementNode({ id, data }: NodeProps) {
         ctx.stroke();
       }
     }
-  }, [placements, brepResult, stockSettings]);
+
+    // Stock indicator (top-right)
+    if (stockIds.length > 1) {
+      const stockIndex = stockIds.indexOf(activeStockId) + 1;
+      const label = `${stockIndex}/${stockIds.length}`;
+      ctx.fillStyle = "#666";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(label, w - 6, 12);
+      ctx.textAlign = "left";
+    }
+  }, [placements, brepResult, stockSettings, activeStockId]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -194,10 +223,12 @@ export default function PlacementNode({ id, data }: NodeProps) {
           placements={placements}
           onPlacementsChange={handlePlacementsChange}
           warnings={warnings}
+          activeStockId={activeStockId}
+          onActiveStockChange={handleActiveStockChange}
         />
       ),
     });
-  }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, openTab]);
+  }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, openTab, activeStockId, handleActiveStockChange]);
 
   // Update tab content when placements/warnings change (only if tab is already open)
   useEffect(() => {
@@ -213,11 +244,13 @@ export default function PlacementNode({ id, data }: NodeProps) {
             placements={placements}
             onPlacementsChange={handlePlacementsChange}
             warnings={warnings}
+            activeStockId={activeStockId}
+            onActiveStockChange={handleActiveStockChange}
           />
         ),
       });
     }
-  }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, updateTab]);
+  }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, updateTab, activeStockId, handleActiveStockChange]);
 
   return (
     <div style={nodeStyle}>
@@ -236,7 +269,7 @@ export default function PlacementNode({ id, data }: NodeProps) {
             onClick={handleOpenPanel}
           />
           <div style={hintStyle}>
-            {placements.length} part{placements.length > 1 ? "s" : ""} — Click to edit
+            {placements.filter((p) => p.stock_id === activeStockId).length} part{placements.filter((p) => p.stock_id === activeStockId).length > 1 ? "s" : ""} — Click to edit
           </div>
           {warnings.length > 0 && (
             <div style={{ color: "#e65100", fontSize: 10, padding: "4px 0" }}>

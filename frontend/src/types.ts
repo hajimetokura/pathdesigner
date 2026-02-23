@@ -207,6 +207,7 @@ export interface OutputResult {
 export interface PlacementItem {
   object_id: string;
   material_id: string;
+  stock_id: string;
   x_offset: number;
   y_offset: number;
   rotation: number;
@@ -228,4 +229,12 @@ export interface ObjectMesh {
 
 export interface MeshDataResult {
   objects: ObjectMesh[];
+}
+
+/** Auto Nesting types */
+
+export interface AutoNestingResponse {
+  placements: PlacementItem[];
+  stock_count: number;
+  warnings: string[];
 }
