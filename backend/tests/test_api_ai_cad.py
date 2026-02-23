@@ -63,3 +63,14 @@ def test_generate_requires_api_key(monkeypatch):
         assert resp.status_code in (500, 422)
     finally:
         main._llm = old_llm
+
+
+def test_get_profiles():
+    """GET /ai-cad/profiles returns profile list."""
+    resp = client.get("/ai-cad/profiles")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) >= 1
+    ids = [p["id"] for p in data]
+    assert "general" in ids
+    assert all("name" in p and "description" in p for p in data)

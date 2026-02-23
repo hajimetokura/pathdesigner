@@ -436,6 +436,7 @@ class AiCadRequest(BaseModel):
     prompt: str
     image_base64: str | None = None
     model: str | None = None  # OpenRouter model ID; None = use default
+    profile: str = "general"
 
 
 class AiCadCodeRequest(BaseModel):
@@ -466,3 +467,10 @@ class ModelInfo(BaseModel):
     name: str
     is_default: bool
     supports_vision: bool
+
+
+class ProfileInfo(BaseModel):
+    """Available prompt profile info."""
+    id: str
+    name: str
+    description: str

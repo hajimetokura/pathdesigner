@@ -34,7 +34,7 @@ from schemas import (
     AutoNestingRequest, AutoNestingResponse,
     SbpZipRequest,
     AiCadRequest, AiCadCodeRequest, AiCadResult,
-    GenerationSummary, ModelInfo,
+    GenerationSummary, ModelInfo, ProfileInfo,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -433,6 +433,16 @@ def get_ai_cad_models():
     return _get_llm().list_models()
 
 
+@app.get("/ai-cad/profiles", response_model=list[ProfileInfo])
+def get_ai_cad_profiles():
+    """Return available prompt profiles."""
+    from llm_client import _PROFILES
+    return [
+        ProfileInfo(id=pid, name=p["name"], description=p["description"])
+        for pid, p in _PROFILES.items()
+    ]
+
+
 @app.post("/ai-cad/generate", response_model=AiCadResult)
 async def ai_cad_generate(req: AiCadRequest):
     """Generate 3D model from text/image prompt via LLM."""
@@ -445,6 +455,7 @@ async def ai_cad_generate(req: AiCadRequest):
             req.prompt,
             image_base64=req.image_base64,
             model=req.model,
+            profile=req.profile,
         )
     except CodeExecutionError as e:
         await db.save_generation(
