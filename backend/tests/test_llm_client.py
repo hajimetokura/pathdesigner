@@ -224,3 +224,33 @@ async def test_generate_uses_profile():
     call_kwargs = mock_client.chat.completions.create.call_args[1]
     system_msg = call_kwargs["messages"][0]["content"]
     assert "FURNITURE" in system_msg
+
+
+def test_furniture_profile_has_patterns():
+    """Furniture profile includes relevant keywords and patterns."""
+    from llm_client import _build_system_prompt
+    prompt = _build_system_prompt("furniture")
+    assert "FURNITURE" in prompt
+    assert "thickness" in prompt
+    assert "Hole" in prompt
+    assert "Align.MIN" in prompt
+    assert "dowel" in prompt.lower() or "ダボ" in prompt
+
+
+def test_furniture_pattern_shelf_executes():
+    """Furniture pattern example (shelf with dowel holes) actually runs."""
+    from nodes.ai_cad import execute_build123d_code
+    code = """\
+thickness = 18
+with BuildPart() as bp:
+    Box(400, 250, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
+    top = bp.faces().sort_by(Axis.Z)[-1]
+    with BuildSketch(top):
+        with Locations((30, 30), (370, 30), (30, 220), (370, 220)):
+            Circle(4)
+    extrude(amount=-thickness, mode=Mode.SUBTRACT)
+result = bp.part
+"""
+    objects, step_bytes = execute_build123d_code(code)
+    assert len(objects) >= 1
+    assert step_bytes is not None

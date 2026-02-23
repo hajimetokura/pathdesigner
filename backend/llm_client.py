@@ -187,6 +187,81 @@ with BuildPart() as bp:
 result = bp.part
 """
 
+_FURNITURE_CHEATSHEET = """\
+
+═══ FURNITURE / SHEET MATERIAL PROFILE ═══
+
+CORE CONCEPT: CNC sheet material parts. Constant thickness, machined from top.
+
+KEY SETUP:
+  thickness = 18  # material thickness (mm)
+  # Use MIN alignment for origin at corner — easier coordinate math
+  align=(Align.MIN, Align.MIN, Align.MIN)
+
+PRIMITIVES & OPERATIONS:
+  Box(width, depth, thickness)              # base plate
+  Hole(radius, depth)                       # through-hole (dowel, bolt)
+  GridLocations(x_sp, y_sp, x_n, y_n)      # hole patterns
+  PolarLocations(radius, count)             # circular patterns
+  SlotOverall(length, width)                # oblong slot
+  RectangleRounded(w, h, r)                 # rounded cutout
+  Rectangle(w, h)                           # square cutout
+
+BOOLEAN:
+  Mode.SUBTRACT                             # holes, pockets
+  extrude(amount=-depth, mode=Mode.SUBTRACT) # pocket from top face
+
+SELECTORS:
+  bp.faces().sort_by(Axis.Z)[-1]           # top face (for sketching on)
+  bp.faces().sort_by(Axis.Z)[0]            # bottom face
+
+═══ PITFALLS ═══
+
+1. HOLE DEPTH = MATERIAL THICKNESS for through-holes
+   Hole(4, thickness) not Hole(4, 10) — use the variable
+2. USE Align.MIN for sheet parts — origin at corner makes dimensions intuitive
+   Box(300, 200, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
+3. DOWEL HOLES: standard φ8mm → radius=4, φ10mm → radius=5
+4. SLOT WIDTH = tool diameter + clearance (typically tool_d + 0.2mm)
+5. DEFAULT ALIGNMENT IS CENTER — without Align.MIN, Box(100,50,18) spans -50..50
+
+═══ PATTERNS ═══
+
+# Shelf panel with 4 dowel holes at corners:
+thickness = 18
+with BuildPart() as bp:
+    Box(400, 250, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
+    top = bp.faces().sort_by(Axis.Z)[-1]
+    with BuildSketch(top):
+        with Locations((30, 30), (370, 30), (30, 220), (370, 220)):
+            Circle(4)  # φ8 dowel holes
+    extrude(amount=-thickness, mode=Mode.SUBTRACT)
+result = bp.part
+
+# Tab-and-slot joint panel (tab side):
+thickness = 18
+tab_w, tab_h = 30, thickness
+with BuildPart() as bp:
+    Box(300, 200, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
+    top = bp.faces().sort_by(Axis.Z)[-1]
+    with BuildSketch(top):
+        with Locations((75, 200), (150, 200), (225, 200)):
+            Rectangle(tab_w, tab_h, align=(Align.CENTER, Align.MIN))
+    extrude(amount=thickness)  # tabs grow upward
+result = bp.part
+
+# Grid-hole top plate (4x3 pattern):
+thickness = 12
+with BuildPart() as bp:
+    Box(240, 180, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
+    with BuildSketch(bp.faces().sort_by(Axis.Z)[-1]):
+        with GridLocations(50, 40, 4, 3):
+            Circle(5)  # φ10 holes
+    extrude(amount=-thickness, mode=Mode.SUBTRACT)
+    fillet(bp.edges().group_by(Axis.Z)[-1], radius=3)
+result = bp.part
+"""
+
 _PROFILES: dict[str, dict] = {
     "general": {
         "name": "汎用",
@@ -196,7 +271,7 @@ _PROFILES: dict[str, dict] = {
     "furniture": {
         "name": "家具・板材",
         "description": "板材CNC加工パーツ",
-        "cheatsheet": "\n═══ FURNITURE / SHEET MATERIAL PROFILE ═══\n(placeholder)\n",
+        "cheatsheet": _FURNITURE_CHEATSHEET,
     },
 }
 
