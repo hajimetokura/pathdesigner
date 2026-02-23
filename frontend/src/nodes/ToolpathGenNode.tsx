@@ -163,6 +163,7 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
                       allAssignments: assignments,
                       detectedOperations,
                       objectOrigins,
+                      boundingBoxes,
                       outlines,
                       postProcessorSettings: postProc,
                     },
