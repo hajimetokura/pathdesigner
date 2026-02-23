@@ -6,7 +6,7 @@ import type {
   MachiningSettings,
   PlacementItem,
 } from "../types";
-import StockTabs from "./StockTabs";
+import { StockBadge } from "./StockBadge";
 
 interface Props {
   detectedOperations: OperationDetectResult;
@@ -16,7 +16,6 @@ interface Props {
   placements: PlacementItem[];
   stockIds: string[];
   activeStockId: string;
-  onActiveStockChange: (stockId: string) => void;
 }
 
 export default function OperationDetailPanel({
@@ -27,7 +26,6 @@ export default function OperationDetailPanel({
   placements,
   stockIds,
   activeStockId,
-  onActiveStockChange,
 }: Props) {
   const [expandedOp, setExpandedOp] = useState<string | null>(null);
 
@@ -68,10 +66,9 @@ export default function OperationDetailPanel({
     <div style={panelStyle}>
       <div style={panelBodyStyle}>
         {stockIds.length > 1 && (
-          <StockTabs
-            stockIds={stockIds}
+          <StockBadge
             activeStockId={activeStockId}
-            onChange={onActiveStockChange}
+            totalStocks={stockIds.length}
           />
         )}
         {filteredOps.map((op) => {
