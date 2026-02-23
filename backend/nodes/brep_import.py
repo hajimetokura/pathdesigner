@@ -2,9 +2,9 @@
 
 from pathlib import Path
 
-from build123d import Axis, GeomType, Plane, ShapeList, Solid, import_step
+from build123d import Axis, GeomType, Solid, import_step
 
-from nodes.geometry_utils import sample_wire_coords
+from nodes.geometry_utils import intersect_solid_at_z, sample_wire_coords
 from schemas import (
     BoundingBox,
     BrepObject,
@@ -117,13 +117,14 @@ def _extract_outline(solid: Solid, bb) -> list[list[float]]:
     Falls back to empty list on failure (non-critical for import).
     """
     try:
-        wires = _intersect_wires(solid, bb.min.Z)
-        if not wires:
-            wires = _intersect_wires(solid, bb.min.Z + 0.001)
-        if not wires:
+        typed_wires = intersect_solid_at_z(solid, bb.min.Z)
+        if not typed_wires:
+            typed_wires = intersect_solid_at_z(solid, bb.min.Z + 0.001)
+        if not typed_wires:
             return []
 
         # Use the longest wire (outer boundary)
+        wires = [w for w, _ in typed_wires]
         longest = max(wires, key=lambda w: w.length)
         coords = sample_wire_coords(longest)
 
@@ -132,25 +133,5 @@ def _extract_outline(solid: Solid, bb) -> list[list[float]]:
         return [[round(x - ox, 4), round(y - oy, 4)] for x, y in coords]
     except Exception:
         return []
-
-
-def _intersect_wires(solid: Solid, z: float) -> list:
-    """Intersect solid with XY plane at z and return wires."""
-    plane = Plane.XY.offset(z)
-    result = solid.intersect(plane)
-    if result is None:
-        return []
-    if isinstance(result, ShapeList):
-        items = list(result)
-    else:
-        items = [result]
-    wires = []
-    for item in items:
-        if hasattr(item, "outer_wire"):
-            wires.append(item.outer_wire())
-            wires.extend(item.inner_wires())
-        elif hasattr(item, "edges"):
-            wires.append(item)
-    return wires
 
 

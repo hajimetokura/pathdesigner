@@ -2,7 +2,7 @@
 
 import pytest
 
-from nodes.geometry_utils import COORD_PRECISION, sample_wire_coords
+from nodes.geometry_utils import COORD_PRECISION, intersect_solid_at_z, sample_wire_coords
 
 
 class TestSampleWireCoords:
@@ -61,3 +61,43 @@ class TestSampleWireCoords:
         wire = rect.wire()
         with pytest.raises(ValueError, match="mode"):
             sample_wire_coords(wire, mode="invalid")
+
+
+class TestIntersectSolidAtZ:
+    """Tests for intersect_solid_at_z using build123d."""
+
+    def test_import(self):
+        """intersect_solid_at_z is importable."""
+        assert callable(intersect_solid_at_z)
+
+    def test_returns_typed_wires(self):
+        """Returns list of (wire, contour_type) tuples for a simple box."""
+        from build123d import Box
+
+        box = Box(20, 10, 5)
+        bb = box.bounding_box()
+        typed_wires = intersect_solid_at_z(box, bb.min.Z + 0.01)
+        assert len(typed_wires) > 0
+        for wire, contour_type in typed_wires:
+            assert contour_type in ("exterior", "interior")
+            assert hasattr(wire, "edges")
+
+    def test_result_is_list_of_tuples(self):
+        """Return type is always list of (wire, str) tuples."""
+        from build123d import Box
+
+        box = Box(20, 10, 5)
+        result = intersect_solid_at_z(box, 0.0)
+        assert isinstance(result, list)
+        for wire, ctype in result:
+            assert ctype in ("exterior", "interior")
+
+    def test_at_boundary_z(self):
+        """Returns wires when slicing at exact boundary Z."""
+        from build123d import Box
+
+        box = Box(20, 10, 5)
+        bb = box.bounding_box()
+        # Exact boundary may or may not intersect, but should not raise
+        typed_wires = intersect_solid_at_z(box, bb.min.Z)
+        assert isinstance(typed_wires, list)

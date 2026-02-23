@@ -55,6 +55,32 @@ def sample_wire_coords(
     return coords
 
 
+def intersect_solid_at_z(solid, z: float) -> list[tuple]:
+    """Intersect a build123d Solid with XY plane at z height.
+
+    Returns list of (wire, contour_type) tuples where contour_type is
+    "exterior" or "interior". Faces yield outer_wire as "exterior" and
+    inner_wires as "interior". Bare Wires are assumed "exterior".
+    """
+    from build123d import Plane, ShapeList
+
+    plane = Plane.XY.offset(z)
+    result = solid.intersect(plane)
+    if result is None:
+        return []
+
+    items = list(result) if isinstance(result, ShapeList) else [result]
+    wires = []
+    for item in items:
+        if hasattr(item, "outer_wire"):
+            wires.append((item.outer_wire(), "exterior"))
+            for iw in item.inner_wires():
+                wires.append((iw, "interior"))
+        elif hasattr(item, "edges"):
+            wires.append((item, "exterior"))
+    return wires
+
+
 def rotate_polygon(polygon: Polygon, angle: float, origin: tuple[float, float]) -> Polygon:
     """Rotate polygon by angle (degrees, counter-clockwise) around origin."""
     if angle == 0:
