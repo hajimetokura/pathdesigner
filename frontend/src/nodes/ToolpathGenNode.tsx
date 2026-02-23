@@ -4,7 +4,7 @@ import { generateToolpath, generateSbp } from "../api";
 import type {
   OperationDetectResult,
   OperationAssignment,
-  StockSettings,
+  SheetSettings,
   PostProcessorSettings,
   ToolpathGenResult,
   PlacementItem,
@@ -12,17 +12,17 @@ import type {
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import { useUpstreamData } from "../hooks/useUpstreamData";
-import { StockBadge } from "../components/StockBadge";
+import { SheetBadge } from "../components/SheetBadge";
 
 type Status = "idle" | "loading" | "success" | "error";
 
 interface OperationsUpstream {
   detectedOperations: OperationDetectResult;
   assignments: OperationAssignment[];
-  stockSettings: StockSettings;
+  sheetSettings: SheetSettings;
   placements: PlacementItem[];
   objectOrigins: Record<string, [number, number]>;
-  upstreamActiveStockId: string;
+  upstreamActiveSheetId: string;
 }
 
 export default function ToolpathGenNode({ id, selected }: NodeProps) {
@@ -36,21 +36,21 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
   const extractOperations = useCallback((d: Record<string, unknown>): OperationsUpstream | undefined => {
     const detectedOperations = d.detectedOperations as OperationDetectResult | undefined;
     const assignments = d.assignments as OperationAssignment[] | undefined;
-    const stockSettings = d.stockSettings as StockSettings | undefined;
+    const sheetSettings = d.sheetSettings as SheetSettings | undefined;
     const placements = d.placements as PlacementItem[] | undefined;
     const objectOrigins = d.objectOrigins as Record<string, [number, number]> | undefined;
-    const upstreamActiveStockId = (d.activeStockId as string) || "stock_1";
-    if (!detectedOperations || !assignments?.length || !stockSettings || !placements) return undefined;
-    return { detectedOperations, assignments, stockSettings, placements, objectOrigins: objectOrigins ?? {}, upstreamActiveStockId };
+    const upstreamActiveSheetId = (d.activeSheetId as string) || "sheet_1";
+    if (!detectedOperations || !assignments?.length || !sheetSettings || !placements) return undefined;
+    return { detectedOperations, assignments, sheetSettings, placements, objectOrigins: objectOrigins ?? {}, upstreamActiveSheetId };
   }, []);
   const operations = useUpstreamData(id, `${id}-operations`, extractOperations);
 
-  const activeStockId = operations?.upstreamActiveStockId ?? "stock_1";
+  const activeSheetId = operations?.upstreamActiveSheetId ?? "sheet_1";
 
   const allPlacements = operations?.placements ?? [];
-  const stockIds = useMemo(() => {
-    const ids = [...new Set(allPlacements.map((p) => p.stock_id))];
-    if (ids.length === 0) ids.push("stock_1");
+  const sheetIds = useMemo(() => {
+    const ids = [...new Set(allPlacements.map((p) => p.sheet_id))];
+    if (ids.length === 0) ids.push("sheet_1");
     return ids.sort();
   }, [allPlacements]);
 
@@ -62,16 +62,16 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
   useEffect(() => {
     if (!operations || !postProc) return;
 
-    const { detectedOperations, assignments, stockSettings, placements, objectOrigins } = operations;
+    const { detectedOperations, assignments, sheetSettings, placements, objectOrigins } = operations;
 
     // Build a generation key from all upstream inputs to avoid redundant calls
-    const genKey = JSON.stringify({ assignments, placements, stockSettings, postProc, activeStockId });
+    const genKey = JSON.stringify({ assignments, placements, sheetSettings, postProc, activeSheetId });
     if (lastGenKeyRef.current === genKey && toolpathResult) return;
     lastGenKeyRef.current = genKey;
 
     // Filter placements and assignments by active stock
     const filteredPlacements = placements.filter(
-      (p: PlacementItem) => p.stock_id === activeStockId
+      (p: PlacementItem) => p.sheet_id === activeSheetId
     );
     const activeObjectIds = new Set(filteredPlacements.map((p: PlacementItem) => p.object_id));
     const opToObj = new Map(detectedOperations.operations.map((op) => [op.operation_id, op.object_id]));
@@ -81,7 +81,7 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
     });
 
     // Validate stock thickness (only for active stock's assignments)
-    const matLookup = new Map(stockSettings.materials.map((m) => [m.material_id, m]));
+    const matLookup = new Map(sheetSettings.materials.map((m) => [m.material_id, m]));
     const opLookup = new Map(detectedOperations.operations.map((op) => [op.operation_id, op]));
     const thinOps: string[] = [];
     for (const a of filteredAssignments) {
@@ -89,11 +89,11 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
       const mat = matLookup.get(a.material_id);
       const op = opLookup.get(a.operation_id);
       if (mat && op && mat.thickness < op.geometry.depth) {
-        thinOps.push(`${op.object_id}: stock ${mat.thickness}mm < depth ${op.geometry.depth}mm`);
+        thinOps.push(`${op.object_id}: sheet ${mat.thickness}mm < depth ${op.geometry.depth}mm`);
       }
     }
     if (thinOps.length > 0) {
-      setError(`Stock too thin: ${thinOps.join(", ")}`);
+      setError(`Sheet too thin: ${thinOps.join(", ")}`);
       setStatus("error");
       return;
     }
@@ -105,17 +105,17 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
     (async () => {
       try {
         const tpResult = await generateToolpath(
-          filteredAssignments, detectedOperations, stockSettings, filteredPlacements, objectOrigins
+          filteredAssignments, detectedOperations, sheetSettings, filteredPlacements, objectOrigins
         );
         if (cancelled) return;
         setToolpathResult(tpResult);
 
-        const sbp = await generateSbp(tpResult, filteredAssignments, stockSettings, postProc);
+        const sbp = await generateSbp(tpResult, filteredAssignments, sheetSettings, postProc);
         if (cancelled) return;
         setStatus("success");
 
         // Store results in own node.data only (downstream reads via useStore)
-        const allStockIds = [...new Set(placements.map((p: PlacementItem) => p.stock_id))].sort();
+        const allSheetIds = [...new Set(placements.map((p: PlacementItem) => p.sheet_id))].sort();
         setNodes((nds) =>
           nds.map((n) =>
             n.id === id
@@ -125,9 +125,9 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
                     ...n.data,
                     toolpathResult: tpResult,
                     outputResult: sbp,
-                    stockSettings,
-                    activeStockId,
-                    allStockIds,
+                    sheetSettings,
+                    activeSheetId,
+                    allSheetIds,
                     allPlacements: placements,
                     allAssignments: assignments,
                     detectedOperations,
@@ -147,7 +147,7 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [operations, postProc, operations?.upstreamActiveStockId]);
+  }, [operations, postProc, operations?.upstreamActiveSheetId]);
 
   return (
     <NodeShell category="cam" selected={selected} statusBorder={status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : undefined}>
@@ -172,10 +172,10 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
 
       <div style={headerStyle}>Toolpath Gen</div>
 
-      {stockIds.length > 1 && (
-        <StockBadge
-          activeStockId={activeStockId}
-          totalStocks={stockIds.length}
+      {sheetIds.length > 1 && (
+        <SheetBadge
+          activeSheetId={activeSheetId}
+          totalSheets={sheetIds.length}
         />
       )}
 

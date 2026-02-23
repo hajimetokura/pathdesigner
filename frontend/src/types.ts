@@ -61,7 +61,7 @@ export interface ContourExtractResult {
 
 /** Node 2b: Stock Settings types */
 
-export interface StockMaterial {
+export interface SheetMaterial {
   material_id: string;
   label: string;
   width: number;
@@ -71,8 +71,8 @@ export interface StockMaterial {
   y_position: number;
 }
 
-export interface StockSettings {
-  materials: StockMaterial[];
+export interface SheetSettings {
+  materials: SheetMaterial[];
 }
 
 /** Node 3: Machining Settings types */
@@ -201,8 +201,8 @@ export interface Toolpath {
 
 export interface ToolpathGenResult {
   toolpaths: Toolpath[];
-  stock_width: number | null;
-  stock_depth: number | null;
+  sheet_width: number | null;
+  sheet_depth: number | null;
 }
 
 export interface OutputResult {
@@ -216,7 +216,7 @@ export interface OutputResult {
 export interface PlacementItem {
   object_id: string;
   material_id: string;
-  stock_id: string;
+  sheet_id: string;
   x_offset: number;
   y_offset: number;
   rotation: number;
@@ -224,7 +224,7 @@ export interface PlacementItem {
 
 export interface PlacementResult {
   placements: PlacementItem[];
-  stock: StockSettings;
+  sheet: SheetSettings;
   objects: BrepObject[];
 }
 
@@ -244,6 +244,6 @@ export interface MeshDataResult {
 
 export interface AutoNestingResponse {
   placements: PlacementItem[];
-  stock_count: number;
+  sheet_count: number;
   warnings: string[];
 }

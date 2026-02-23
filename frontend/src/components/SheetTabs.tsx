@@ -1,18 +1,18 @@
-interface StockTabsProps {
-  stockIds: string[];
-  activeStockId: string;
-  onChange?: (stockId: string) => void;
-  /** Optional: show part count per stock */
+interface SheetTabsProps {
+  sheetIds: string[];
+  activeSheetId: string;
+  onChange?: (sheetId: string) => void;
+  /** Optional: show part count per sheet */
   counts?: Record<string, number>;
 }
 
-export default function StockTabs({
-  stockIds,
-  activeStockId,
+export default function SheetTabs({
+  sheetIds,
+  activeSheetId,
   onChange,
   counts,
-}: StockTabsProps) {
-  if (stockIds.length <= 1) return null;
+}: SheetTabsProps) {
+  if (sheetIds.length <= 1) return null;
 
   return (
     <div style={{
@@ -23,9 +23,9 @@ export default function StockTabs({
       scrollbarWidth: "thin",
       maxWidth: "100%",
     }}>
-      {stockIds.map((sid) => {
-        const isActive = sid === activeStockId;
-        const label = sid.replace("stock_", "Sheet ");
+      {sheetIds.map((sid) => {
+        const isActive = sid === activeSheetId;
+        const label = sid.replace("sheet_", "Sheet ");
         const count = counts?.[sid];
         return (
           <button

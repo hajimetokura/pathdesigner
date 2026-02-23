@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BrepObject, StockSettings, PlacementItem } from "../types";
+import type { BrepObject, SheetSettings, PlacementItem } from "../types";
 import { autoNesting } from "../api";
-import StockTabs from "./StockTabs";
+import SheetTabs from "./SheetTabs";
 
 /** Rotate a 2D point (x,y) by `angle` degrees around (cx,cy). */
 function rotatePoint(
@@ -38,22 +38,22 @@ function rotatedAABB(
 
 interface Props {
   objects: BrepObject[];
-  stockSettings: StockSettings;
+  sheetSettings: SheetSettings;
   placements: PlacementItem[];
   onPlacementsChange: (placements: PlacementItem[]) => void;
   warnings: string[];
-  activeStockId: string;
-  onActiveStockChange: (stockId: string) => void;
+  activeSheetId: string;
+  onActiveSheetChange: (stockId: string) => void;
 }
 
 export default function PlacementPanel({
   objects,
-  stockSettings,
+  sheetSettings,
   placements,
   onPlacementsChange,
   warnings,
-  activeStockId,
-  onActiveStockChange,
+  activeSheetId,
+  onActiveSheetChange,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -62,25 +62,25 @@ export default function PlacementPanel({
   const [nestingLoading, setNestingLoading] = useState(false);
 
   // Stock list derived from placements
-  const stockIds = useMemo(() => {
-    const ids = [...new Set(placements.map((p) => p.stock_id))];
-    if (ids.length === 0) ids.push("stock_1");
+  const sheetIds = useMemo(() => {
+    const ids = [...new Set(placements.map((p) => p.sheet_id))];
+    if (ids.length === 0) ids.push("sheet_1");
     return ids.sort();
   }, [placements]);
 
   // Filter placements to active stock
   const activePlacements = useMemo(
-    () => placements.filter((p) => p.stock_id === activeStockId),
-    [placements, activeStockId],
+    () => placements.filter((p) => p.sheet_id === activeSheetId),
+    [placements, activeSheetId],
   );
 
   const handleAutoNesting = async () => {
     setNestingLoading(true);
     try {
-      const result = await autoNesting(objects, stockSettings, 6.35, clearance);
+      const result = await autoNesting(objects, sheetSettings, 6.35, clearance);
       onPlacementsChange(result.placements);
       if (result.placements.length > 0) {
-        onActiveStockChange(result.placements[0].stock_id);
+        onActiveSheetChange(result.placements[0].sheet_id);
       }
     } catch (e) {
       console.error("Auto nesting failed:", e);
@@ -89,7 +89,7 @@ export default function PlacementPanel({
     }
   };
 
-  const stock = stockSettings.materials[0];
+  const stock = sheetSettings.materials[0];
 
   const canvasW = 560;
   const canvasH = 400;
@@ -299,11 +299,11 @@ export default function PlacementPanel({
         </div>
 
         {/* Stock Tabs */}
-        <StockTabs
-          stockIds={stockIds}
-          activeStockId={activeStockId}
-          onChange={onActiveStockChange}
-          counts={Object.fromEntries(stockIds.map((sid) => [sid, placements.filter((p) => p.stock_id === sid).length]))}
+        <SheetTabs
+          sheetIds={sheetIds}
+          activeSheetId={activeSheetId}
+          onChange={onActiveSheetChange}
+          counts={Object.fromEntries(sheetIds.map((sid) => [sid, placements.filter((p) => p.sheet_id === sid).length]))}
         />
       </div>
 

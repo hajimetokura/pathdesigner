@@ -8,7 +8,7 @@ import type {
   MachiningSettings,
   OperationDetectResult,
   OperationAssignment,
-  StockSettings,
+  SheetSettings,
   PostProcessorSettings,
   ToolpathGenResult,
   OutputResult,
@@ -110,7 +110,7 @@ export async function detectOperations(
 export async function generateToolpath(
   operations: OperationAssignment[],
   detectedOperations: OperationDetectResult,
-  stock: StockSettings,
+  sheet: SheetSettings,
   placements: PlacementItem[] = [],
   objectOrigins: Record<string, [number, number]> = {}
 ): Promise<ToolpathGenResult> {
@@ -120,7 +120,7 @@ export async function generateToolpath(
     body: JSON.stringify({
       operations,
       detected_operations: detectedOperations,
-      stock,
+      sheet,
       placements,
       object_origins: objectOrigins,
     }),
@@ -135,7 +135,7 @@ export async function generateToolpath(
 export async function generateSbp(
   toolpathResult: ToolpathGenResult,
   operations: OperationAssignment[],
-  stock: StockSettings,
+  sheet: SheetSettings,
   postProcessor: PostProcessorSettings
 ): Promise<OutputResult> {
   const res = await fetch(`${API_URL}/api/generate-sbp`, {
@@ -144,7 +144,7 @@ export async function generateSbp(
     body: JSON.stringify({
       toolpath_result: toolpathResult,
       operations,
-      stock,
+      sheet,
       post_processor: postProcessor,
     }),
   });
@@ -172,14 +172,14 @@ export async function fetchMeshData(
 
 export async function validatePlacement(
   placements: PlacementItem[],
-  stock: StockSettings,
+  sheet: SheetSettings,
   boundingBoxes: Record<string, BoundingBox>,
   outlines?: Record<string, number[][]>,
   toolDiameter?: number,
 ): Promise<{ valid: boolean; warnings: string[] }> {
   const body: Record<string, unknown> = {
     placements,
-    stock,
+    sheet,
     bounding_boxes: boundingBoxes,
   };
   if (outlines) body.outlines = outlines;
@@ -198,7 +198,7 @@ export async function validatePlacement(
 
 export async function autoNesting(
   objects: BrepObject[],
-  stock: StockSettings,
+  sheet: SheetSettings,
   toolDiameter: number = 6.35,
   clearance: number = 5.0,
 ): Promise<AutoNestingResponse> {
@@ -207,7 +207,7 @@ export async function autoNesting(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       objects,
-      stock,
+      sheet,
       tool_diameter: toolDiameter,
       clearance,
     }),
@@ -222,7 +222,7 @@ export async function autoNesting(
 export async function generateSbpZip(
   operations: OperationAssignment[],
   detectedOperations: OperationDetectResult,
-  stock: StockSettings,
+  sheet: SheetSettings,
   placements: PlacementItem[],
   objectOrigins: Record<string, [number, number]>,
   boundingBoxes: Record<string, BoundingBox>,
@@ -234,7 +234,7 @@ export async function generateSbpZip(
     body: JSON.stringify({
       operations,
       detected_operations: detectedOperations,
-      stock,
+      sheet,
       placements,
       object_origins: objectOrigins,
       bounding_boxes: boundingBoxes,

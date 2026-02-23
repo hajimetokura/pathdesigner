@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
-import type { StockMaterial, StockSettings } from "../types";
+import type { SheetMaterial, SheetSettings } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 
-const DEFAULT_MAT: StockMaterial = {
-  material_id: "stock_1",
-  label: "Stock",
+const DEFAULT_MAT: SheetMaterial = {
+  material_id: "sheet_1",
+  label: "Sheet",
   width: 1820,
   depth: 910,
   thickness: 24,
@@ -14,22 +14,22 @@ const DEFAULT_MAT: StockMaterial = {
   y_position: 0,
 };
 
-export default function StockNode({ id, selected }: NodeProps) {
+export default function SheetNode({ id, selected }: NodeProps) {
   const { setNodes } = useReactFlow();
-  const [mat, setMat] = useState<StockMaterial>(DEFAULT_MAT);
+  const [mat, setMat] = useState<SheetMaterial>(DEFAULT_MAT);
 
-  // Sync as StockSettings to downstream nodes
+  // Sync as SheetSettings to downstream nodes
   useEffect(() => {
-    const settings: StockSettings = { materials: [mat] };
+    const settings: SheetSettings = { materials: [mat] };
     setNodes((nds) =>
       nds.map((n) =>
-        n.id === id ? { ...n, data: { ...n.data, stockSettings: settings } } : n
+        n.id === id ? { ...n, data: { ...n.data, sheetSettings: settings } } : n
       )
     );
   }, [id, mat, setNodes]);
 
   const update = useCallback(
-    (field: keyof StockMaterial, value: string | number) => {
+    (field: keyof SheetMaterial, value: string | number) => {
       setMat((prev) => ({ ...prev, [field]: value }));
     },
     []
@@ -37,7 +37,7 @@ export default function StockNode({ id, selected }: NodeProps) {
 
   return (
     <NodeShell category="cam" selected={selected}>
-      <div style={headerStyle}>Stock</div>
+      <div style={headerStyle}>Sheet</div>
 
       <TextField label="Label" value={mat.label} onChange={(v) => update("label", v)} />
       <div style={dimRow}>
@@ -50,7 +50,7 @@ export default function StockNode({ id, selected }: NodeProps) {
         type="source"
         position={Position.Bottom}
         id={`${id}-out`}
-        label="stock"
+        label="sheet"
         dataType="settings"
       />
     </NodeShell>

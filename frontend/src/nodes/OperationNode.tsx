@@ -3,7 +3,7 @@ import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import { detectOperations } from "../api";
 import type {
   BrepObject,
-  StockSettings,
+  SheetSettings,
   OperationDetectResult,
   OperationAssignment,
   PlacementItem,
@@ -13,14 +13,14 @@ import NodeShell from "../components/NodeShell";
 import type { PanelTab } from "../components/SidePanel";
 import OperationDetailPanel from "../components/OperationDetailPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
-import { StockBadge } from "../components/StockBadge";
+import { SheetBadge } from "../components/SheetBadge";
 
 type Status = "idle" | "loading" | "success" | "error";
 
 interface UpstreamData {
-  placementResult: { placements: PlacementItem[]; stock: StockSettings; objects: BrepObject[] };
+  placementResult: { placements: PlacementItem[]; stock: SheetSettings; objects: BrepObject[] };
   fileId: string;
-  activeStockId: string;
+  activeSheetId: string;
 }
 
 export default function OperationNode({ id, data, selected }: NodeProps) {
@@ -38,30 +38,30 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
   const extractUpstream = useCallback((d: Record<string, unknown>): UpstreamData | undefined => {
     const placementResult = d.placementResult as UpstreamData["placementResult"] | undefined;
     const fileId = d.fileId as string | undefined;
-    const activeStockId = (d.activeStockId as string) || "stock_1";
+    const activeSheetId = (d.activeSheetId as string) || "sheet_1";
     if (!placementResult || !fileId) return undefined;
-    return { placementResult, fileId, activeStockId };
+    return { placementResult, fileId, activeSheetId };
   }, []);
   const upstream = useUpstreamData(id, `${id}-brep`, extractUpstream);
 
-  const activeStockId = upstream?.activeStockId ?? "stock_1";
+  const activeSheetId = upstream?.activeSheetId ?? "sheet_1";
 
   const allPlacements = upstream?.placementResult.placements ?? [];
-  const stockIds = useMemo(() => {
-    const ids = [...new Set(allPlacements.map((p) => p.stock_id))];
-    if (ids.length === 0) ids.push("stock_1");
+  const sheetIds = useMemo(() => {
+    const ids = [...new Set(allPlacements.map((p) => p.sheet_id))];
+    if (ids.length === 0) ids.push("sheet_1");
     return ids.sort();
   }, [allPlacements]);
 
   // Filter operations by active stock
   const activeObjectIds = useMemo(() => {
-    const ids = new Set(allPlacements.filter((p) => p.stock_id === activeStockId).map((p) => p.object_id));
+    const ids = new Set(allPlacements.filter((p) => p.sheet_id === activeSheetId).map((p) => p.object_id));
     return ids;
-  }, [allPlacements, activeStockId]);
+  }, [allPlacements, activeSheetId]);
 
   const syncToNodeData = useCallback(
-    (det: OperationDetectResult, assign: OperationAssignment[], stock: StockSettings | null, plc: PlacementItem[], objects: BrepObject[]) => {
-      const sid = upstream?.activeStockId ?? "stock_1";
+    (det: OperationDetectResult, assign: OperationAssignment[], stock: SheetSettings | null, plc: PlacementItem[], objects: BrepObject[]) => {
+      const sid = upstream?.activeSheetId ?? "sheet_1";
       // Build objectOrigins map for ToolpathGenNode
       const objectOrigins: Record<string, [number, number]> = {};
       for (const obj of objects) {
@@ -70,12 +70,12 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, stockSettings: stock, placements: plc, objectOrigins, activeStockId: sid } }
+            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, sheetSettings: stock, placements: plc, objectOrigins, activeSheetId: sid } }
             : n
         )
       );
     },
-    [id, setNodes, upstream?.activeStockId]
+    [id, setNodes, upstream?.activeSheetId]
   );
 
   // Auto-detect operations when upstream data changes
@@ -128,7 +128,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
     const { placements: upstreamPlacements, stock: upstreamStock, objects } = upstream.placementResult;
     syncToNodeData(detected, assignments, upstreamStock, upstreamPlacements, objects);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upstream?.placementResult, upstream?.activeStockId]);
+  }, [upstream?.placementResult, upstream?.activeSheetId]);
 
   const handleToggleOp = useCallback(
     (opId: string) => {
@@ -183,17 +183,17 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
         <OperationDetailPanel
           detectedOperations={detected}
           assignments={assignments}
-          stockSettings={upstream?.placementResult.stock ?? null}
+          sheetSettings={upstream?.placementResult.stock ?? null}
           onAssignmentsChange={handleAssignmentsChange}
           placements={allPlacements}
-          stockIds={stockIds}
-          activeStockId={activeStockId}
+          sheetIds={sheetIds}
+          activeSheetId={activeSheetId}
           groupLabels={groupLabels}
           onGroupLabelsChange={handleGroupLabelsChange}
         />
       ),
     });
-  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab, allPlacements, stockIds, activeStockId, groupLabels, handleGroupLabelsChange]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab, allPlacements, sheetIds, activeSheetId, groupLabels, handleGroupLabelsChange]);
 
   // Update tab content when assignments change (only if tab is already open)
   useEffect(() => {
@@ -206,18 +206,18 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
           <OperationDetailPanel
             detectedOperations={detected}
             assignments={assignments}
-            stockSettings={upstream?.placementResult.stock ?? null}
+            sheetSettings={upstream?.placementResult.stock ?? null}
             onAssignmentsChange={handleAssignmentsChange}
             placements={allPlacements}
-            stockIds={stockIds}
-            activeStockId={activeStockId}
+            sheetIds={sheetIds}
+            activeSheetId={activeSheetId}
             groupLabels={groupLabels}
             onGroupLabelsChange={handleGroupLabelsChange}
           />
         ),
       });
     }
-  }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab, allPlacements, stockIds, activeStockId, groupLabels, handleGroupLabelsChange]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab, allPlacements, sheetIds, activeSheetId, groupLabels, handleGroupLabelsChange]);
 
   return (
     <NodeShell category="cam" selected={selected} statusBorder={status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : undefined}>
@@ -231,10 +231,10 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
 
       <div style={headerStyle}>Operation</div>
 
-      {stockIds.length > 1 && (
-        <StockBadge
-          activeStockId={activeStockId}
-          totalStocks={stockIds.length}
+      {sheetIds.length > 1 && (
+        <SheetBadge
+          activeSheetId={activeSheetId}
+          totalSheets={sheetIds.length}
         />
       )}
 
