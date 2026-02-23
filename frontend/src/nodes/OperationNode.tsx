@@ -192,7 +192,7 @@ export default function OperationNode({ id, data }: NodeProps) {
         />
       ),
     });
-  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab, allPlacements, stockIds, activeStockId]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab, allPlacements, stockIds, activeStockId, groupLabels, handleGroupLabelsChange]);
 
   // Update tab content when assignments change (only if tab is already open)
   useEffect(() => {
@@ -210,11 +210,13 @@ export default function OperationNode({ id, data }: NodeProps) {
             placements={allPlacements}
             stockIds={stockIds}
             activeStockId={activeStockId}
+            groupLabels={groupLabels}
+            onGroupLabelsChange={handleGroupLabelsChange}
           />
         ),
       });
     }
-  }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab, allPlacements, stockIds, activeStockId]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab, allPlacements, stockIds, activeStockId, groupLabels, handleGroupLabelsChange]);
 
   const dynamicBorder = status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : "#ddd";
 
