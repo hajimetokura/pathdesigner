@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import type { PanelTab } from "../components/SidePanel";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 import CncCodePanel from "../components/CncCodePanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { generateSbpZip } from "../api";
@@ -26,7 +27,7 @@ interface UpstreamZipData {
   postProcessorSettings: PostProcessorSettings;
 }
 
-export default function CncCodeNode({ id, data }: NodeProps) {
+export default function CncCodeNode({ id, data, selected }: NodeProps) {
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
   const [zipLoading, setZipLoading] = useState(false);
 
@@ -125,7 +126,7 @@ export default function CncCodeNode({ id, data }: NodeProps) {
 
 
   return (
-    <div style={nodeStyle}>
+    <NodeShell category="cam" selected={selected}>
       <LabeledHandle
         type="target"
         position={Position.Top}
@@ -163,18 +164,9 @@ export default function CncCodeNode({ id, data }: NodeProps) {
       ) : (
         <div style={emptyStyle}>No data</div>
       )}
-    </div>
+    </NodeShell>
   );
 }
-
-const nodeStyle: React.CSSProperties = {
-  background: "white",
-  border: "1px solid #ddd",
-  borderRadius: 8,
-  padding: "20px 12px",
-  width: 200,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-};
 
 const headerStyle: React.CSSProperties = {
   fontWeight: 700,
