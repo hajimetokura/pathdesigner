@@ -205,7 +205,7 @@ export default function OperationDetailPanel({
   /* --- Apply full settings to a group (for presets) --- */
 
   const applySettingsToGroup = useCallback(
-    (groupId: string, settings: MachiningSettings) => {
+    (groupId: string, settings: MachiningSettings, presetName?: string) => {
       const group = groups.find((g) => g.group_id === groupId);
       if (!group) return;
 
@@ -224,6 +224,16 @@ export default function OperationDetailPanel({
           eg.group_id === groupId ? { ...eg, settings: { ...settings } } : eg
         )
       );
+
+      if (presetName) {
+        setGroupLabels((prev) => ({ ...prev, [groupId]: presetName }));
+        setExtraGroups((prev) =>
+          prev.map((eg) =>
+            eg.group_id === groupId ? { ...eg, label: presetName } : eg
+          )
+        );
+      }
+
       setPresetMenuGroupId(null);
     },
     [groups, detectedOperations, activeObjectIds, assignments, onAssignmentsChange]
@@ -460,16 +470,14 @@ export default function OperationDetailPanel({
                         <>
                           <div style={presetSectionLabel}>Built-in</div>
                           {builtinPresets.map((p) => (
-                            <button
+                            <PresetRow
                               key={p.id}
-                              style={presetItemStyle}
-                              onClick={() => applySettingsToGroup(group.group_id, p.settings)}
-                            >
-                              {p.name}
-                              <span style={{ fontSize: 10, color: "#999", marginLeft: 4 }}>
-                                {p.material}
-                              </span>
-                            </button>
+                              label={p.name}
+                              sub={p.material}
+                              onClick={() =>
+                                applySettingsToGroup(group.group_id, p.settings, p.name)
+                              }
+                            />
                           ))}
                         </>
                       )}
@@ -478,12 +486,13 @@ export default function OperationDetailPanel({
                           <div style={presetSectionLabel}>My Presets</div>
                           {userPresets.map((p) => (
                             <div key={p.id} style={{ display: "flex", alignItems: "center" }}>
-                              <button
-                                style={{ ...presetItemStyle, flex: 1 }}
-                                onClick={() => applySettingsToGroup(group.group_id, p.settings)}
-                              >
-                                {p.name}
-                              </button>
+                              <PresetRow
+                                label={p.name}
+                                onClick={() =>
+                                  applySettingsToGroup(group.group_id, p.settings, p.name)
+                                }
+                                style={{ flex: 1 }}
+                              />
                               <button
                                 style={presetDeleteBtnStyle}
                                 onClick={() => deleteUserPreset(p.id)}
@@ -730,6 +739,37 @@ function NumberRow({
   );
 }
 
+function PresetRow({
+  label,
+  sub,
+  onClick,
+  style,
+}: {
+  label: string;
+  sub?: string;
+  onClick: () => void;
+  style?: React.CSSProperties;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      style={{
+        ...presetItemBaseStyle,
+        background: hover ? "#f0f4ff" : "none",
+        ...style,
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={onClick}
+    >
+      {label}
+      {sub && (
+        <span style={{ fontSize: 10, color: "#999", marginLeft: 4 }}>{sub}</span>
+      )}
+    </button>
+  );
+}
+
 /* --- Styles --- */
 
 const panelStyle: React.CSSProperties = {
@@ -881,7 +921,7 @@ const presetSectionLabel: React.CSSProperties = {
   letterSpacing: 0.5,
 };
 
-const presetItemStyle: React.CSSProperties = {
+const presetItemBaseStyle: React.CSSProperties = {
   display: "block",
   width: "100%",
   textAlign: "left",
