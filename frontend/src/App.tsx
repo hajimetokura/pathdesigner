@@ -120,7 +120,16 @@ function Flow() {
   }, []);
 
   const onConnect: OnConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
+    (params) => {
+      setEdges((eds) => {
+        const filtered = eds.filter(
+          (e) =>
+            !(e.target === params.target && e.targetHandle === params.targetHandle) &&
+            !(e.source === params.source && e.sourceHandle === params.sourceHandle)
+        );
+        return addEdge(params, filtered);
+      });
+    },
     [setEdges]
   );
 
