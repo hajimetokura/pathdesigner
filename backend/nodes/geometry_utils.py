@@ -1,7 +1,58 @@
-"""Shared geometry utilities for coordinate transforms."""
+"""Shared geometry utilities for coordinate transforms and wire sampling."""
+
+from __future__ import annotations
 
 from shapely.affinity import rotate as shapely_rotate
 from shapely.geometry import Polygon
+
+COORD_PRECISION = 6
+
+
+def sample_wire_coords(
+    wire,
+    *,
+    num_points: int = 100,
+    mode: str = "proportional",
+    resolution: float = 2.0,
+    precision: int = COORD_PRECISION,
+) -> list[tuple[float, float]]:
+    """Sample evenly-spaced points along a build123d Wire.
+
+    Args:
+        wire: A build123d Wire object.
+        num_points: Total number of sample points (used in "proportional" mode).
+        mode: "proportional" distributes num_points by edge length ratio.
+              "resolution" samples every ~resolution mm along each edge.
+        resolution: Approximate mm between samples (used in "resolution" mode).
+        precision: Number of decimal places for rounding coordinates.
+
+    Returns:
+        List of (x, y) tuples. Closed wires have first == last point.
+    """
+    if mode not in ("proportional", "resolution"):
+        raise ValueError(f"mode must be 'proportional' or 'resolution', got {mode!r}")
+
+    edges = wire.edges()
+    coords: list[tuple[float, float]] = []
+
+    for edge in edges:
+        length = edge.length
+        if length < 0.001:
+            continue
+
+        if mode == "proportional":
+            n = max(2, int(num_points * length / wire.length))
+        else:
+            n = max(2, int(length / resolution))
+
+        for i in range(n):
+            t = i / n
+            pt = edge.position_at(t)
+            coords.append((round(pt.X, precision), round(pt.Y, precision)))
+
+    if coords and coords[0] != coords[-1]:
+        coords.append(coords[0])
+    return coords
 
 
 def rotate_polygon(polygon: Polygon, angle: float, origin: tuple[float, float]) -> Polygon:

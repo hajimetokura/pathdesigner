@@ -6,6 +6,7 @@ from pathlib import Path
 from build123d import GeomType, Plane, ShapeList, Solid, import_step
 
 from nodes.contour_extract import extract_contours
+from nodes.geometry_utils import sample_wire_coords
 from schemas import (
     Contour,
     DetectedOperation,
@@ -381,12 +382,12 @@ def _slice_to_shapely(solid: Solid, z: float, bb):
     faces = [result] if isinstance(result, B3dFace) else list(result)
     polys = []
     for face in faces:
-        outer_coords = _wire_to_coords(face.outer_wire(), bb)
+        outer_coords = sample_wire_coords(face.outer_wire(), mode="resolution", resolution=2.0, precision=4)
         if len(outer_coords) < 3:
             continue
         holes = []
         for iw in face.inner_wires():
-            hole_coords = _wire_to_coords(iw, bb)
+            hole_coords = sample_wire_coords(iw, mode="resolution", resolution=2.0, precision=4)
             if len(hole_coords) >= 3:
                 holes.append(hole_coords)
         poly = Polygon(outer_coords, holes)
@@ -397,16 +398,6 @@ def _slice_to_shapely(solid: Solid, z: float, bb):
         return None
     return unary_union(polys)
 
-
-def _wire_to_coords(wire, bb) -> list[tuple[float, float]]:
-    """Sample points from a build123d Wire in world coordinates."""
-    coords = []
-    for edge in wire.edges():
-        n = max(2, int(edge.length / 2))  # ~2mm resolution
-        for i in range(n):
-            p = edge.position_at(i / n)
-            coords.append((round(p.X, 4), round(p.Y, 4)))
-    return coords
 
 
 

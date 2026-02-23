@@ -6,6 +6,7 @@ from pathlib import Path
 from build123d import Plane, ShapeList, Solid, import_step
 from shapely.geometry import Polygon
 
+from nodes.geometry_utils import sample_wire_coords
 from schemas import Contour, ContourExtractResult, OffsetApplied
 
 # Tolerance for Z=0 section retry
@@ -140,31 +141,11 @@ def _wires_to_polygons(typed_wires: list[tuple]) -> list[tuple[Polygon, str]]:
         if not edges:
             continue
         # Use the wire's edge sampling for smoother curves
-        coords = _sample_wire_coords(wire)
+        coords = sample_wire_coords(wire)
         poly = Polygon(coords)
         if poly.is_valid and not poly.is_empty:
             polygons.append((poly, contour_type))
     return polygons
-
-
-def _sample_wire_coords(wire, num_points: int = 100) -> list[tuple[float, float]]:
-    """Sample evenly-spaced points along a wire for accurate representation."""
-    edges = wire.edges()
-    coords = []
-    for edge in edges:
-        # Sample points along each edge
-        length = edge.length
-        if length < 0.001:
-            continue
-        n = max(2, int(num_points * length / wire.length))
-        for i in range(n):
-            t = i / n
-            pt = edge.position_at(t)
-            coords.append((round(pt.X, 6), round(pt.Y, 6)))
-    # Close the polygon
-    if coords and coords[0] != coords[-1]:
-        coords.append(coords[0])
-    return coords
 
 
 

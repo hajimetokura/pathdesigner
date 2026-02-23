@@ -4,6 +4,7 @@ from pathlib import Path
 
 from build123d import Axis, GeomType, Plane, ShapeList, Solid, import_step
 
+from nodes.geometry_utils import sample_wire_coords
 from schemas import (
     BoundingBox,
     BrepObject,
@@ -124,7 +125,7 @@ def _extract_outline(solid: Solid, bb) -> list[list[float]]:
 
         # Use the longest wire (outer boundary)
         longest = max(wires, key=lambda w: w.length)
-        coords = _sample_wire_coords(longest)
+        coords = sample_wire_coords(longest)
 
         # Translate to BB-min-relative coordinates
         ox, oy = bb.min.X, bb.min.Y
@@ -153,19 +154,3 @@ def _intersect_wires(solid: Solid, z: float) -> list:
     return wires
 
 
-def _sample_wire_coords(wire, num_points: int = 100) -> list[tuple[float, float]]:
-    """Sample evenly-spaced points along a wire."""
-    edges = wire.edges()
-    coords: list[tuple[float, float]] = []
-    for edge in edges:
-        length = edge.length
-        if length < 0.001:
-            continue
-        n = max(2, int(num_points * length / wire.length))
-        for i in range(n):
-            t = i / n
-            pt = edge.position_at(t)
-            coords.append((round(pt.X, 6), round(pt.Y, 6)))
-    if coords and coords[0] != coords[-1]:
-        coords.append(coords[0])
-    return coords
