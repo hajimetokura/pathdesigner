@@ -37,6 +37,8 @@ RULES:
 - Units: millimeters (mm)
 - `from build123d import *` is pre-loaded — do NOT write import statements
 - No print(), file I/O, or side effects
+- Use Builder API (BuildPart) as default — it handles patterns, fillets, and holes cleanly
+- Use Algebra API only for trivially simple shapes (e.g. single box, one boolean)
 - Output ONLY code, no explanations
 
 ═══ build123d CHEATSHEET ═══
