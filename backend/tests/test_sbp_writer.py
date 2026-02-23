@@ -9,8 +9,8 @@ from sbp_writer import SbpWriter
 from schemas import (
     PostProcessorSettings,
     MachiningSettings,
-    StockSettings,
-    StockMaterial,
+    SheetSettings,
+    SheetMaterial,
     Tool,
     FeedRate,
     TabSettings,
@@ -20,7 +20,7 @@ from schemas import (
 )
 
 PP_SETTINGS = PostProcessorSettings()  # all defaults
-STOCK = StockSettings(materials=[StockMaterial(material_id="mtl_1")])
+STOCK = SheetSettings(materials=[SheetMaterial(material_id="mtl_1")])
 
 MACHINING = MachiningSettings(
     operation_type="contour",
@@ -161,8 +161,8 @@ def test_sbp_with_tabs():
 
 def test_sbp_writer_with_stock():
     """SBP output should include stock material metadata."""
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", width=600, depth=400, thickness=18)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", width=600, depth=400, thickness=18)]
     )
     toolpaths = [
         Toolpath(
@@ -181,7 +181,7 @@ def test_sbp_writer_with_stock():
     writer = SbpWriter(
         settings=PP_SETTINGS,
         machining=MACHINING,
-        stock=stock,
+        sheet=stock,
     )
     sbp = writer.generate(toolpaths)
 

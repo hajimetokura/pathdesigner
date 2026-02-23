@@ -22,6 +22,7 @@ interface OperationsUpstream {
   sheetSettings: SheetSettings;
   placements: PlacementItem[];
   objectOrigins: Record<string, [number, number]>;
+  boundingBoxes: Record<string, { x: number; y: number; z: number }>;
   upstreamActiveSheetId: string;
 }
 
@@ -39,9 +40,10 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
     const sheetSettings = d.sheetSettings as SheetSettings | undefined;
     const placements = d.placements as PlacementItem[] | undefined;
     const objectOrigins = d.objectOrigins as Record<string, [number, number]> | undefined;
+    const boundingBoxes = d.boundingBoxes as Record<string, { x: number; y: number; z: number }> | undefined;
     const upstreamActiveSheetId = (d.activeSheetId as string) || "sheet_1";
     if (!detectedOperations || !assignments?.length || !sheetSettings || !placements) return undefined;
-    return { detectedOperations, assignments, sheetSettings, placements, objectOrigins: objectOrigins ?? {}, upstreamActiveSheetId };
+    return { detectedOperations, assignments, sheetSettings, placements, objectOrigins: objectOrigins ?? {}, boundingBoxes: boundingBoxes ?? {}, upstreamActiveSheetId };
   }, []);
   const operations = useUpstreamData(id, `${id}-operations`, extractOperations);
 
@@ -62,7 +64,7 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
   useEffect(() => {
     if (!operations || !postProc) return;
 
-    const { detectedOperations, assignments, sheetSettings, placements, objectOrigins } = operations;
+    const { detectedOperations, assignments, sheetSettings, placements, objectOrigins, boundingBoxes } = operations;
 
     // Build a generation key from all upstream inputs to avoid redundant calls
     const genKey = JSON.stringify({ assignments, placements, sheetSettings, postProc, activeSheetId });
@@ -105,7 +107,7 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
     (async () => {
       try {
         const tpResult = await generateToolpath(
-          filteredAssignments, detectedOperations, sheetSettings, filteredPlacements, objectOrigins
+          filteredAssignments, detectedOperations, sheetSettings, filteredPlacements, objectOrigins, boundingBoxes
         );
         if (cancelled) return;
         setToolpathResult(tpResult);

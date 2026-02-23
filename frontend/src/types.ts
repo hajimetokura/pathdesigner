@@ -106,6 +106,11 @@ export interface MachiningSettings {
   direction: string; // "climb" | "conventional"
   offset_side: string; // "outside" | "inside" | "none"
   tabs: TabSettings;
+  // Pocket-specific
+  pocket_pattern?: "contour-parallel" | "raster";
+  pocket_stepover?: number; // 0-1 ratio of tool diameter
+  // Drill-specific
+  depth_per_peck?: number; // mm
 }
 
 export interface PresetItem {
@@ -158,7 +163,7 @@ export interface SettingsGroup {
   label: string;
   operation_type: string;
   settings: MachiningSettings;
-  object_ids: string[];
+  operation_ids: string[];
 }
 
 export interface OperationEditResult {

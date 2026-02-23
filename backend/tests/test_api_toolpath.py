@@ -37,7 +37,7 @@ def test_generate_sbp_uses_per_toolpath_settings():
     from schemas import (
         SbpGenRequest, ToolpathGenResult, Toolpath, ToolpathPass,
         OperationAssignment, MachiningSettings, Tool, FeedRate, TabSettings,
-        StockSettings, StockMaterial, PostProcessorSettings,
+        SheetSettings, SheetMaterial, PostProcessorSettings,
     )
 
     settings_1 = MachiningSettings(
@@ -72,7 +72,7 @@ def test_generate_sbp_uses_per_toolpath_settings():
             OperationAssignment(operation_id="op_001", material_id="mtl_1", settings=settings_1, order=1),
             OperationAssignment(operation_id="op_002", material_id="mtl_1", settings=settings_2, order=2),
         ],
-        stock=StockSettings(materials=[StockMaterial(material_id="mtl_1")]),
+        sheet=SheetSettings(materials=[SheetMaterial(material_id="mtl_1")]),
         post_processor=PostProcessorSettings(),
     )
 

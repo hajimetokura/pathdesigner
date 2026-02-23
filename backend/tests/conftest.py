@@ -67,3 +67,24 @@ def _generate_box_with_small_hole(output_path: Path):
     result = box - hole
     output_path.parent.mkdir(parents=True, exist_ok=True)
     export_step(result, str(output_path))
+
+
+@pytest.fixture
+def box_with_pocket_step() -> Path:
+    """Path to a 100x50x10mm box with a blind circular pocket (non-through)."""
+    path = FIXTURES_DIR / "box_with_pocket.step"
+    if not path.exists():
+        _generate_box_with_pocket(path)
+    return path
+
+
+def _generate_box_with_pocket(output_path: Path):
+    """Generate a box with a blind pocket (radius=15, depth=6, non-through)."""
+    from build123d import Box, Cylinder, Pos, export_step
+
+    box = Box(100, 50, 10)
+    # Pocket: radius=15mm, height=6mm, centered at (30,0) offset in Z so it doesn't go through
+    pocket = Pos(30, 0, 2) * Cylinder(15, 6)
+    result = box - pocket
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    export_step(result, str(output_path))

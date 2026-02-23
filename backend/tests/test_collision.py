@@ -14,7 +14,7 @@ client = TestClient(app)
 def _make_request(placements, bounding_boxes, outlines=None, tool_diameter=6.35):
     body = {
         "placements": placements,
-        "stock": {"materials": [{"material_id": "mtl_1", "thickness": 12, "width": 600, "depth": 400}]},
+        "sheet": {"materials": [{"material_id": "mtl_1", "thickness": 12, "width": 600, "depth": 400}]},
         "bounding_boxes": bounding_boxes,
     }
     if outlines is not None:
@@ -150,9 +150,9 @@ def test_single_placement_no_collision():
 def test_different_stocks_no_collision():
     """Parts on different stocks should not collide even at the same position."""
     placements = [
-        {"object_id": "obj_001", "material_id": "mtl_1", "stock_id": "stock_1",
+        {"object_id": "obj_001", "material_id": "mtl_1", "sheet_id": "stock_1",
          "x_offset": 10, "y_offset": 10, "rotation": 0},
-        {"object_id": "obj_002", "material_id": "mtl_1", "stock_id": "stock_2",
+        {"object_id": "obj_002", "material_id": "mtl_1", "sheet_id": "stock_2",
          "x_offset": 10, "y_offset": 10, "rotation": 0},
     ]
     bbs = {
@@ -170,9 +170,9 @@ def test_different_stocks_no_collision():
 def test_same_stock_collision():
     """Parts on the same stock at same position should collide."""
     placements = [
-        {"object_id": "obj_001", "material_id": "mtl_1", "stock_id": "stock_1",
+        {"object_id": "obj_001", "material_id": "mtl_1", "sheet_id": "stock_1",
          "x_offset": 10, "y_offset": 10, "rotation": 0},
-        {"object_id": "obj_002", "material_id": "mtl_1", "stock_id": "stock_1",
+        {"object_id": "obj_002", "material_id": "mtl_1", "sheet_id": "stock_1",
          "x_offset": 10, "y_offset": 10, "rotation": 0},
     ]
     bbs = {

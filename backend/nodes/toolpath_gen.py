@@ -2,7 +2,11 @@
 
 import math
 
+from shapely.geometry import Polygon
+
+from nodes.drill_toolpath import generate_drill_toolpath
 from nodes.geometry_utils import rotate_coords
+from nodes.pocket_toolpath import generate_pocket_contour_parallel, generate_pocket_raster
 from schemas import (
     BoundingBox,
     ContourExtractResult,
@@ -116,11 +120,18 @@ def generate_toolpath_from_operations(
         dx = -origin_x + place_x
         dy = -origin_y + place_y
 
-        # Compute rotation pivot: geometric center of all contours (world space)
-        all_cx = [c[0] for ct in detected_op.geometry.contours for c in ct.coords]
-        all_cy = [c[1] for ct in detected_op.geometry.contours for c in ct.coords]
-        rot_cx = (min(all_cx) + max(all_cx)) / 2 if all_cx else 0.0
-        rot_cy = (min(all_cy) + max(all_cy)) / 2 if all_cy else 0.0
+        # Compute rotation pivot: object BB center in world space
+        # Must match frontend PlacementPanel which rotates around (bb.x/2, bb.y/2)
+        bb_info = (bounding_boxes or {}).get(detected_op.object_id)
+        if bb_info is not None:
+            rot_cx = origin_x + bb_info.x / 2
+            rot_cy = origin_y + bb_info.y / 2
+        else:
+            # Fallback: geometric center of all contours (world space)
+            all_cx = [c[0] for ct in detected_op.geometry.contours for c in ct.coords]
+            all_cy = [c[1] for ct in detected_op.geometry.contours for c in ct.coords]
+            rot_cx = (min(all_cx) + max(all_cx)) / 2 if all_cx else 0.0
+            rot_cy = (min(all_cy) + max(all_cy)) / 2 if all_cy else 0.0
 
         # For contour operations, cut through entire sheet
         if detected_op.operation_type == "contour":
@@ -128,6 +139,82 @@ def generate_toolpath_from_operations(
         else:
             total_depth = detected_op.geometry.depth
 
+        # --- Drill operations ---
+        if detected_op.operation_type == "drill":
+            # Use centroid of first contour as drill center
+            contour = detected_op.geometry.contours[0] if detected_op.geometry.contours else None
+            if not contour:
+                continue
+            cx = sum(c[0] for c in contour.coords) / len(contour.coords)
+            cy = sum(c[1] for c in contour.coords) / len(contour.coords)
+            # Apply rotation then offset
+            if rotation != 0:
+                center_coords = rotate_coords([[cx, cy]], rotation, rot_cx, rot_cy)
+                center = [center_coords[0][0] + dx, center_coords[0][1] + dy]
+            else:
+                center = [cx + dx, cy + dy]
+            drill_passes = generate_drill_toolpath(
+                center=center,
+                total_depth=total_depth,
+                depth_per_peck=assignment.settings.depth_per_peck,
+            )
+            toolpaths.append(
+                Toolpath(
+                    operation_id=assignment.operation_id,
+                    passes=drill_passes,
+                    settings=assignment.settings,
+                )
+            )
+            continue
+
+        # --- Pocket operations ---
+        if detected_op.operation_type == "pocket":
+            contour = detected_op.geometry.contours[0] if detected_op.geometry.contours else None
+            if not contour or len(contour.coords) < 3:
+                continue
+            # Apply rotation then offset to build the pocket polygon
+            if rotation != 0:
+                rotated = rotate_coords(contour.coords, rotation, rot_cx, rot_cy)
+                pocket_coords = [[c[0] + dx, c[1] + dy] for c in rotated]
+            else:
+                pocket_coords = [[c[0] + dx, c[1] + dy] for c in contour.coords]
+            polygon = Polygon(pocket_coords)
+            if polygon.is_empty or not polygon.is_valid:
+                continue
+            tool_dia = assignment.settings.tool.diameter
+            stepover = assignment.settings.pocket_stepover
+            if assignment.settings.pocket_pattern == "raster":
+                pocket_rings = generate_pocket_raster(polygon, tool_dia, stepover)
+            else:
+                pocket_rings = generate_pocket_contour_parallel(polygon, tool_dia, stepover)
+            # Convert pocket rings into multi-pass Z step-down
+            depth_per_pass = assignment.settings.depth_per_pass
+            num_z_passes = math.ceil(total_depth / depth_per_pass)
+            all_passes: list[ToolpathPass] = []
+            pass_num = 0
+            for z_i in range(num_z_passes):
+                is_final = z_i == num_z_passes - 1
+                z_depth = -PENETRATION_MARGIN if is_final else total_depth - ((z_i + 1) * depth_per_pass)
+                for ring in pocket_rings:
+                    pass_num += 1
+                    all_passes.append(
+                        ToolpathPass(
+                            pass_number=pass_num,
+                            z_depth=z_depth,
+                            path=ring,
+                            tabs=[],
+                        )
+                    )
+            toolpaths.append(
+                Toolpath(
+                    operation_id=assignment.operation_id,
+                    passes=all_passes,
+                    settings=assignment.settings,
+                )
+            )
+            continue
+
+        # --- Contour operations (default) ---
         # Sort: interior first, then exterior
         sorted_contours = sorted(
             detected_op.geometry.contours,

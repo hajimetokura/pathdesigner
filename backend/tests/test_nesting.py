@@ -1,7 +1,7 @@
 import pytest
 from schemas import (
     BoundingBox, BrepObject, Origin, FacesAnalysis,
-    StockMaterial, StockSettings, PlacementItem,
+    SheetMaterial, SheetSettings, PlacementItem,
 )
 from nodes.nesting import auto_nesting
 
@@ -23,10 +23,10 @@ def _make_object(obj_id: str, w: float, d: float, t: float = 10.0) -> BrepObject
     )
 
 
-def _make_stock(width: float = 600, depth: float = 400, thickness: float = 18) -> StockSettings:
-    return StockSettings(
+def _make_stock(width: float = 600, depth: float = 400, thickness: float = 18) -> SheetSettings:
+    return SheetSettings(
         materials=[
-            StockMaterial(
+            SheetMaterial(
                 material_id="mat_001",
                 label="Plywood",
                 width=width,
@@ -46,7 +46,7 @@ class TestAutoNesting:
         assert len(result) == 1
         p = result[0]
         assert p.object_id == "obj_001"
-        assert p.stock_id == "stock_1"
+        assert p.sheet_id == "sheet_1"
         # マージン分だけオフセット（tool_diameter/2 + clearance = 3.175 + 5 = 8.175）
         assert p.x_offset >= 0
         assert p.y_offset >= 0
@@ -60,8 +60,8 @@ class TestAutoNesting:
         stock = _make_stock()
         result = auto_nesting(objects, stock)
         assert len(result) == 2
-        # 同じ stock_id（収まるはず）
-        assert all(p.stock_id == "stock_1" for p in result)
+        # 同じ sheet_id（収まるはず）
+        assert all(p.sheet_id == "sheet_1" for p in result)
         # 重ならない: BB が交差しない
         p1, p2 = result[0], result[1]
         assert not _bbs_overlap(p1, 100, 50, p2, 100, 50)
@@ -72,8 +72,8 @@ class TestAutoNesting:
         objects = [_make_object(f"obj_{i:03d}", 100, 100) for i in range(5)]
         stock = _make_stock(width=200, depth=200)
         result = auto_nesting(objects, stock, tool_diameter=0, clearance=0)
-        stock_ids = set(p.stock_id for p in result)
-        assert len(stock_ids) >= 2, f"Expected 2+ stocks, got {stock_ids}"
+        sheet_ids = set(p.sheet_id for p in result)
+        assert len(sheet_ids) >= 2, f"Expected 2+ stocks, got {sheet_ids}"
 
     def test_all_parts_placed(self):
         """全パーツが配置される"""

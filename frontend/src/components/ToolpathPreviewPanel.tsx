@@ -28,9 +28,9 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
         }
       }
       // Include origin and stock bounds in view calculation
-      if (toolpathResult.stock_width && toolpathResult.stock_depth) {
+      if (toolpathResult.sheet_width && toolpathResult.sheet_depth) {
         allPoints.push([0, 0]);
-        allPoints.push([toolpathResult.stock_width, toolpathResult.stock_depth]);
+        allPoints.push([toolpathResult.sheet_width, toolpathResult.sheet_depth]);
       } else {
         allPoints.push([0, 0]); // Always include origin
       }
@@ -66,9 +66,9 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
       const zRange = maxZ - minZ || 1;
 
       // --- Stock bounds (background layer) ---
-      if (toolpathResult.stock_width && toolpathResult.stock_depth) {
-        const sw = toolpathResult.stock_width;
-        const sd = toolpathResult.stock_depth;
+      if (toolpathResult.sheet_width && toolpathResult.sheet_depth) {
+        const sw = toolpathResult.sheet_width;
+        const sd = toolpathResult.sheet_depth;
         const [sx0, sy0] = toCanvas(0, 0);
         const [sx1, sy1] = toCanvas(sw, sd);
         ctx.save();
@@ -114,16 +114,34 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
       ctx.restore();
 
       for (const tp of toolpathResult.toolpaths) {
+        const opType = tp.settings?.operation_type ?? "contour";
+
         for (const pass of tp.passes) {
           const t = (pass.z_depth - minZ) / zRange;
-          const r = Math.round(0 + t * 0);
-          const g = Math.round(188 - t * 120);
-          const b = Math.round(212 - t * 100);
-          ctx.strokeStyle = `rgb(${r},${g},${b})`;
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
           const pts = pass.path;
           if (pts.length === 0) continue;
+
+          if (opType === "pocket") {
+            // Pocket: purple/magenta palette, thinner lines
+            const r = Math.round(156 - t * 60);
+            const g = Math.round(39 + t * 20);
+            const b = Math.round(176 - t * 60);
+            ctx.strokeStyle = `rgba(${r},${g},${b},0.7)`;
+            ctx.lineWidth = 0.8;
+          } else if (opType === "drill") {
+            // Drill: orange palette
+            ctx.strokeStyle = `rgba(255,${Math.round(152 - t * 80)},0,0.9)`;
+            ctx.lineWidth = 2;
+          } else {
+            // Contour: cyan→blue (original)
+            const r = Math.round(0 + t * 0);
+            const g = Math.round(188 - t * 120);
+            const b = Math.round(212 - t * 100);
+            ctx.strokeStyle = `rgb(${r},${g},${b})`;
+            ctx.lineWidth = 1.5;
+          }
+
+          ctx.beginPath();
           const [sx, sy] = toCanvas(pts[0][0], pts[0][1]);
           ctx.moveTo(sx, sy);
           for (let i = 1; i < pts.length; i++) {
@@ -189,12 +207,14 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
       </div>
 
       <div style={legendStyle}>
-        <div style={summaryTitle}>Depth legend</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+        <div style={summaryTitle}>Legend</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, flexWrap: "wrap" }}>
           <span style={{ width: 12, height: 12, background: "rgb(0,188,212)", borderRadius: 2, display: "inline-block" }} />
-          <span>Shallow</span>
-          <span style={{ width: 12, height: 12, background: "rgb(0,68,112)", borderRadius: 2, display: "inline-block" }} />
-          <span>Deep</span>
+          <span>Contour</span>
+          <span style={{ width: 12, height: 12, background: "rgba(156,39,176,0.7)", borderRadius: 2, display: "inline-block" }} />
+          <span>Pocket</span>
+          <span style={{ width: 12, height: 12, background: "rgb(255,152,0)", borderRadius: 2, display: "inline-block" }} />
+          <span>Drill</span>
           <span style={{ width: 12, height: 12, background: "#ff5722", borderRadius: "50%", display: "inline-block" }} />
           <span>Tab</span>
         </div>
