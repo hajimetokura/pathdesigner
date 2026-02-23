@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 import { uploadStepFile, fetchMeshData } from "../api";
 import type { BrepImportResult, BrepObject, ObjectMesh } from "../types";
 import type { PanelTab } from "../components/SidePanel";
@@ -8,7 +9,7 @@ import BrepImportPanel from "../components/BrepImportPanel";
 
 type Status = "idle" | "loading" | "success" | "error";
 
-export default function BrepImportNode({ id, data }: NodeProps) {
+export default function BrepImportNode({ id, data, selected }: NodeProps) {
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<BrepImportResult | null>(null);
@@ -86,7 +87,7 @@ export default function BrepImportNode({ id, data }: NodeProps) {
 
 
   return (
-    <div style={nodeStyle}>
+    <NodeShell category="cam" selected={selected}>
       <div style={headerStyle}>BREP Import</div>
 
       <div
@@ -143,7 +144,7 @@ export default function BrepImportNode({ id, data }: NodeProps) {
       )}
 
       <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="out" dataType="geometry" />
-    </div>
+    </NodeShell>
   );
 }
 
@@ -167,15 +168,6 @@ function ObjectSummary({ obj }: { obj: BrepObject }) {
     </div>
   );
 }
-
-const nodeStyle: React.CSSProperties = {
-  background: "white",
-  border: "1px solid #ddd",
-  borderRadius: 8,
-  padding: "20px 12px",
-  width: 200,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-};
 
 const headerStyle: React.CSSProperties = {
   fontWeight: 700,
