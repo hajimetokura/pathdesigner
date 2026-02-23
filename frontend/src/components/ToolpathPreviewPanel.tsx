@@ -1,41 +1,90 @@
-import { useCallback, useEffect, useRef } from "react";
-import type { ToolpathGenResult } from "../types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ToolpathGenResult, PlacementItem } from "../types";
 
 interface Props {
   toolpathResult: ToolpathGenResult;
+  placements?: PlacementItem[];
+  activeSheetId?: string;
+  boundingBoxes?: Record<string, { x: number; y: number; z: number }>;
+  outlines?: Record<string, [number, number][]>;
 }
 
-export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export default function ToolpathPreviewPanel({
+  toolpathResult,
+  placements,
+  activeSheetId,
+  boundingBoxes,
+  outlines,
+}: Props) {
+  // Transform outline coords (BB-min-local) to sheet-space
+  // Outlines are relative to BB min (0,0), so: rotate around (bb.x/2, bb.y/2), then add placement offset
+  // Must match PlacementNode thumbnail drawing logic
+  const outlineToSheet = useCallback(
+    (
+      coords: [number, number][],
+      objectId: string,
+      placement: PlacementItem | undefined,
+    ): [number, number][] => {
+      const placeX = placement?.x_offset ?? 0;
+      const placeY = placement?.y_offset ?? 0;
+      const rotation = placement?.rotation ?? 0;
+      const bb = boundingBoxes?.[objectId];
+      const rcx = bb ? bb.x / 2 : 0;
+      const rcy = bb ? bb.y / 2 : 0;
 
-  // Calculate summary stats
+      if (rotation !== 0) {
+        const rad = (rotation * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+        return coords.map(([lx, ly]) => {
+          const dx = lx - rcx;
+          const dy = ly - rcy;
+          return [rcx + dx * cos - dy * sin + placeX, rcy + dx * sin + dy * cos + placeY];
+        });
+      }
+      return coords.map(([lx, ly]) => [lx + placeX, ly + placeY]);
+    },
+    [boundingBoxes],
+  );
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+
   const stats = calcStats(toolpathResult);
 
-  const draw = useCallback(
-    (canvas: HTMLCanvasElement) => {
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      const w = canvas.width;
-      const h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
+  // Compute base transform (auto-fit) once
+  const computeBase = useCallback(
+    (w: number, h: number) => {
       const allPoints: [number, number][] = [];
       for (const tp of toolpathResult.toolpaths) {
         for (const pass of tp.passes) {
-          for (const pt of pass.path) {
-            allPoints.push(pt);
-          }
+          for (const pt of pass.path) allPoints.push(pt);
         }
       }
-      // Include origin and stock bounds in view calculation
+      // Include original outlines in bounds (transformed to sheet-space)
+      if (outlines && placements) {
+        const sheetId = activeSheetId ?? "sheet_1";
+        const placementMap = new Map(
+          placements.filter((p) => p.sheet_id === sheetId).map((p) => [p.object_id, p])
+        );
+        for (const [objId, coords] of Object.entries(outlines)) {
+          const pl = placementMap.get(objId);
+          if (!pl) continue;
+          const sheetCoords = outlineToSheet(coords, objId, pl);
+          for (const pt of sheetCoords) allPoints.push(pt);
+        }
+      }
       if (toolpathResult.sheet_width && toolpathResult.sheet_depth) {
         allPoints.push([0, 0]);
         allPoints.push([toolpathResult.sheet_width, toolpathResult.sheet_depth]);
       } else {
-        allPoints.push([0, 0]); // Always include origin
+        allPoints.push([0, 0]);
       }
-
-      if (allPoints.length === 0) return;
+      if (allPoints.length === 0) return { scale: 1, offsetX: 0, offsetY: 0, minX: 0, minY: 0 };
 
       const xs = allPoints.map((p) => p[0]);
       const ys = allPoints.map((p) => p[1]);
@@ -47,15 +96,30 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
       const rangeY = maxY - minY || 1;
       const padding = 0.08;
       const scale = Math.min(
-        w * (1 - 2 * padding) / rangeX,
-        h * (1 - 2 * padding) / rangeY
+        (w * (1 - 2 * padding)) / rangeX,
+        (h * (1 - 2 * padding)) / rangeY
       );
       const offsetX = (w - rangeX * scale) / 2;
       const offsetY = (h - rangeY * scale) / 2;
+      return { scale, offsetX, offsetY, minX, minY };
+    },
+    [toolpathResult, outlines, placements, activeSheetId, outlineToSheet]
+  );
+
+  const draw = useCallback(
+    (canvas: HTMLCanvasElement) => {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const base = computeBase(w, h);
+      const s = base.scale * zoom;
 
       const toCanvas = (x: number, y: number): [number, number] => [
-        (x - minX) * scale + offsetX,
-        h - ((y - minY) * scale + offsetY),
+        (x - base.minX) * s + base.offsetX * zoom + panX,
+        h - ((y - base.minY) * s + base.offsetY * zoom + panY),
       ];
 
       const allZ = toolpathResult.toolpaths.flatMap((tp) =>
@@ -65,7 +129,7 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
       const maxZ = Math.max(...allZ);
       const zRange = maxZ - minZ || 1;
 
-      // --- Stock bounds (background layer) ---
+      // --- Sheet bounds ---
       if (toolpathResult.sheet_width && toolpathResult.sheet_depth) {
         const sw = toolpathResult.sheet_width;
         const sd = toolpathResult.sheet_depth;
@@ -77,7 +141,6 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
         ctx.setLineDash([6, 4]);
         ctx.strokeRect(sx0, sy1, sx1 - sx0, sy0 - sy1);
         ctx.setLineDash([]);
-        // Dimension label
         ctx.fillStyle = "#aaa";
         ctx.font = "10px sans-serif";
         ctx.fillText(`${sw} × ${sd} mm`, sx0, sy1 - 4);
@@ -86,9 +149,8 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
 
       // --- Origin axes ---
       const [ox, oy] = toCanvas(0, 0);
-      const axisLen = 30; // pixels
+      const axisLen = 30;
       ctx.save();
-      // X axis (red)
       ctx.strokeStyle = "#e53935";
       ctx.lineWidth = 1.5;
       ctx.beginPath();
@@ -98,7 +160,6 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
       ctx.fillStyle = "#e53935";
       ctx.font = "bold 10px sans-serif";
       ctx.fillText("X", ox + axisLen + 2, oy + 3);
-      // Y axis (green)
       ctx.strokeStyle = "#43a047";
       ctx.beginPath();
       ctx.moveTo(ox, oy);
@@ -106,57 +167,89 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
       ctx.stroke();
       ctx.fillStyle = "#43a047";
       ctx.fillText("Y", ox - 4, oy - axisLen - 4);
-      // Origin dot
       ctx.fillStyle = "#333";
       ctx.beginPath();
       ctx.arc(ox, oy, 2.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
+      // --- Original object outlines (pre-offset geometry, transformed to sheet-space) ---
+      if (outlines && placements) {
+        const sheetId = activeSheetId ?? "sheet_1";
+        const placementMap = new Map(
+          placements.filter((p) => p.sheet_id === sheetId).map((p) => [p.object_id, p])
+        );
+        ctx.save();
+        ctx.strokeStyle = "#999";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 3]);
+        for (const [objId, coords] of Object.entries(outlines)) {
+          const pl = placementMap.get(objId);
+          if (!pl || coords.length < 2) continue;
+          const sheetCoords = outlineToSheet(coords, objId, pl);
+          ctx.beginPath();
+          const [cx0, cy0] = toCanvas(sheetCoords[0][0], sheetCoords[0][1]);
+          ctx.moveTo(cx0, cy0);
+          for (let i = 1; i < sheetCoords.length; i++) {
+            const [cx, cy] = toCanvas(sheetCoords[i][0], sheetCoords[i][1]);
+            ctx.lineTo(cx, cy);
+          }
+          ctx.closePath();
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
+      // --- Toolpath lines ---
       for (const tp of toolpathResult.toolpaths) {
         const opType = tp.settings?.operation_type ?? "contour";
 
+        // Collect all pass points into one connected path per operation
+        const allPts: [number, number][] = [];
+        let deepestT = 0;
         for (const pass of tp.passes) {
           const t = (pass.z_depth - minZ) / zRange;
-          const pts = pass.path;
-          if (pts.length === 0) continue;
+          if (t > deepestT) deepestT = t;
+          for (const pt of pass.path) allPts.push(pt);
+        }
 
-          if (opType === "pocket") {
-            // Pocket: purple/magenta palette, thinner lines
-            const r = Math.round(156 - t * 60);
-            const g = Math.round(39 + t * 20);
-            const b = Math.round(176 - t * 60);
-            ctx.strokeStyle = `rgba(${r},${g},${b},0.7)`;
-            ctx.lineWidth = 0.8;
-          } else if (opType === "drill") {
-            // Drill: orange palette
-            ctx.strokeStyle = `rgba(255,${Math.round(152 - t * 80)},0,0.9)`;
-            ctx.lineWidth = 2;
-          } else {
-            // Contour: cyan→blue (original)
-            const r = Math.round(0 + t * 0);
-            const g = Math.round(188 - t * 120);
-            const b = Math.round(212 - t * 100);
-            ctx.strokeStyle = `rgb(${r},${g},${b})`;
-            ctx.lineWidth = 1.5;
-          }
+        if (allPts.length === 0) continue;
 
-          ctx.beginPath();
-          const [sx, sy] = toCanvas(pts[0][0], pts[0][1]);
-          ctx.moveTo(sx, sy);
-          for (let i = 1; i < pts.length; i++) {
-            const [px, py] = toCanvas(pts[i][0], pts[i][1]);
-            ctx.lineTo(px, py);
-          }
-          ctx.stroke();
+        if (opType === "pocket") {
+          const r = Math.round(156 - deepestT * 60);
+          const g = Math.round(39 + deepestT * 20);
+          const b = Math.round(176 - deepestT * 60);
+          ctx.strokeStyle = `rgba(${r},${g},${b},0.7)`;
+          ctx.lineWidth = 0.8;
+        } else if (opType === "drill") {
+          ctx.strokeStyle = `rgba(255,${Math.round(152 - deepestT * 80)},0,0.9)`;
+          ctx.lineWidth = 2;
+        } else {
+          const r = Math.round(0 + deepestT * 0);
+          const g = Math.round(188 - deepestT * 120);
+          const b = Math.round(212 - deepestT * 100);
+          ctx.strokeStyle = `rgb(${r},${g},${b})`;
+          ctx.lineWidth = 1.5;
+        }
 
-          // Draw tab markers on final pass
+        ctx.beginPath();
+        const [sx, sy] = toCanvas(allPts[0][0], allPts[0][1]);
+        ctx.moveTo(sx, sy);
+        for (let i = 1; i < allPts.length; i++) {
+          const [px, py] = toCanvas(allPts[i][0], allPts[i][1]);
+          ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        // Draw tab markers
+        for (const pass of tp.passes) {
           if (pass.tabs.length > 0) {
             ctx.fillStyle = "#ff5722";
             for (const tab of pass.tabs) {
               const midIdx = Math.floor((tab.start_index + tab.end_index) / 2);
-              if (midIdx < pts.length) {
-                const [tx, ty] = toCanvas(pts[midIdx][0], pts[midIdx][1]);
+              if (midIdx < pass.path.length) {
+                const [tx, ty] = toCanvas(pass.path[midIdx][0], pass.path[midIdx][1]);
                 ctx.beginPath();
                 ctx.arc(tx, ty, 4, 0, Math.PI * 2);
                 ctx.fill();
@@ -165,15 +258,76 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
           }
         }
       }
+
+      // --- Zoom indicator ---
+      if (zoom !== 1) {
+        ctx.save();
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.font = "11px sans-serif";
+        ctx.fillText(`${Math.round(zoom * 100)}%`, 8, h - 8);
+        ctx.restore();
+      }
     },
-    [toolpathResult]
+    [toolpathResult, outlines, placements, activeSheetId, zoom, panX, panY, computeBase, outlineToSheet]
   );
 
   useEffect(() => {
-    if (canvasRef.current) {
-      draw(canvasRef.current);
-    }
+    if (canvasRef.current) draw(canvasRef.current);
   }, [draw]);
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent<HTMLCanvasElement>) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = ((e.clientX - rect.left) / rect.width) * canvas.width;
+      const my = ((e.clientY - rect.top) / rect.height) * canvas.height;
+
+      setZoom((prev) => {
+        const newZoom = Math.max(0.1, Math.min(prev * factor, 50));
+        const ratio = newZoom / prev;
+        setPanX((px) => mx - ratio * (mx - px));
+        setPanY((py) => (canvas.height - my) - ratio * ((canvas.height - my) - py));
+        return newZoom;
+      });
+    },
+    []
+  );
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      setDragging(true);
+      dragStartRef.current = { x: e.clientX, y: e.clientY, px: panX, py: panY };
+    },
+    [panX, panY]
+  );
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (!dragging || !dragStartRef.current || !canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const scaleX = canvasRef.current.width / rect.width;
+      const scaleY = canvasRef.current.height / rect.height;
+      const dx = (e.clientX - dragStartRef.current.x) * scaleX;
+      const dy = (e.clientY - dragStartRef.current.y) * scaleY;
+      setPanX(dragStartRef.current.px + dx);
+      setPanY(dragStartRef.current.py - dy);
+    },
+    [dragging]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setDragging(false);
+    dragStartRef.current = null;
+  }, []);
+
+  const handleDoubleClick = useCallback(() => {
+    setZoom(1);
+    setPanX(0);
+    setPanY(0);
+  }, []);
 
   return (
     <div style={panelStyle}>
@@ -182,8 +336,20 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
           ref={canvasRef}
           width={600}
           height={450}
-          style={{ width: "100%", background: "#fafafa", borderRadius: 4 }}
+          style={{
+            width: "100%",
+            background: "#fafafa",
+            borderRadius: 4,
+            cursor: dragging ? "grabbing" : "grab",
+          }}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onDoubleClick={handleDoubleClick}
         />
+        <div style={hintStyle}>Scroll to zoom / Drag to pan / Double-click to reset</div>
       </div>
 
       <div style={summaryStyle}>
@@ -209,6 +375,8 @@ export default function ToolpathPreviewPanel({ toolpathResult }: Props) {
       <div style={legendStyle}>
         <div style={summaryTitle}>Legend</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, flexWrap: "wrap" }}>
+          <span style={{ width: 16, height: 0, borderTop: "2px dashed #999", display: "inline-block" }} />
+          <span>Original</span>
           <span style={{ width: 12, height: 12, background: "rgb(0,188,212)", borderRadius: 2, display: "inline-block" }} />
           <span>Contour</span>
           <span style={{ width: 12, height: 12, background: "rgba(156,39,176,0.7)", borderRadius: 2, display: "inline-block" }} />
@@ -260,6 +428,13 @@ const canvasWrapStyle: React.CSSProperties = {
   padding: 16,
   flex: 1,
   minHeight: 0,
+};
+
+const hintStyle: React.CSSProperties = {
+  fontSize: 10,
+  color: "#aaa",
+  textAlign: "center",
+  marginTop: 4,
 };
 
 const summaryStyle: React.CSSProperties = {

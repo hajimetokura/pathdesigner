@@ -23,6 +23,7 @@ interface OperationsUpstream {
   placements: PlacementItem[];
   objectOrigins: Record<string, [number, number]>;
   boundingBoxes: Record<string, { x: number; y: number; z: number }>;
+  outlines: Record<string, [number, number][]>;
   upstreamActiveSheetId: string;
 }
 
@@ -41,9 +42,10 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
     const placements = d.placements as PlacementItem[] | undefined;
     const objectOrigins = d.objectOrigins as Record<string, [number, number]> | undefined;
     const boundingBoxes = d.boundingBoxes as Record<string, { x: number; y: number; z: number }> | undefined;
+    const outlines = d.outlines as Record<string, [number, number][]> | undefined;
     const upstreamActiveSheetId = (d.activeSheetId as string) || "sheet_1";
     if (!detectedOperations || !assignments?.length || !sheetSettings || !placements) return undefined;
-    return { detectedOperations, assignments, sheetSettings, placements, objectOrigins: objectOrigins ?? {}, boundingBoxes: boundingBoxes ?? {}, upstreamActiveSheetId };
+    return { detectedOperations, assignments, sheetSettings, placements, objectOrigins: objectOrigins ?? {}, boundingBoxes: boundingBoxes ?? {}, outlines: outlines ?? {}, upstreamActiveSheetId };
   }, []);
   const operations = useUpstreamData(id, `${id}-operations`, extractOperations);
 
@@ -64,14 +66,14 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
   useEffect(() => {
     if (!operations || !postProc) return;
 
-    const { detectedOperations, assignments, sheetSettings, placements, objectOrigins, boundingBoxes } = operations;
+    const { detectedOperations, assignments, sheetSettings, placements, objectOrigins, boundingBoxes, outlines } = operations;
 
     // Build a generation key from all upstream inputs to avoid redundant calls
     const genKey = JSON.stringify({ assignments, placements, sheetSettings, postProc, activeSheetId });
     if (lastGenKeyRef.current === genKey && toolpathResult) return;
     lastGenKeyRef.current = genKey;
 
-    // Filter placements and assignments by active stock
+    // Filter placements and assignments by active sheet
     const filteredPlacements = placements.filter(
       (p: PlacementItem) => p.sheet_id === activeSheetId
     );
@@ -82,7 +84,7 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
       return objId ? activeObjectIds.has(objId) : false;
     });
 
-    // Validate stock thickness (only for active stock's assignments)
+    // Validate sheet thickness (only for active sheet's assignments)
     const matLookup = new Map(sheetSettings.materials.map((m) => [m.material_id, m]));
     const opLookup = new Map(detectedOperations.operations.map((op) => [op.operation_id, op]));
     const thinOps: string[] = [];
@@ -134,6 +136,7 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
                     allAssignments: assignments,
                     detectedOperations,
                     objectOrigins,
+                    outlines,
                     postProcessorSettings: postProc,
                   },
                 }

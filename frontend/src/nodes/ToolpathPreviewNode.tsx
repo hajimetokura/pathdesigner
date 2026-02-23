@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Position, type NodeProps } from "@xyflow/react";
-import type { ToolpathGenResult, SheetSettings } from "../types";
+import type { ToolpathGenResult, SheetSettings, PlacementItem } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import type { PanelTab } from "../components/SidePanel";
@@ -18,9 +18,15 @@ export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
     sheetSettings: d.sheetSettings as SheetSettings | undefined,
     activeSheetId: (d.activeSheetId as string) || "sheet_1",
     allSheetIds: (d.allSheetIds as string[]) || [],
+    placements: d.allPlacements as PlacementItem[] | undefined,
+    boundingBoxes: (d.boundingBoxes as Record<string, { x: number; y: number; z: number }>) ?? {},
+    outlines: (d.outlines as Record<string, [number, number][]>) ?? {},
   }), []);
   const upstream = useUpstreamData(id, `${id}-in`, extractUpstream);
   const toolpathResult = upstream?.toolpathResult;
+  const placements = upstream?.placements;
+  const boundingBoxes = upstream?.boundingBoxes ?? {};
+  const outlines = upstream?.outlines ?? {};
 
   const drawToolpath = useCallback(
     (canvas: HTMLCanvasElement, result: ToolpathGenResult) => {
@@ -40,7 +46,7 @@ export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
           }
         }
       }
-      // Include origin and stock bounds in view
+      // Include origin and sheet bounds in view
       if (result.sheet_width && result.sheet_depth) {
         allPoints.push([0, 0]);
         allPoints.push([result.sheet_width, result.sheet_depth]);
@@ -79,7 +85,7 @@ export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
       const maxZ = Math.max(...allZ);
       const zRange = maxZ - minZ || 1;
 
-      // Stock bounds (thumbnail)
+      // Sheet bounds (thumbnail)
       if (result.sheet_width && result.sheet_depth) {
         const [sx0, sy0] = toCanvas(0, 0);
         const [sx1, sy1] = toCanvas(result.sheet_width, result.sheet_depth);
@@ -133,9 +139,17 @@ export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
       id: `preview-${id}`,
       label: "Preview",
       icon: "\ud83d\udc41",
-      content: <ToolpathPreviewPanel toolpathResult={toolpathResult} />,
+      content: (
+        <ToolpathPreviewPanel
+          toolpathResult={toolpathResult}
+          placements={placements}
+          activeSheetId={upstream?.activeSheetId}
+          boundingBoxes={boundingBoxes}
+          outlines={outlines}
+        />
+      ),
     });
-  }, [id, toolpathResult, openTab]);
+  }, [id, toolpathResult, placements, upstream?.activeSheetId, boundingBoxes, outlines, openTab]);
 
   return (
     <NodeShell category="cam" selected={selected}>

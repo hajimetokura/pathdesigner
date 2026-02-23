@@ -18,7 +18,7 @@ import { SheetBadge } from "../components/SheetBadge";
 type Status = "idle" | "loading" | "success" | "error";
 
 interface UpstreamData {
-  placementResult: { placements: PlacementItem[]; stock: SheetSettings; objects: BrepObject[] };
+  placementResult: { placements: PlacementItem[]; sheet: SheetSettings; objects: BrepObject[] };
   fileId: string;
   activeSheetId: string;
 }
@@ -53,26 +53,30 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
     return ids.sort();
   }, [allPlacements]);
 
-  // Filter operations by active stock
+  // Filter operations by active sheet
   const activeObjectIds = useMemo(() => {
     const ids = new Set(allPlacements.filter((p) => p.sheet_id === activeSheetId).map((p) => p.object_id));
     return ids;
   }, [allPlacements, activeSheetId]);
 
   const syncToNodeData = useCallback(
-    (det: OperationDetectResult, assign: OperationAssignment[], stock: SheetSettings | null, plc: PlacementItem[], objects: BrepObject[]) => {
+    (det: OperationDetectResult, assign: OperationAssignment[], sheet: SheetSettings | null, plc: PlacementItem[], objects: BrepObject[]) => {
       const sid = upstream?.activeSheetId ?? "sheet_1";
       // Build objectOrigins and boundingBoxes maps for ToolpathGenNode
       const objectOrigins: Record<string, [number, number]> = {};
       const boundingBoxes: Record<string, { x: number; y: number; z: number }> = {};
+      const outlines: Record<string, [number, number][]> = {};
       for (const obj of objects) {
         objectOrigins[obj.object_id] = [obj.origin.position[0], obj.origin.position[1]];
         boundingBoxes[obj.object_id] = obj.bounding_box;
+        if (obj.outline && obj.outline.length >= 3) {
+          outlines[obj.object_id] = obj.outline;
+        }
       }
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, sheetSettings: stock, placements: plc, objectOrigins, boundingBoxes, activeSheetId: sid } }
+            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, sheetSettings: sheet, placements: plc, objectOrigins, boundingBoxes, outlines, activeSheetId: sid } }
             : n
         )
       );
@@ -88,7 +92,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
     if (lastFileIdRef.current === fileId && detected) return;
     lastFileIdRef.current = fileId;
 
-    const { placements: upstreamPlacements, stock: upstreamStock, objects } = placementResult;
+    const { placements: upstreamPlacements, sheet: upstreamSheet, objects } = placementResult;
     const objectIds = objects.map((o) => o.object_id);
 
     let cancelled = false;
@@ -101,7 +105,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
         if (cancelled) return;
         setDetected(result);
 
-        const defaultMaterialId = upstreamStock?.materials?.[0]?.material_id ?? "mtl_1";
+        const defaultMaterialId = upstreamSheet?.materials?.[0]?.material_id ?? "mtl_1";
         const newAssignments: OperationAssignment[] = result.operations.map((op, i) => ({
           operation_id: op.operation_id,
           material_id: defaultMaterialId,
@@ -111,7 +115,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
           group_id: `default_${op.operation_type}`,
         }));
         setAssignments(newAssignments);
-        syncToNodeData(result, newAssignments, upstreamStock, upstreamPlacements, objects);
+        syncToNodeData(result, newAssignments, upstreamSheet, upstreamPlacements, objects);
         setStatus("success");
       } catch (e) {
         if (cancelled) return;
@@ -124,11 +128,11 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upstream?.fileId]);
 
-  // Re-sync downstream when upstream placements/stock change (without re-detecting)
+  // Re-sync downstream when upstream placements/sheet change (without re-detecting)
   useEffect(() => {
     if (!upstream || !detected) return;
-    const { placements: upstreamPlacements, stock: upstreamStock, objects } = upstream.placementResult;
-    syncToNodeData(detected, assignments, upstreamStock, upstreamPlacements, objects);
+    const { placements: upstreamPlacements, sheet: upstreamSheet, objects } = upstream.placementResult;
+    syncToNodeData(detected, assignments, upstreamSheet, upstreamPlacements, objects);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upstream?.placementResult, upstream?.activeSheetId]);
 
@@ -139,7 +143,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
           a.operation_id === opId ? { ...a, enabled: !a.enabled } : a
         );
         if (detected && upstream) {
-          syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements, upstream.placementResult.objects);
+          syncToNodeData(detected, updated, upstream.placementResult.sheet, upstream.placementResult.placements, upstream.placementResult.objects);
         }
         return updated;
       });
@@ -151,7 +155,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
     (updated: OperationAssignment[]) => {
       setAssignments(updated);
       if (detected && upstream) {
-        syncToNodeData(detected, updated, upstream.placementResult.stock, upstream.placementResult.placements, upstream.placementResult.objects);
+        syncToNodeData(detected, updated, upstream.placementResult.sheet, upstream.placementResult.placements, upstream.placementResult.objects);
       }
     },
     [detected, upstream, syncToNodeData]
@@ -185,7 +189,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
         <OperationDetailPanel
           detectedOperations={detected}
           assignments={assignments}
-          sheetSettings={upstream?.placementResult.stock ?? null}
+          sheetSettings={upstream?.placementResult.sheet ?? null}
           onAssignmentsChange={handleAssignmentsChange}
           placements={allPlacements}
           sheetIds={sheetIds}
@@ -208,7 +212,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
           <OperationDetailPanel
             detectedOperations={detected}
             assignments={assignments}
-            sheetSettings={upstream?.placementResult.stock ?? null}
+            sheetSettings={upstream?.placementResult.sheet ?? null}
             onAssignmentsChange={handleAssignmentsChange}
             placements={allPlacements}
             sheetIds={sheetIds}
