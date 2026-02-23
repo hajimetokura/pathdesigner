@@ -11,7 +11,7 @@ import type {
 } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import { useUpstreamData } from "../hooks/useUpstreamData";
-import StockTabs from "../components/StockTabs";
+import { StockBadge } from "../components/StockBadge";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -30,8 +30,6 @@ export default function ToolpathGenNode({ id }: NodeProps) {
   const [error, setError] = useState("");
   const { setNodes } = useReactFlow();
   const lastGenKeyRef = useRef<string | null>(null);
-  const [activeStockId, setActiveStockId] = useState("stock_1");
-  const prevUpstreamStockRef = useRef<string | undefined>();
 
   // Subscribe to upstream OperationNode data
   const extractOperations = useCallback((d: Record<string, unknown>): OperationsUpstream | undefined => {
@@ -46,14 +44,7 @@ export default function ToolpathGenNode({ id }: NodeProps) {
   }, []);
   const operations = useUpstreamData(id, `${id}-operations`, extractOperations);
 
-  // Sync activeStockId from upstream OperationNode
-  useEffect(() => {
-    const upstreamStockId = operations?.upstreamActiveStockId;
-    if (upstreamStockId && upstreamStockId !== prevUpstreamStockRef.current) {
-      prevUpstreamStockRef.current = upstreamStockId;
-      setActiveStockId(upstreamStockId);
-    }
-  }, [operations?.upstreamActiveStockId]);
+  const activeStockId = operations?.upstreamActiveStockId ?? "stock_1";
 
   const allPlacements = operations?.placements ?? [];
   const stockIds = useMemo(() => {
@@ -61,13 +52,6 @@ export default function ToolpathGenNode({ id }: NodeProps) {
     if (ids.length === 0) ids.push("stock_1");
     return ids.sort();
   }, [allPlacements]);
-
-  // Fallback if activeStockId is invalid
-  useEffect(() => {
-    if (stockIds.length > 0 && !stockIds.includes(activeStockId)) {
-      setActiveStockId(stockIds[0]);
-    }
-  }, [stockIds, activeStockId]);
 
   // Subscribe to upstream PostProcessorNode data
   const extractPostProc = useCallback((d: Record<string, unknown>) => d.postProcessorSettings as PostProcessorSettings | undefined, []);
@@ -162,7 +146,7 @@ export default function ToolpathGenNode({ id }: NodeProps) {
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [operations, postProc, activeStockId]);
+  }, [operations, postProc, operations?.upstreamActiveStockId]);
 
   const dynamicBorder = status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : "#ddd";
 
@@ -190,11 +174,9 @@ export default function ToolpathGenNode({ id }: NodeProps) {
       <div style={headerStyle}>Toolpath Gen</div>
 
       {stockIds.length > 1 && (
-        <StockTabs
-          stockIds={stockIds}
+        <StockBadge
           activeStockId={activeStockId}
-          onChange={setActiveStockId}
-          size="small"
+          totalStocks={stockIds.length}
         />
       )}
 
