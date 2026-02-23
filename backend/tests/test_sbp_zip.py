@@ -97,29 +97,29 @@ def _make_zip_request(sheet_ids: list[str]) -> dict:
     return req.model_dump()
 
 
-def test_generate_sbp_zip_single_stock():
-    """ZIP with a single stock should contain one .sbp file."""
-    body = _make_zip_request(["stock_1"])
+def test_generate_sbp_zip_single_sheet():
+    """ZIP with a single sheet should contain one .sbp file."""
+    body = _make_zip_request(["sheet_1"])
     resp = client.post("/api/generate-sbp-zip", json=body)
     assert resp.status_code == 200
     assert "application/zip" in resp.headers["content-type"]
 
     zf = zipfile.ZipFile(io.BytesIO(resp.content))
     names = zf.namelist()
-    assert names == ["stock_1.sbp"]
-    content = zf.read("stock_1.sbp").decode("utf-8")
+    assert names == ["sheet_1.sbp"]
+    content = zf.read("sheet_1.sbp").decode("utf-8")
     assert "SA" in content  # SBP absolute move command
 
 
-def test_generate_sbp_zip_multi_stock():
-    """ZIP with multiple stocks should contain one .sbp per stock."""
-    body = _make_zip_request(["stock_1", "stock_1", "stock_2"])
+def test_generate_sbp_zip_multi_sheet():
+    """ZIP with multiple sheets should contain one .sbp per sheet."""
+    body = _make_zip_request(["sheet_1", "sheet_1", "sheet_2"])
     resp = client.post("/api/generate-sbp-zip", json=body)
     assert resp.status_code == 200
 
     zf = zipfile.ZipFile(io.BytesIO(resp.content))
     names = sorted(zf.namelist())
-    assert names == ["stock_1.sbp", "stock_2.sbp"]
+    assert names == ["sheet_1.sbp", "sheet_2.sbp"]
     for name in names:
         content = zf.read(name).decode("utf-8")
         assert len(content) > 0
@@ -127,6 +127,6 @@ def test_generate_sbp_zip_multi_stock():
 
 def test_generate_sbp_zip_content_disposition():
     """Response should have correct Content-Disposition header."""
-    body = _make_zip_request(["stock_1"])
+    body = _make_zip_request(["sheet_1"])
     resp = client.post("/api/generate-sbp-zip", json=body)
     assert "pathdesigner_sheets.zip" in resp.headers.get("content-disposition", "")

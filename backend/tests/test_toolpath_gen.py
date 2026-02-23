@@ -203,18 +203,18 @@ def test_generate_from_operations_single():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
 
-    result = generate_toolpath_from_operations(assignments, detected, stock)
+    result = generate_toolpath_from_operations(assignments, detected, sheet)
 
     assert isinstance(result, ToolpathGenResult)
     assert len(result.toolpaths) == 1
-    # Stock is 12mm, depth_per_pass=6 → 2 passes
+    # Sheet is 12mm, depth_per_pass=6 → 2 passes
     tp = result.toolpaths[0]
     assert len(tp.passes) == 2
-    # Final pass should penetrate below stock bottom
+    # Final pass should penetrate below sheet bottom
     assert tp.passes[-1].z_depth < 0
 
 
@@ -245,11 +245,11 @@ def test_generate_from_operations_disabled():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
 
-    result = generate_toolpath_from_operations(assignments, detected, stock)
+    result = generate_toolpath_from_operations(assignments, detected, sheet)
     assert len(result.toolpaths) == 0
 
 
@@ -286,11 +286,11 @@ def test_interior_contours_processed():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
 
-    result = generate_toolpath_from_operations(assignments, detected, stock)
+    result = generate_toolpath_from_operations(assignments, detected, sheet)
 
     # Should have 2 toolpaths: interior first, then exterior
     assert len(result.toolpaths) == 2
@@ -329,11 +329,11 @@ def test_interior_before_exterior_order():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
 
-    result = generate_toolpath_from_operations(assignments, detected, stock)
+    result = generate_toolpath_from_operations(assignments, detected, sheet)
 
     # First toolpath should be from interior, second from exterior
     assert len(result.toolpaths) == 2
@@ -372,7 +372,7 @@ def test_rotation_90_transforms_coords():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
     placements = [
@@ -381,10 +381,10 @@ def test_rotation_90_transforms_coords():
     bounding_boxes = {"obj_001": BoundingBox(x=100, y=50, z=10)}
 
     result_no_rot = generate_toolpath_from_operations(
-        assignments, detected, stock,
+        assignments, detected, sheet,
     )
     result_with_rot = generate_toolpath_from_operations(
-        assignments, detected, stock, placements, bounding_boxes=bounding_boxes,
+        assignments, detected, sheet, placements, bounding_boxes=bounding_boxes,
     )
 
     # After 90° rotation, the path should be different
@@ -437,7 +437,7 @@ def test_rotation_with_world_space_coords():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
     # origin = bb.min = (150, 75), placement at (10, 10)
@@ -445,7 +445,7 @@ def test_rotation_with_world_space_coords():
 
     # Without rotation: should map to (10, 10) → (110, 60)
     result_no_rot = generate_toolpath_from_operations(
-        assignments, detected, stock,
+        assignments, detected, sheet,
         [PlacementItem(object_id="obj_001", material_id="mtl_1", x_offset=10, y_offset=10, rotation=0)],
         object_origins=object_origins,
     )
@@ -456,7 +456,7 @@ def test_rotation_with_world_space_coords():
     # With 90° rotation: rotated 100x50 becomes 50x100
     # The part should still be near placement offset, not fly off to negative coords
     result_with_rot = generate_toolpath_from_operations(
-        assignments, detected, stock,
+        assignments, detected, sheet,
         [PlacementItem(object_id="obj_001", material_id="mtl_1", x_offset=10, y_offset=10, rotation=90)],
         object_origins=object_origins,
     )
@@ -500,11 +500,11 @@ def test_generate_toolpath_includes_settings():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=18.0)]
     )
 
-    result = generate_toolpath_from_operations(assignments, detected, stock)
+    result = generate_toolpath_from_operations(assignments, detected, sheet)
 
     for tp in result.toolpaths:
         assert tp.settings is not None
@@ -540,7 +540,7 @@ def test_rotation_0_no_change():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
     placements = [
@@ -549,7 +549,7 @@ def test_rotation_0_no_change():
     bounding_boxes = {"obj_001": BoundingBox(x=100, y=50, z=10)}
 
     result = generate_toolpath_from_operations(
-        assignments, detected, stock, placements, bounding_boxes=bounding_boxes,
+        assignments, detected, sheet, placements, bounding_boxes=bounding_boxes,
     )
 
     # With offset (10, 20) and no rotation, first point should be [10, 20]
@@ -605,11 +605,11 @@ def test_pocket_operation_generates_toolpath():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=18)]
     )
 
-    result = generate_toolpath_from_operations(assignments, detected, stock)
+    result = generate_toolpath_from_operations(assignments, detected, sheet)
 
     assert len(result.toolpaths) == 1
     tp = result.toolpaths[0]
@@ -663,11 +663,11 @@ def test_drill_operation_generates_toolpath():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=18)]
     )
 
-    result = generate_toolpath_from_operations(assignments, detected, stock)
+    result = generate_toolpath_from_operations(assignments, detected, sheet)
 
     assert len(result.toolpaths) == 1
     tp = result.toolpaths[0]
@@ -727,11 +727,11 @@ def test_pocket_raster_generates_toolpath():
             order=1,
         )
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=18)]
     )
 
-    result = generate_toolpath_from_operations(assignments, detected, stock)
+    result = generate_toolpath_from_operations(assignments, detected, sheet)
 
     assert len(result.toolpaths) == 1
     tp = result.toolpaths[0]
@@ -776,11 +776,11 @@ def test_toolpath_ordering_by_placement():
         OperationAssignment(operation_id="op_B", material_id="mtl_1", settings=settings, order=2),
         OperationAssignment(operation_id="op_C", material_id="mtl_1", settings=settings, order=1),
     ]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=18.0)]
     )
 
-    result = generate_toolpath_from_operations(assignments, detected, stock, placements)
+    result = generate_toolpath_from_operations(assignments, detected, sheet, placements)
 
     # Expected order by placement: obj_A (y=10,x=10), obj_B (y=10,x=200), obj_C (y=200,x=200)
     # NOT by assignment.order (which would give C, B, A)

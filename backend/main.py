@@ -226,7 +226,7 @@ def mesh_data_endpoint(req: MeshDataRequest):
 
 @app.post("/api/auto-nesting", response_model=AutoNestingResponse)
 def auto_nesting_endpoint(req: AutoNestingRequest):
-    """Run BLF auto-nesting to distribute parts across stock sheets."""
+    """Run BLF auto-nesting to distribute parts across sheets."""
     from nodes.nesting import auto_nesting
 
     placements = auto_nesting(
@@ -241,7 +241,7 @@ def auto_nesting_endpoint(req: AutoNestingRequest):
             bb = obj.bounding_box
             tmpl = req.sheet.materials[0] if req.sheet.materials else None
             if tmpl and (bb.x > tmpl.width or bb.y > tmpl.depth):
-                warnings.append(f"{p.object_id}: ストックに収まりません")
+                warnings.append(f"{p.object_id}: シートに収まりません")
     return AutoNestingResponse(
         placements=placements,
         sheet_count=len(sheet_ids),
@@ -251,20 +251,20 @@ def auto_nesting_endpoint(req: AutoNestingRequest):
 
 def _validate_placement(
     placement: PlacementItem,
-    stock: SheetMaterial,
+    sheet_mat: SheetMaterial,
     bb: BoundingBox,
 ) -> list[str]:
-    """Check if a placed object fits within stock bounds."""
+    """Check if a placed object fits within sheet bounds."""
     warnings = []
-    if placement.x_offset + bb.x > stock.width:
+    if placement.x_offset + bb.x > sheet_mat.width:
         warnings.append(
-            f"{placement.object_id}: X方向がStockを超えています "
-            f"({placement.x_offset + bb.x:.1f} > {stock.width:.1f}mm)"
+            f"{placement.object_id}: X方向がSheetを超えています "
+            f"({placement.x_offset + bb.x:.1f} > {sheet_mat.width:.1f}mm)"
         )
-    if placement.y_offset + bb.y > stock.depth:
+    if placement.y_offset + bb.y > sheet_mat.depth:
         warnings.append(
-            f"{placement.object_id}: Y方向がStockを超えています "
-            f"({placement.y_offset + bb.y:.1f} > {stock.depth:.1f}mm)"
+            f"{placement.object_id}: Y方向がSheetを超えています "
+            f"({placement.y_offset + bb.y:.1f} > {sheet_mat.depth:.1f}mm)"
         )
     if placement.x_offset < 0:
         warnings.append(f"{placement.object_id}: X方向が負の位置です")
@@ -275,7 +275,7 @@ def _validate_placement(
 
 @app.post("/api/validate-placement", response_model=ValidatePlacementResponse)
 def validate_placement_endpoint(req: ValidatePlacementRequest):
-    """Validate part placements on stock (bounds + collision)."""
+    """Validate part placements on sheet (bounds + collision)."""
     from shapely.geometry import Polygon, box as shapely_box
     from shapely.affinity import translate
     from nodes.geometry_utils import rotate_polygon
@@ -285,12 +285,12 @@ def validate_placement_endpoint(req: ValidatePlacementRequest):
 
     # 1. Bounds check per part
     for p in req.placements:
-        stock = mat_lookup.get(p.material_id)
+        sheet_mat = mat_lookup.get(p.material_id)
         bb = req.bounding_boxes.get(p.object_id)
-        if stock and bb:
-            all_warnings.extend(_validate_placement(p, stock, bb))
+        if sheet_mat and bb:
+            all_warnings.extend(_validate_placement(p, sheet_mat, bb))
 
-    # 2. Collision check between pairs on the same stock
+    # 2. Collision check between pairs on the same sheet
     if len(req.placements) >= 2:
         # Build polygon per placement
         placement_polys: list[tuple[PlacementItem, Polygon]] = []
@@ -319,8 +319,8 @@ def validate_placement_endpoint(req: ValidatePlacementRequest):
 
         # Group by sheet_id and check collisions within each group
         from itertools import groupby
-        sorted_by_stock = sorted(placement_polys, key=lambda x: x[0].sheet_id)
-        for _sheet_id, group in groupby(sorted_by_stock, key=lambda x: x[0].sheet_id):
+        sorted_by_sheet = sorted(placement_polys, key=lambda x: x[0].sheet_id)
+        for _sheet_id, group in groupby(sorted_by_sheet, key=lambda x: x[0].sheet_id):
             items = list(group)
             for i in range(len(items)):
                 for j in range(i + 1, len(items)):
@@ -337,7 +337,7 @@ def validate_placement_endpoint(req: ValidatePlacementRequest):
 
 @app.post("/api/generate-sbp-zip")
 def generate_sbp_zip_endpoint(req: SbpZipRequest):
-    """Generate SBP files for all stocks and return as ZIP."""
+    """Generate SBP files for all sheets and return as ZIP."""
     # Group placements by sheet_id
     sheet_groups: dict[str, list[PlacementItem]] = {}
     for p in req.placements:
@@ -349,7 +349,7 @@ def generate_sbp_zip_endpoint(req: SbpZipRequest):
             sheet_placements = sheet_groups[sheet_id]
             sheet_object_ids = {p.object_id for p in sheet_placements}
 
-            # Filter assignments for this stock
+            # Filter assignments for this sheet
             op_to_obj = {
                 op.operation_id: op.object_id
                 for op in req.detected_operations.operations
@@ -361,7 +361,7 @@ def generate_sbp_zip_endpoint(req: SbpZipRequest):
             if not filtered_ops:
                 continue
 
-            # Generate toolpath for this stock
+            # Generate toolpath for this sheet
             tp_result = generate_toolpath_from_operations(
                 filtered_ops, req.detected_operations, req.sheet,
                 sheet_placements, req.object_origins, req.bounding_boxes,

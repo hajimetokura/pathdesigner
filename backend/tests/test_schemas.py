@@ -12,7 +12,7 @@ from schemas import (
 )
 
 
-def test_stock_material_defaults():
+def test_sheet_material_defaults():
     mat = SheetMaterial(material_id="mtl_1")
     assert mat.width == 600
     assert mat.depth == 400
@@ -22,7 +22,7 @@ def test_stock_material_defaults():
     assert mat.label == ""
 
 
-def test_stock_settings_single_material():
+def test_sheet_settings_single_material():
     settings = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=24)]
     )
@@ -30,7 +30,7 @@ def test_stock_settings_single_material():
     assert settings.materials[0].thickness == 24
 
 
-def test_stock_settings_multiple_materials():
+def test_sheet_settings_multiple_materials():
     settings = SheetSettings(
         materials=[
             SheetMaterial(material_id="mtl_1", thickness=15),
@@ -40,7 +40,7 @@ def test_stock_settings_multiple_materials():
     assert len(settings.materials) == 2
 
 
-def test_stock_settings_serialization():
+def test_sheet_settings_serialization():
     settings = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", label="合板 18mm")]
     )
@@ -119,7 +119,7 @@ def test_post_processor_no_material():
 
 
 def test_toolpath_gen_request_new_format():
-    """ToolpathGenRequest should accept operations + detected_operations + stock."""
+    """ToolpathGenRequest should accept operations + detected_operations + sheet."""
     req = ToolpathGenRequest(
         operations=[],
         detected_operations=OperationDetectResult(operations=[]),

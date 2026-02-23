@@ -17,7 +17,7 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
   const updateTab = (data as Record<string, unknown>).updateTab as ((tab: PanelTab) => void) | undefined;
   const [placements, setPlacements] = useState<PlacementItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [activeSheetId, setActiveStockId] = useState("sheet_1");
+  const [activeSheetId, setActiveSheetId] = useState("sheet_1");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { setNodes } = useReactFlow();
 
@@ -28,8 +28,8 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
   const sheetSettings = useUpstreamData(id, `${id}-sheet`, extractSheet);
 
   const syncToNodeData = useCallback(
-    (p: PlacementItem[], brep: BrepImportResult, stock: SheetSettings, stockId?: string) => {
-      const sid = stockId ?? activeSheetId;
+    (p: PlacementItem[], brep: BrepImportResult, sheet: SheetSettings, sheetId?: string) => {
+      const sid = sheetId ?? activeSheetId;
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
@@ -37,7 +37,7 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
                 ...n,
                 data: {
                   ...n.data,
-                  placementResult: { placements: p, stock, objects: brep.objects },
+                  placementResult: { placements: p, sheet, objects: brep.objects },
                   fileId: brep.file_id,
                   activeSheetId: sid,
                 },
@@ -68,7 +68,7 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brepResult, sheetSettings]);
 
-  // Re-sync downstream when stock settings change (after initial setup)
+  // Re-sync downstream when sheet settings change (after initial setup)
   useEffect(() => {
     if (brepResult && sheetSettings && placements.length > 0) {
       syncToNodeData(placements, brepResult, sheetSettings);
@@ -77,10 +77,10 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
   }, [sheetSettings]);
 
   const handleActiveSheetChange = useCallback(
-    (stockId: string) => {
-      setActiveStockId(stockId);
+    (sheetId: string) => {
+      setActiveSheetId(sheetId);
       if (brepResult && sheetSettings) {
-        syncToNodeData(placements, brepResult, sheetSettings, stockId);
+        syncToNodeData(placements, brepResult, sheetSettings, sheetId);
       }
     },
     [brepResult, sheetSettings, placements, syncToNodeData]
@@ -122,25 +122,25 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    const stock = sheetSettings.materials[0];
-    if (!stock) return;
+    const sheetMat = sheetSettings.materials[0];
+    if (!sheetMat) return;
 
-    const sc = Math.min((w - 20) / stock.width, (h - 20) / stock.depth);
-    const ox = (w - stock.width * sc) / 2;
-    const oy = (h - stock.depth * sc) / 2;
+    const sc = Math.min((w - 20) / sheetMat.width, (h - 20) / sheetMat.depth);
+    const ox = (w - sheetMat.width * sc) / 2;
+    const oy = (h - sheetMat.depth * sc) / 2;
 
-    // Stock
+    // Sheet
     ctx.fillStyle = "#f0f0f0";
-    ctx.fillRect(ox, h - oy - stock.depth * sc, stock.width * sc, stock.depth * sc);
+    ctx.fillRect(ox, h - oy - sheetMat.depth * sc, sheetMat.width * sc, sheetMat.depth * sc);
     ctx.strokeStyle = "#999";
     ctx.lineWidth = 0.5;
-    ctx.strokeRect(ox, h - oy - stock.depth * sc, stock.width * sc, stock.depth * sc);
+    ctx.strokeRect(ox, h - oy - sheetMat.depth * sc, sheetMat.width * sc, sheetMat.depth * sc);
 
-    // Filter placements by active stock
+    // Filter placements by active sheet
     const activePlacements = placements.filter((p) => p.sheet_id === activeSheetId);
-    const stockIds = [...new Set(placements.map((p) => p.sheet_id))].sort();
+    const sheetIdList = [...new Set(placements.map((p) => p.sheet_id))].sort();
 
-    // Parts (only active stock)
+    // Parts (only active sheet)
     const colors = ["#4a90d9", "#7b61ff", "#43a047", "#ef5350"];
     for (let i = 0; i < activePlacements.length; i++) {
       const p = activePlacements[i];
@@ -195,10 +195,10 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
       }
     }
 
-    // Stock indicator (top-right)
-    if (stockIds.length > 1) {
-      const stockIndex = stockIds.indexOf(activeSheetId) + 1;
-      const label = `${stockIndex}/${stockIds.length}`;
+    // Sheet indicator (top-right)
+    if (sheetIdList.length > 1) {
+      const sheetIndex = sheetIdList.indexOf(activeSheetId) + 1;
+      const label = `${sheetIndex}/${sheetIdList.length}`;
       ctx.fillStyle = "#666";
       ctx.font = "bold 10px sans-serif";
       ctx.textAlign = "right";

@@ -1,4 +1,4 @@
-"""BLF (Bottom-Left Fill) nesting algorithm for multi-stock placement."""
+"""BLF (Bottom-Left Fill) nesting algorithm for multi-sheet placement."""
 
 from __future__ import annotations
 
@@ -15,9 +15,9 @@ def auto_nesting(
     tool_diameter: float = 6.35,
     clearance: float = 5.0,
 ) -> list[PlacementItem]:
-    """Distribute parts across stock sheets using BLF algorithm.
+    """Distribute parts across sheets using BLF algorithm.
 
-    Returns a list of PlacementItem with stock_id assigned.
+    Returns a list of PlacementItem with sheet_id assigned.
     Parts that don't fit get sheet_id="sheet_1" with offset (0,0) as fallback.
     """
     if not objects or not sheet.materials:
@@ -33,30 +33,30 @@ def auto_nesting(
         reverse=True,
     )
 
-    # Track placed polygons per stock
-    stocks: dict[str, list[Polygon]] = {}
+    # Track placed polygons per sheet
+    sheets: dict[str, list[Polygon]] = {}
     placements: list[PlacementItem] = []
 
     for obj in sorted_objects:
         placed = False
         base_poly = _object_polygon(obj, margin)
 
-        # Try existing stocks first, then a new one
-        stock_ids = list(stocks.keys()) + [f"sheet_{len(stocks) + 1}"]
+        # Try existing sheets first, then a new one
+        sheet_ids = list(sheets.keys()) + [f"sheet_{len(sheets) + 1}"]
 
-        for sid in stock_ids:
-            stock_poly = box(0, 0, template.width, template.depth)
-            existing = stocks.get(sid, [])
+        for sid in sheet_ids:
+            sheet_poly = box(0, 0, template.width, template.depth)
+            existing = sheets.get(sid, [])
 
             result = _try_place_blf(
-                base_poly, stock_poly, existing, template.width, template.depth,
+                base_poly, sheet_poly, existing, template.width, template.depth,
             )
             if result is not None:
                 x, y, angle = result
                 final_poly = _position_polygon(base_poly, x, y, angle)
-                if sid not in stocks:
-                    stocks[sid] = []
-                stocks[sid].append(final_poly)
+                if sid not in sheets:
+                    sheets[sid] = []
+                sheets[sid].append(final_poly)
                 placements.append(PlacementItem(
                     object_id=obj.object_id,
                     material_id=template.material_id,
@@ -69,7 +69,7 @@ def auto_nesting(
                 break
 
         if not placed:
-            # Fallback: place at origin on stock_1
+            # Fallback: place at origin on sheet_1
             placements.append(PlacementItem(
                 object_id=obj.object_id,
                 material_id=template.material_id,
@@ -96,13 +96,13 @@ def _object_polygon(obj: BrepObject, margin: float) -> Polygon:
 
 def _try_place_blf(
     part: Polygon,
-    stock_poly: Polygon,
+    sheet_poly: Polygon,
     placed: list[Polygon],
-    stock_w: float,
-    stock_h: float,
+    sheet_w: float,
+    sheet_h: float,
     step: float = 5.0,
 ) -> tuple[float, float, int] | None:
-    """Try to place part on stock using BLF. Returns (x, y, angle) or None."""
+    """Try to place part on sheet using BLF. Returns (x, y, angle) or None."""
     best: tuple[float, float, int] | None = None
     best_score = (float("inf"), float("inf"))
 
@@ -113,7 +113,7 @@ def _try_place_blf(
         part_w = maxx - minx
         part_h = maxy - miny
 
-        if part_w > stock_w or part_h > stock_h:
+        if part_w > sheet_w or part_h > sheet_h:
             continue  # Doesn't fit at this angle
 
         # Shift so rotated part's min corner is at origin
@@ -123,11 +123,11 @@ def _try_place_blf(
 
         # Grid search: bottom-left first (y ascending, then x ascending)
         y = 0.0
-        while y + part_h <= stock_h:
+        while y + part_h <= sheet_h:
             x = 0.0
-            while x + part_w <= stock_w:
+            while x + part_w <= sheet_w:
                 candidate = shapely_translate(normalized, x, y)
-                if stock_poly.contains(candidate) and not any(
+                if sheet_poly.contains(candidate) and not any(
                     candidate.intersects(p) for p in placed
                 ):
                     score = (y, x)

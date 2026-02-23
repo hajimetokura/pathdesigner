@@ -72,11 +72,19 @@ function NumberField({
     <div style={fieldRow}>
       <label style={labelStyle}>{label}</label>
       <input
+        className="nodrag"
         type="number"
         style={inputStyle}
         value={value}
+        min={0}
         step={1}
-        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        onChange={(e) => {
+          const raw = e.target.value;
+          if (raw === "") return;
+          const num = parseFloat(raw);
+          if (!Number.isNaN(num)) onChange(num);
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
       />
     </div>
   );
@@ -95,10 +103,12 @@ function TextField({
     <div style={fieldRow}>
       <label style={labelStyle}>{label}</label>
       <input
+        className="nodrag"
         type="text"
         style={{ ...inputStyle, width: "100%", textAlign: "left" }}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onPointerDown={(e) => e.stopPropagation()}
       />
     </div>
   );

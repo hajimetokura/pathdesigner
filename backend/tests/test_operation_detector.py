@@ -80,7 +80,7 @@ def test_full_pipeline_detect_to_sbp(simple_box_step: Path):
 
     # 2. Create assignments
     op = detected.operations[0]
-    stock = SheetSettings(
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
     assignments = [
@@ -93,7 +93,7 @@ def test_full_pipeline_detect_to_sbp(simple_box_step: Path):
     ]
 
     # 3. Generate toolpath
-    tp_result = generate_toolpath_from_operations(assignments, detected, stock)
+    tp_result = generate_toolpath_from_operations(assignments, detected, sheet)
     assert len(tp_result.toolpaths) >= 1
 
     # 4. Generate SBP
@@ -101,7 +101,7 @@ def test_full_pipeline_detect_to_sbp(simple_box_step: Path):
     writer = SbpWriter(
         settings=post,
         machining=assignments[0].settings,
-        sheet=stock,
+        sheet=sheet,
     )
     sbp = writer.generate(tp_result.toolpaths)
 

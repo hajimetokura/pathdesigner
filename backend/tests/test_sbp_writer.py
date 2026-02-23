@@ -20,7 +20,7 @@ from schemas import (
 )
 
 PP_SETTINGS = PostProcessorSettings()  # all defaults
-STOCK = SheetSettings(materials=[SheetMaterial(material_id="mtl_1")])
+SHEET = SheetSettings(materials=[SheetMaterial(material_id="mtl_1")])
 
 MACHINING = MachiningSettings(
     operation_type="contour",
@@ -62,7 +62,7 @@ SIMPLE_TOOLPATH = Toolpath(
 
 def test_sbp_header():
     """SBP output should start with header comments and unit check."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([SIMPLE_TOOLPATH])
     lines = code.split("\n")
 
@@ -74,7 +74,7 @@ def test_sbp_header():
 
 def test_sbp_tool_spindle():
     """SBP should include tool and spindle commands."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([SIMPLE_TOOLPATH])
 
     assert "&Tool = 3" in code
@@ -86,7 +86,7 @@ def test_sbp_tool_spindle():
 
 def test_sbp_speed_settings():
     """SBP should set MS and JS speeds."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([SIMPLE_TOOLPATH])
 
     assert "MS,75.0,25.0" in code
@@ -95,7 +95,7 @@ def test_sbp_speed_settings():
 
 def test_sbp_material_metadata():
     """SBP should include material info as comments."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([SIMPLE_TOOLPATH])
 
     assert "'MATERIAL_THICKNESS:18" in code
@@ -104,7 +104,7 @@ def test_sbp_material_metadata():
 
 def test_sbp_uses_j_for_jog_and_m_for_cut():
     """Non-cutting moves use J2/J3, cutting moves use M3."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([SIMPLE_TOOLPATH])
 
     # Initial positioning should use J2
@@ -117,7 +117,7 @@ def test_sbp_uses_j_for_jog_and_m_for_cut():
 
 def test_sbp_footer():
     """SBP should end with spindle off, END, and unit error label."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([SIMPLE_TOOLPATH])
     lines = code.strip().split("\n")
 
@@ -129,7 +129,7 @@ def test_sbp_footer():
 
 def test_sbp_multi_pass_z_sequence():
     """Cutting moves should step down through each pass depth."""
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([SIMPLE_TOOLPATH])
 
     # All three Z depths should appear in M3 commands
@@ -151,7 +151,7 @@ def test_sbp_with_tabs():
             ),
         ],
     )
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([tp_with_tabs])
 
     # The tab section should have z_tab=10.0 instead of -0.3
@@ -159,9 +159,9 @@ def test_sbp_with_tabs():
     assert "M3,100.0,0.0,10.0" in code
 
 
-def test_sbp_writer_with_stock():
-    """SBP output should include stock material metadata."""
-    stock = SheetSettings(
+def test_sbp_writer_with_sheet():
+    """SBP output should include sheet material metadata."""
+    sheet = SheetSettings(
         materials=[SheetMaterial(material_id="mtl_1", width=600, depth=400, thickness=18)]
     )
     toolpaths = [
@@ -181,7 +181,7 @@ def test_sbp_writer_with_stock():
     writer = SbpWriter(
         settings=PP_SETTINGS,
         machining=MACHINING,
-        sheet=stock,
+        sheet=sheet,
     )
     sbp = writer.generate(toolpaths)
 
@@ -222,7 +222,7 @@ def test_sbp_multi_object_different_speeds():
         passes=[ToolpathPass(pass_number=1, z_depth=-0.3, path=[[200,10],[250,10],[250,30],[200,30],[200,10]], tabs=[])],
         settings=_make_settings(xy_feed=50.0),
     )
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([tp1, tp2])
 
     # Both speed settings should appear
@@ -243,7 +243,7 @@ def test_sbp_multi_object_same_settings_no_duplicate():
         passes=[ToolpathPass(pass_number=1, z_depth=-0.3, path=[[200,10],[250,10],[250,30],[200,10]], tabs=[])],
         settings=settings,
     )
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([tp1, tp2])
 
     # MS should appear only once (header) + no duplicate
@@ -262,7 +262,7 @@ def test_sbp_safe_z_between_objects():
         passes=[ToolpathPass(pass_number=1, z_depth=-0.3, path=[[200,10],[250,10],[250,30],[200,10]], tabs=[])],
         settings=_make_settings(),
     )
-    writer = SbpWriter(PP_SETTINGS, MACHINING, STOCK)
+    writer = SbpWriter(PP_SETTINGS, MACHINING, SHEET)
     code = writer.generate([tp1, tp2])
     lines = code.split("\n")
 

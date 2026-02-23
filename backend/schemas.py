@@ -76,7 +76,7 @@ class ContourExtractResult(BaseModel):
     offset_applied: OffsetApplied
 
 
-# --- Node 2b: Stock Settings ---
+# --- Node 2b: Sheet Settings ---
 
 
 class SheetMaterial(BaseModel):
@@ -274,7 +274,7 @@ class PlacementItem(BaseModel):
     object_id: str
     material_id: str
     sheet_id: str = "sheet_1"  # physical sheet identifier
-    x_offset: float = 0       # mm, position on stock
+    x_offset: float = 0       # mm, position on sheet
     y_offset: float = 0
     rotation: int = 0          # degrees, 0/45/90/135/180/225/270/315
 

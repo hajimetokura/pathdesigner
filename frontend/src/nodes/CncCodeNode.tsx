@@ -49,7 +49,7 @@ export default function CncCodeNode({ id, data, selected }: NodeProps) {
   }, []);
   const zipData = useUpstreamData(id, `${id}-in`, extractZipData);
 
-  // Subscribe to stock info for read-only indicator
+  // Subscribe to sheet info for read-only indicator
   const extractSheetInfo = useCallback((d: Record<string, unknown>) => ({
     activeSheetId: (d.activeSheetId as string) || "sheet_1",
     allSheetIds: (d.allSheetIds as string[]) || [],

@@ -147,12 +147,12 @@ def test_single_placement_no_collision():
     assert len(collision_warnings) == 0
 
 
-def test_different_stocks_no_collision():
-    """Parts on different stocks should not collide even at the same position."""
+def test_different_sheets_no_collision():
+    """Parts on different sheets should not collide even at the same position."""
     placements = [
-        {"object_id": "obj_001", "material_id": "mtl_1", "sheet_id": "stock_1",
+        {"object_id": "obj_001", "material_id": "mtl_1", "sheet_id": "sheet_1",
          "x_offset": 10, "y_offset": 10, "rotation": 0},
-        {"object_id": "obj_002", "material_id": "mtl_1", "sheet_id": "stock_2",
+        {"object_id": "obj_002", "material_id": "mtl_1", "sheet_id": "sheet_2",
          "x_offset": 10, "y_offset": 10, "rotation": 0},
     ]
     bbs = {
@@ -167,12 +167,12 @@ def test_different_stocks_no_collision():
     assert len(collision_warnings) == 0
 
 
-def test_same_stock_collision():
-    """Parts on the same stock at same position should collide."""
+def test_same_sheet_collision():
+    """Parts on the same sheet at same position should collide."""
     placements = [
-        {"object_id": "obj_001", "material_id": "mtl_1", "sheet_id": "stock_1",
+        {"object_id": "obj_001", "material_id": "mtl_1", "sheet_id": "sheet_1",
          "x_offset": 10, "y_offset": 10, "rotation": 0},
-        {"object_id": "obj_002", "material_id": "mtl_1", "sheet_id": "stock_1",
+        {"object_id": "obj_002", "material_id": "mtl_1", "sheet_id": "sheet_1",
          "x_offset": 10, "y_offset": 10, "rotation": 0},
     ]
     bbs = {

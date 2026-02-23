@@ -43,7 +43,7 @@ interface Props {
   onPlacementsChange: (placements: PlacementItem[]) => void;
   warnings: string[];
   activeSheetId: string;
-  onActiveSheetChange: (stockId: string) => void;
+  onActiveSheetChange: (sheetId: string) => void;
 }
 
 export default function PlacementPanel({
@@ -61,14 +61,14 @@ export default function PlacementPanel({
   const [clearance, setClearance] = useState(5);
   const [nestingLoading, setNestingLoading] = useState(false);
 
-  // Stock list derived from placements
+  // Sheet list derived from placements
   const sheetIds = useMemo(() => {
     const ids = [...new Set(placements.map((p) => p.sheet_id))];
     if (ids.length === 0) ids.push("sheet_1");
     return ids.sort();
   }, [placements]);
 
-  // Filter placements to active stock
+  // Filter placements to active sheet
   const activePlacements = useMemo(
     () => placements.filter((p) => p.sheet_id === activeSheetId),
     [placements, activeSheetId],
@@ -89,20 +89,20 @@ export default function PlacementPanel({
     }
   };
 
-  const stock = sheetSettings.materials[0];
+  const sheetMat = sheetSettings.materials[0];
 
   const canvasW = 560;
   const canvasH = 400;
   const padding = 40;
 
-  const scale = stock
+  const scale = sheetMat
     ? Math.min(
-        (canvasW - 2 * padding) / stock.width,
-        (canvasH - 2 * padding) / stock.depth
+        (canvasW - 2 * padding) / sheetMat.width,
+        (canvasH - 2 * padding) / sheetMat.depth
       )
     : 1;
-  const offsetX = stock ? (canvasW - stock.width * scale) / 2 : 0;
-  const offsetY = stock ? (canvasH - stock.depth * scale) / 2 : 0;
+  const offsetX = sheetMat ? (canvasW - sheetMat.width * scale) / 2 : 0;
+  const offsetY = sheetMat ? (canvasH - sheetMat.depth * scale) / 2 : 0;
 
   const toCanvas = useCallback(
     (x: number, y: number): [number, number] => [
@@ -115,25 +115,25 @@ export default function PlacementPanel({
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    if (!stock) return;
+    if (!sheetMat) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvasW, canvasH);
 
-    // Stock background
+    // Sheet background
     const [sx0, sy0] = toCanvas(0, 0);
-    const [sx1, sy1] = toCanvas(stock.width, stock.depth);
+    const [sx1, sy1] = toCanvas(sheetMat.width, sheetMat.depth);
     ctx.fillStyle = "#f5f5f5";
     ctx.fillRect(sx0, sy1, sx1 - sx0, sy0 - sy1);
     ctx.strokeStyle = "#999";
     ctx.lineWidth = 1;
     ctx.strokeRect(sx0, sy1, sx1 - sx0, sy0 - sy1);
 
-    // Stock dimensions
+    // Sheet dimensions
     ctx.fillStyle = "#999";
     ctx.font = "11px sans-serif";
-    ctx.fillText(`${stock.width} \u00d7 ${stock.depth} mm`, sx0, sy1 - 6);
+    ctx.fillText(`${sheetMat.width} \u00d7 ${sheetMat.depth} mm`, sx0, sy1 - 6);
 
     // Origin
     ctx.fillStyle = "#333";
@@ -142,7 +142,7 @@ export default function PlacementPanel({
     ctx.fill();
     ctx.fillText("(0,0)", sx0 + 6, sy0 - 4);
 
-    // Parts (only active stock)
+    // Parts (only active sheet)
     const colors = ["#4a90d9", "#7b61ff", "#43a047", "#ef5350"];
     for (let i = 0; i < activePlacements.length; i++) {
       const p = activePlacements[i];
@@ -157,8 +157,8 @@ export default function PlacementPanel({
       // Out-of-bounds check using rotated AABB
       const aabb = rotatedAABB(bb.x, bb.y, rot);
       const isOut =
-        p.x_offset + aabb.maxX > stock.width ||
-        p.y_offset + aabb.maxY > stock.depth ||
+        p.x_offset + aabb.maxX > sheetMat.width ||
+        p.y_offset + aabb.maxY > sheetMat.depth ||
         p.x_offset + aabb.minX < 0 ||
         p.y_offset + aabb.minY < 0;
 
@@ -208,7 +208,7 @@ export default function PlacementPanel({
       ctx.font = "bold 11px sans-serif";
       ctx.fillText(p.object_id, lx + 4, ly + 14);
     }
-  }, [activePlacements, objects, stock, toCanvas]);
+  }, [activePlacements, objects, sheetMat, toCanvas]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -270,7 +270,7 @@ export default function PlacementPanel({
     onPlacementsChange(updated);
   };
 
-  if (!stock) return null;
+  if (!sheetMat) return null;
 
   return (
     <div style={panelStyle}>
@@ -298,7 +298,7 @@ export default function PlacementPanel({
           </label>
         </div>
 
-        {/* Stock Tabs */}
+        {/* Sheet Tabs */}
         <SheetTabs
           sheetIds={sheetIds}
           activeSheetId={activeSheetId}

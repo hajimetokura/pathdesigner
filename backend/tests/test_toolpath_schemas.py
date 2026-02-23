@@ -85,8 +85,8 @@ def test_post_processor_settings_defaults():
     assert pp.warmup_pause == 2
 
 
-def test_toolpath_gen_result_with_stock_dimensions():
-    """ToolpathGenResult should include optional stock dimensions."""
+def test_toolpath_gen_result_with_sheet_dimensions():
+    """ToolpathGenResult should include optional sheet dimensions."""
     result = ToolpathGenResult(
         toolpaths=[],
         sheet_width=600.0,
@@ -96,8 +96,8 @@ def test_toolpath_gen_result_with_stock_dimensions():
     assert result.sheet_depth == 400.0
 
 
-def test_toolpath_gen_result_without_stock_dimensions():
-    """ToolpathGenResult stock dimensions should default to None."""
+def test_toolpath_gen_result_without_sheet_dimensions():
+    """ToolpathGenResult sheet dimensions should default to None."""
     result = ToolpathGenResult(toolpaths=[])
     assert result.sheet_width is None
     assert result.sheet_depth is None

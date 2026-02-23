@@ -59,7 +59,7 @@ export interface ContourExtractResult {
   offset_applied: OffsetApplied;
 }
 
-/** Node 2b: Stock Settings types */
+/** Node 2b: Sheet Settings types */
 
 export interface SheetMaterial {
   material_id: string;
