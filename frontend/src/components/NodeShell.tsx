@@ -30,9 +30,10 @@ export default function NodeShell({
 
   const borderColor = statusBorder || (isDark ? "#444" : "#ddd");
 
+  const baseBg = isDark ? "#1e1e1e" : "white";
   const selectedBg = selected
-    ? `${categoryColor}1a`  // 10% opacity hex suffix
-    : isDark ? "#1e1e1e" : "white";
+    ? `color-mix(in srgb, ${categoryColor} 15%, ${baseBg})`
+    : baseBg;
 
   const style: React.CSSProperties = {
     background: selectedBg,
