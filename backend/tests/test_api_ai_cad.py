@@ -53,7 +53,13 @@ def test_library_list_empty():
 
 def test_generate_requires_api_key(monkeypatch):
     """POST /ai-cad/generate without API key returns 500 or appropriate error."""
+    import main
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    resp = client.post("/ai-cad/generate", json={"prompt": "a box"})
-    # Without API key, should fail gracefully
-    assert resp.status_code in (500, 422)
+    old_llm = main._llm
+    main._llm = None  # Reset singleton so new client gets empty key
+    try:
+        resp = client.post("/ai-cad/generate", json={"prompt": "a box"})
+        # Without API key, should fail gracefully
+        assert resp.status_code in (500, 422)
+    finally:
+        main._llm = old_llm

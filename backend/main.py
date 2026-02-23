@@ -4,6 +4,10 @@ import uuid
 import zipfile
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent / ".env")
+
 import yaml
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -434,33 +438,29 @@ async def ai_cad_generate(req: AiCadRequest):
     """Generate 3D model from text/image prompt via LLM."""
     llm = _get_llm()
     db = await _get_db()
-
-    # 1. Call LLM
-    try:
-        code = await llm.generate(req.prompt, req.image_base64, req.model)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"LLM generation failed: {e}")
-
     model_used = req.model or llm.default_model
 
-    # 2. Execute code
     try:
-        objects, step_bytes = execute_build123d_code(code)
+        code, objects, step_bytes = await llm.generate_and_execute(
+            req.prompt,
+            image_base64=req.image_base64,
+            model=req.model,
+        )
     except CodeExecutionError as e:
-        # Save failed generation for learning
         await db.save_generation(
-            prompt=req.prompt, code=code, result_json=None,
+            prompt=req.prompt, code="(failed)", result_json=None,
             model_used=model_used, status="error", error_message=str(e),
         )
         raise HTTPException(status_code=422, detail=f"Code execution failed: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM generation failed: {e}")
 
-    # 3. Save generation
+    # Save STEP + generation
     file_id = f"ai-cad-{uuid.uuid4().hex[:8]}"
     result = BrepImportResult(
         file_id=file_id, objects=objects, object_count=len(objects),
     )
 
-    # Save STEP file
     step_path = None
     if step_bytes:
         gen_dir = GENERATIONS_DIR / file_id
@@ -468,7 +468,6 @@ async def ai_cad_generate(req: AiCadRequest):
         step_file = gen_dir / "model.step"
         step_file.write_bytes(step_bytes)
         step_path = str(step_file)
-        # Also save to uploads dir so downstream nodes can find it
         (UPLOAD_DIR / f"{file_id}.step").write_bytes(step_bytes)
 
     gen_id = await db.save_generation(
