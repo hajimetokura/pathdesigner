@@ -562,7 +562,7 @@ def test_pocket_operation_generates_toolpath():
     """Pocket operation should generate toolpath via pocket_toolpath module."""
     pocket_contour = Contour(
         id="c_pocket",
-        type="pocket",
+        type="exterior",
         coords=[
             [10, 10], [40, 10], [40, 30], [10, 30], [10, 10],
         ],
@@ -684,7 +684,7 @@ def test_pocket_raster_generates_toolpath():
     """Pocket with raster pattern should generate scan-line passes."""
     pocket_contour = Contour(
         id="c_pocket",
-        type="pocket",
+        type="exterior",
         coords=[
             [0, 0], [50, 0], [50, 30], [0, 30], [0, 0],
         ],

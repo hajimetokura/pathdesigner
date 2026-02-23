@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, field_validator
 
 
@@ -16,7 +18,7 @@ class BoundingBox(BaseModel):
 
 class Origin(BaseModel):
     position: list[float]  # [x, y, z]
-    reference: str  # "bounding_box_min" | "bounding_box_center" | "model_origin"
+    reference: Literal["bounding_box_min", "bounding_box_center", "model_origin"]
     description: str
 
 
@@ -32,10 +34,10 @@ class BrepObject(BaseModel):
     bounding_box: BoundingBox
     thickness: float
     origin: Origin
-    unit: str  # "mm"
+    unit: Literal["mm", "inch"]
     is_closed: bool
     is_planar: bool
-    machining_type: str  # "2d" | "2.5d" | "double_sided" | "3d"
+    machining_type: Literal["2d", "2.5d", "double_sided", "3d"]
     faces_analysis: FacesAnalysis
     outline: list[list[float]] = []  # [[x, y], ...] bottom-face outline, relative to BB min
 
@@ -53,19 +55,19 @@ class ContourExtractRequest(BaseModel):
     file_id: str
     object_id: str
     tool_diameter: float = 6.35  # mm, default 1/4"
-    offset_side: str = "outside"  # "outside" | "inside" | "none"
+    offset_side: Literal["outside", "inside", "none"] = "outside"
 
 
 class Contour(BaseModel):
     id: str
-    type: str  # "exterior" | "interior"
+    type: Literal["exterior", "interior", "pocket", "drill_center"]
     coords: list[list[float]]  # [[x, y], ...]
     closed: bool
 
 
 class OffsetApplied(BaseModel):
     distance: float
-    side: str
+    side: Literal["outside", "inside", "none"]
 
 
 class ContourExtractResult(BaseModel):
@@ -98,7 +100,7 @@ class SheetSettings(BaseModel):
 
 class Tool(BaseModel):
     diameter: float  # mm
-    type: str  # "endmill" | "ballnose" | "v_bit"
+    type: Literal["endmill", "ballnose", "v_bit"]
     flutes: int
 
 
@@ -115,18 +117,18 @@ class TabSettings(BaseModel):
 
 
 class MachiningSettings(BaseModel):
-    operation_type: str  # "contour" | "pocket" | "drill" | "engrave"
+    operation_type: Literal["contour", "pocket", "drill", "engrave"]
     tool: Tool
     feed_rate: FeedRate
     jog_speed: float  # mm/s
     spindle_speed: int  # RPM
     depth_per_pass: float  # mm
     total_depth: float  # mm
-    direction: str  # "climb" | "conventional"
-    offset_side: str  # "outside" | "inside" | "none"
+    direction: Literal["climb", "conventional"]
+    offset_side: Literal["outside", "inside", "none"]
     tabs: TabSettings
     # Pocket-specific
-    pocket_pattern: str = "contour-parallel"  # "contour-parallel" | "raster"
+    pocket_pattern: Literal["contour-parallel", "raster"] = "contour-parallel"
     pocket_stepover: float = 0.5  # 0-1 ratio of tool diameter
     # Drill-specific
     depth_per_peck: float = 6.0  # mm
@@ -152,6 +154,13 @@ class ValidateSettingsResponse(BaseModel):
 # --- Node 3b: Operation Detection ---
 
 
+class DetectOperationsRequest(BaseModel):
+    file_id: str
+    object_ids: list[str]
+    tool_diameter: float = 6.35
+    offset_side: str = "outside"
+
+
 class OperationGeometry(BaseModel):
     contours: list[Contour]
     offset_applied: OffsetApplied
@@ -161,7 +170,7 @@ class OperationGeometry(BaseModel):
 class DetectedOperation(BaseModel):
     operation_id: str
     object_id: str
-    operation_type: str  # "contour" | "pocket" | "drill" | "engrave"
+    operation_type: Literal["contour", "pocket", "drill", "engrave"]
     geometry: OperationGeometry
     suggested_settings: MachiningSettings
     enabled: bool = True
@@ -180,6 +189,7 @@ class OperationAssignment(BaseModel):
     enabled: bool = True
     settings: MachiningSettings
     order: int
+    group_id: str | None = None
 
 
 class OperationEditResult(BaseModel):
@@ -191,8 +201,8 @@ class OperationEditResult(BaseModel):
 
 class PostProcessorSettings(BaseModel):
     machine_name: str = "ShopBot PRS-alpha 96-48"
-    output_format: str = "sbp"
-    unit: str = "mm"
+    output_format: Literal["sbp", "gcode"] = "sbp"
+    unit: Literal["mm", "inch"] = "mm"
     bed_size: list[float] = [1220.0, 2440.0]  # [x, y] mm
     safe_z: float = 38.0
     home_position: list[float] = [0.0, 0.0]
@@ -247,7 +257,7 @@ class SbpGenRequest(BaseModel):
 class OutputResult(BaseModel):
     code: str
     filename: str
-    format: str  # "sbp" | "gcode" | ...
+    format: Literal["sbp", "gcode"]
 
 
 # --- Mesh Data (3D Preview) ---

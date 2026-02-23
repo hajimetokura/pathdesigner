@@ -13,6 +13,7 @@ import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { SheetBadge } from "../components/SheetBadge";
+import { DEFAULT_SHEET_ID } from "../constants";
 
 type Status = "idle" | "loading" | "success" | "error" | "blocked";
 
@@ -43,18 +44,18 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
     const objectOrigins = d.objectOrigins as Record<string, [number, number]> | undefined;
     const boundingBoxes = d.boundingBoxes as Record<string, { x: number; y: number; z: number }> | undefined;
     const outlines = d.outlines as Record<string, [number, number][]> | undefined;
-    const upstreamActiveSheetId = (d.activeSheetId as string) || "sheet_1";
+    const upstreamActiveSheetId = (d.activeSheetId as string) || DEFAULT_SHEET_ID;
     if (!detectedOperations || !assignments?.length || !sheetSettings || !placements) return undefined;
     return { detectedOperations, assignments, sheetSettings, placements, objectOrigins: objectOrigins ?? {}, boundingBoxes: boundingBoxes ?? {}, outlines: outlines ?? {}, upstreamActiveSheetId };
   }, []);
   const operations = useUpstreamData(id, `${id}-operations`, extractOperations);
 
-  const activeSheetId = operations?.upstreamActiveSheetId ?? "sheet_1";
+  const activeSheetId = operations?.upstreamActiveSheetId ?? DEFAULT_SHEET_ID;
 
   const allPlacements = operations?.placements ?? [];
   const sheetIds = useMemo(() => {
     const ids = [...new Set(allPlacements.map((p) => p.sheet_id))];
-    if (ids.length === 0) ids.push("sheet_1");
+    if (ids.length === 0) ids.push(DEFAULT_SHEET_ID);
     return ids.sort();
   }, [allPlacements]);
 

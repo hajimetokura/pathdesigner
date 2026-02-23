@@ -10,10 +10,11 @@ import type {
 } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
-import type { PanelTab } from "../components/SidePanel";
 import OperationDetailPanel from "../components/OperationDetailPanel";
+import { usePanelTabs } from "../contexts/PanelTabsContext";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { SheetBadge } from "../components/SheetBadge";
+import { DEFAULT_SHEET_ID } from "../constants";
 
 type Status = "idle" | "loading" | "success" | "error";
 
@@ -23,9 +24,8 @@ interface UpstreamData {
   activeSheetId: string;
 }
 
-export default function OperationNode({ id, data, selected }: NodeProps) {
-  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
-  const updateTab = (data as Record<string, unknown>).updateTab as ((tab: PanelTab) => void) | undefined;
+export default function OperationNode({ id, selected }: NodeProps) {
+  const { openTab, updateTab } = usePanelTabs();
   const [status, setStatus] = useState<Status>("idle");
   const [detected, setDetected] = useState<OperationDetectResult | null>(null);
   const [assignments, setAssignments] = useState<OperationAssignment[]>([]);
@@ -38,18 +38,18 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
   const extractUpstream = useCallback((d: Record<string, unknown>): UpstreamData | undefined => {
     const placementResult = d.placementResult as UpstreamData["placementResult"] | undefined;
     const fileId = d.fileId as string | undefined;
-    const activeSheetId = (d.activeSheetId as string) || "sheet_1";
+    const activeSheetId = (d.activeSheetId as string) || DEFAULT_SHEET_ID;
     if (!placementResult || !fileId) return undefined;
     return { placementResult, fileId, activeSheetId };
   }, []);
   const upstream = useUpstreamData(id, `${id}-brep`, extractUpstream);
 
-  const activeSheetId = upstream?.activeSheetId ?? "sheet_1";
+  const activeSheetId = upstream?.activeSheetId ?? DEFAULT_SHEET_ID;
 
   const allPlacements = upstream?.placementResult.placements ?? [];
   const sheetIds = useMemo(() => {
     const ids = [...new Set(allPlacements.map((p) => p.sheet_id))];
-    if (ids.length === 0) ids.push("sheet_1");
+    if (ids.length === 0) ids.push(DEFAULT_SHEET_ID);
     return ids.sort();
   }, [allPlacements]);
 
@@ -61,7 +61,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
 
   const syncToNodeData = useCallback(
     (det: OperationDetectResult, assign: OperationAssignment[], sheet: SheetSettings | null, plc: PlacementItem[], objects: BrepObject[]) => {
-      const sid = upstream?.activeSheetId ?? "sheet_1";
+      const sid = upstream?.activeSheetId ?? DEFAULT_SHEET_ID;
       // Build objectOrigins and boundingBoxes maps for ToolpathGenNode
       const objectOrigins: Record<string, [number, number]> = {};
       const boundingBoxes: Record<string, { x: number; y: number; z: number }> = {};
@@ -180,7 +180,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
   const enabledCount = filteredAssignments.filter((a) => a.enabled).length;
 
   const handleEditSettings = useCallback(() => {
-    if (!detected || !openTab) return;
+    if (!detected) return;
     openTab({
       id: `operations-${id}`,
       label: "Operations",
@@ -203,7 +203,7 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
 
   // Update tab content when assignments change (only if tab is already open)
   useEffect(() => {
-    if (detected && updateTab) {
+    if (detected) {
       updateTab({
         id: `operations-${id}`,
         label: "Operations",

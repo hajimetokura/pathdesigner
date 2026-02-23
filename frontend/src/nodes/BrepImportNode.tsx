@@ -4,13 +4,13 @@ import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import { uploadStepFile, fetchMeshData } from "../api";
 import type { BrepImportResult, BrepObject, ObjectMesh } from "../types";
-import type { PanelTab } from "../components/SidePanel";
 import BrepImportPanel from "../components/BrepImportPanel";
+import { usePanelTabs } from "../contexts/PanelTabsContext";
 
 type Status = "idle" | "loading" | "success" | "error";
 
-export default function BrepImportNode({ id, data, selected }: NodeProps) {
-  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
+export default function BrepImportNode({ id, selected }: NodeProps) {
+  const { openTab } = usePanelTabs();
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<BrepImportResult | null>(null);
   const [error, setError] = useState<string>("");
@@ -76,7 +76,7 @@ export default function BrepImportNode({ id, data, selected }: NodeProps) {
   );
 
   const handleView3D = useCallback(() => {
-    if (!result || !openTab) return;
+    if (!result) return;
     openTab({
       id: `brep-3d-${id}`,
       label: "3D View",

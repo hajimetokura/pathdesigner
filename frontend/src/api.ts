@@ -16,95 +16,105 @@ import type {
   PlacementItem,
   AutoNestingResponse,
 } from "./types";
+import { API_BASE_URL } from "./config";
+import { DEFAULT_TOOL_DIAMETER_MM, DEFAULT_OFFSET_SIDE, DEFAULT_CLEARANCE_MM } from "./constants";
 
-const API_URL = "http://localhost:8000";
+async function requestJson<T>(
+  url: string,
+  init?: RequestInit,
+  errorMsg = "Request failed"
+): Promise<T> {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: errorMsg }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function requestBlob(
+  url: string,
+  init: RequestInit,
+  errorMsg = "Request failed"
+): Promise<Blob> {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: errorMsg }));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.blob();
+}
+
+function jsonPost(body: unknown): RequestInit {
+  return {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+}
 
 export async function uploadStepFile(file: File): Promise<BrepImportResult> {
   const formData = new FormData();
   formData.append("file", file);
-
-  const res = await fetch(`${API_URL}/api/upload-step`, {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Upload failed" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-
-  return res.json();
+  return requestJson<BrepImportResult>(
+    `${API_BASE_URL}/api/upload-step`,
+    { method: "POST", body: formData },
+    "Upload failed"
+  );
 }
 
 export async function extractContours(
   fileId: string,
   objectId: string,
-  toolDiameter: number = 6.35,
-  offsetSide: string = "outside"
+  toolDiameter: number = DEFAULT_TOOL_DIAMETER_MM,
+  offsetSide: string = DEFAULT_OFFSET_SIDE
 ): Promise<ContourExtractResult> {
-  const res = await fetch(`${API_URL}/api/extract-contours`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return requestJson<ContourExtractResult>(
+    `${API_BASE_URL}/api/extract-contours`,
+    jsonPost({
       file_id: fileId,
       object_id: objectId,
       tool_diameter: toolDiameter,
       offset_side: offsetSide,
     }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Extraction failed" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-
-  return res.json();
+    "Extraction failed"
+  );
 }
 
 export async function fetchPresets(): Promise<PresetItem[]> {
-  const res = await fetch(`${API_URL}/api/presets`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch presets: HTTP ${res.status}`);
-  }
-  return res.json();
+  return requestJson<PresetItem[]>(
+    `${API_BASE_URL}/api/presets`,
+    undefined,
+    "Failed to fetch presets"
+  );
 }
 
 export async function validateSettings(
   settings: MachiningSettings
 ): Promise<ValidateSettingsResponse> {
-  const res = await fetch(`${API_URL}/api/validate-settings`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ settings }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Validation failed" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+  return requestJson<ValidateSettingsResponse>(
+    `${API_BASE_URL}/api/validate-settings`,
+    jsonPost({ settings }),
+    "Validation failed"
+  );
 }
 
 export async function detectOperations(
   fileId: string,
   objectIds: string[],
-  toolDiameter: number = 6.35,
-  offsetSide: string = "outside"
+  toolDiameter: number = DEFAULT_TOOL_DIAMETER_MM,
+  offsetSide: string = DEFAULT_OFFSET_SIDE
 ): Promise<OperationDetectResult> {
-  const res = await fetch(`${API_URL}/api/detect-operations`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return requestJson<OperationDetectResult>(
+    `${API_BASE_URL}/api/detect-operations`,
+    jsonPost({
       file_id: fileId,
       object_ids: objectIds,
       tool_diameter: toolDiameter,
       offset_side: offsetSide,
     }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Detection failed" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+    "Detection failed"
+  );
 }
 
 export async function generateToolpath(
@@ -115,10 +125,9 @@ export async function generateToolpath(
   objectOrigins: Record<string, [number, number]> = {},
   boundingBoxes: Record<string, { x: number; y: number; z: number }> = {}
 ): Promise<ToolpathGenResult> {
-  const res = await fetch(`${API_URL}/api/generate-toolpath`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return requestJson<ToolpathGenResult>(
+    `${API_BASE_URL}/api/generate-toolpath`,
+    jsonPost({
       operations,
       detected_operations: detectedOperations,
       sheet,
@@ -126,12 +135,8 @@ export async function generateToolpath(
       object_origins: objectOrigins,
       bounding_boxes: boundingBoxes,
     }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Toolpath generation failed" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+    "Toolpath generation failed"
+  );
 }
 
 export async function generateSbp(
@@ -140,36 +145,26 @@ export async function generateSbp(
   sheet: SheetSettings,
   postProcessor: PostProcessorSettings
 ): Promise<OutputResult> {
-  const res = await fetch(`${API_URL}/api/generate-sbp`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return requestJson<OutputResult>(
+    `${API_BASE_URL}/api/generate-sbp`,
+    jsonPost({
       toolpath_result: toolpathResult,
       operations,
       sheet,
       post_processor: postProcessor,
     }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "SBP generation failed" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+    "SBP generation failed"
+  );
 }
 
 export async function fetchMeshData(
   fileId: string
 ): Promise<MeshDataResult> {
-  const res = await fetch(`${API_URL}/api/mesh-data`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ file_id: fileId }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Mesh data fetch failed" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+  return requestJson<MeshDataResult>(
+    `${API_BASE_URL}/api/mesh-data`,
+    jsonPost({ file_id: fileId }),
+    "Mesh data fetch failed"
+  );
 }
 
 export async function validatePlacement(
@@ -186,39 +181,29 @@ export async function validatePlacement(
   };
   if (outlines) body.outlines = outlines;
   if (toolDiameter !== undefined) body.tool_diameter = toolDiameter;
-  const res = await fetch(`${API_URL}/api/validate-placement`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Validation failed" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+  return requestJson<{ valid: boolean; warnings: string[] }>(
+    `${API_BASE_URL}/api/validate-placement`,
+    jsonPost(body),
+    "Validation failed"
+  );
 }
 
 export async function autoNesting(
   objects: BrepObject[],
   sheet: SheetSettings,
-  toolDiameter: number = 6.35,
-  clearance: number = 5.0,
+  toolDiameter: number = DEFAULT_TOOL_DIAMETER_MM,
+  clearance: number = DEFAULT_CLEARANCE_MM,
 ): Promise<AutoNestingResponse> {
-  const res = await fetch(`${API_URL}/api/auto-nesting`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return requestJson<AutoNestingResponse>(
+    `${API_BASE_URL}/api/auto-nesting`,
+    jsonPost({
       objects,
       sheet,
       tool_diameter: toolDiameter,
       clearance,
     }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "Auto nesting failed" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
+    "Auto nesting failed"
+  );
 }
 
 export async function generateSbpZip(
@@ -230,10 +215,9 @@ export async function generateSbpZip(
   boundingBoxes: Record<string, BoundingBox>,
   postProcessor: PostProcessorSettings,
 ): Promise<Blob> {
-  const res = await fetch(`${API_URL}/api/generate-sbp-zip`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return requestBlob(
+    `${API_BASE_URL}/api/generate-sbp-zip`,
+    jsonPost({
       operations,
       detected_operations: detectedOperations,
       sheet,
@@ -242,10 +226,6 @@ export async function generateSbpZip(
       bounding_boxes: boundingBoxes,
       post_processor: postProcessor,
     }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: "ZIP generation failed" }));
-    throw new Error(err.detail || `HTTP ${res.status}`);
-  }
-  return res.blob();
+    "ZIP generation failed"
+  );
 }

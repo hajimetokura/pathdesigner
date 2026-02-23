@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -27,6 +27,8 @@ import DamNode from "./nodes/DamNode";
 import DebugNode from "./nodes/DebugNode";
 import Sidebar from "./Sidebar";
 import SidePanel, { type PanelTab } from "./components/SidePanel";
+import { PanelTabsContext } from "./contexts/PanelTabsContext";
+import { API_BASE_URL } from "./config";
 
 const initialNodes: Node[] = [
   { id: "1", type: "brepImport", position: { x: 100, y: 100 }, data: {} },
@@ -48,8 +50,6 @@ const initialEdges = [
   { id: "e6-7", source: "6", sourceHandle: "6-output", target: "7", targetHandle: "7-in" },
   { id: "e6-8", source: "6", sourceHandle: "6-toolpath", target: "8", targetHandle: "8-in" },
 ];
-
-const API_URL = "http://localhost:8000";
 
 let nodeCounter = 100;
 
@@ -156,66 +156,60 @@ function Flow() {
           id: `${type}-${nodeCounter}`,
           type,
           position,
-          data: { openTab, updateTab, closeTab },
+          data: {},
         },
       ]);
     },
-    [screenToFlowPosition, setNodes, openTab, updateTab, closeTab]
+    [screenToFlowPosition, setNodes]
   );
 
   useEffect(() => {
-    fetch(`${API_URL}/health`)
+    fetch(`${API_BASE_URL}/health`)
       .then((res) => res.json())
       .then((data) => setBackendStatus(`${data.status} (v${data.version})`))
       .catch(() => setBackendStatus("offline"));
   }, []);
 
-  // Inject openTab/closeTab into all nodes
-  useEffect(() => {
-    setNodes((nds) =>
-      nds.map((n) => ({
-        ...n,
-        data: { ...n.data, openTab, updateTab, closeTab },
-      }))
-    );
-  }, [openTab, updateTab, closeTab, setNodes]);
+  const panelTabsValue = useMemo(() => ({ openTab, updateTab, closeTab }), [openTab, updateTab, closeTab]);
 
   return (
-    <div style={{ display: "flex", width: "100vw", height: "100vh" }}>
-      <Sidebar />
-      <div ref={wrapperRef} style={{ flex: 1, position: "relative" }}>
-        <div style={statusStyle}>
-          <strong>PathDesigner</strong> &mdash; Backend: {backendStatus}
+    <PanelTabsContext.Provider value={panelTabsValue}>
+      <div style={{ display: "flex", width: "100vw", height: "100vh" }}>
+        <Sidebar />
+        <div ref={wrapperRef} style={{ flex: 1, position: "relative" }}>
+          <div style={statusStyle}>
+            <strong>PathDesigner</strong> &mdash; Backend: {backendStatus}
+          </div>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            proOptions={{ hideAttribution: true }}
+            fitView
+          >
+            <Background />
+            <Controls />
+            <MiniMap />
+            <Panel position="top-right">
+              <button onClick={onLayout} style={layoutBtnStyle}>
+                Auto Layout
+              </button>
+            </Panel>
+          </ReactFlow>
         </div>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-          proOptions={{ hideAttribution: true }}
-          fitView
-        >
-          <Background />
-          <Controls />
-          <MiniMap />
-          <Panel position="top-right">
-            <button onClick={onLayout} style={layoutBtnStyle}>
-              Auto Layout
-            </button>
-          </Panel>
-        </ReactFlow>
+        <SidePanel
+          tabs={panelTabs}
+          activeTabId={activeTabId}
+          onSelectTab={setActiveTabId}
+          onCloseTab={closeTab}
+        />
       </div>
-      <SidePanel
-        tabs={panelTabs}
-        activeTabId={activeTabId}
-        onSelectTab={setActiveTabId}
-        onCloseTab={closeTab}
-      />
-    </div>
+    </PanelTabsContext.Provider>
   );
 }
 
