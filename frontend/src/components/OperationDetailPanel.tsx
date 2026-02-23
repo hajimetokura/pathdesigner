@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   OperationDetectResult,
   OperationAssignment,
@@ -6,9 +6,11 @@ import type {
   StockSettings,
   MachiningSettings,
   PlacementItem,
+  PresetItem,
   SettingsGroup,
 } from "../types";
 import { StockBadge } from "./StockBadge";
+import { fetchPresets } from "../api";
 
 interface Props {
   detectedOperations: OperationDetectResult;
@@ -26,6 +28,7 @@ function deriveGroups(
   assignments: OperationAssignment[],
   detectedOps: DetectedOperation[],
   activeObjectIds: Set<string>,
+  groupLabels: Record<string, string>,
 ): SettingsGroup[] {
   const opMap = new Map(detectedOps.map((op) => [op.operation_id, op]));
   const groupMap = new Map<string, SettingsGroup>();
@@ -38,9 +41,12 @@ function deriveGroups(
     const isDefault = !a.group_id || a.group_id.startsWith("default_");
 
     if (!groupMap.has(groupId)) {
+      const defaultLabel = isDefault
+        ? "Default"
+        : groupId.replace(/^override_\w+_/, "Setting ");
       groupMap.set(groupId, {
         group_id: groupId,
-        label: isDefault ? "Default" : groupId.replace("override_", "Override "),
+        label: groupLabels[groupId] ?? defaultLabel,
         operation_type: op.operation_type,
         settings: { ...a.settings },
         object_ids: [],
@@ -57,6 +63,29 @@ function deriveGroups(
     const bDefault = b.group_id.startsWith("default_") ? 0 : 1;
     return aDefault - bDefault || a.group_id.localeCompare(b.group_id);
   });
+}
+
+/* --- Preset localStorage helpers --- */
+
+const USER_PRESETS_KEY = "pathdesigner_user_presets";
+
+interface UserPreset {
+  id: string;
+  name: string;
+  settings: MachiningSettings;
+}
+
+function loadUserPresets(): UserPreset[] {
+  try {
+    const raw = localStorage.getItem(USER_PRESETS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUserPresets(presets: UserPreset[]) {
+  localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(presets));
 }
 
 /* --- Group background colors --- */
@@ -86,30 +115,64 @@ export default function OperationDetailPanel({
   const [draggedOpId, setDraggedOpId] = useState<string | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
   const [extraGroups, setExtraGroups] = useState<SettingsGroup[]>([]);
+  const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingLabel, setEditingLabel] = useState("");
+
+  // Presets
+  const [builtinPresets, setBuiltinPresets] = useState<PresetItem[]>([]);
+  const [userPresets, setUserPresets] = useState<UserPreset[]>(loadUserPresets);
+  const [presetMenuGroupId, setPresetMenuGroupId] = useState<string | null>(null);
+  const [savingPresetGroupId, setSavingPresetGroupId] = useState<string | null>(null);
+  const [newPresetName, setNewPresetName] = useState("");
 
   const materials = stockSettings?.materials ?? [];
+
+  // Load built-in presets on mount
+  useEffect(() => {
+    fetchPresets().then(setBuiltinPresets).catch(() => {});
+  }, []);
 
   const activeObjectIds = useMemo(() => {
     return new Set(placements.filter((p) => p.stock_id === activeStockId).map((p) => p.object_id));
   }, [placements, activeStockId]);
 
   const derivedGroups = useMemo(() => {
-    return deriveGroups(assignments, detectedOperations.operations, activeObjectIds);
-  }, [assignments, detectedOperations, activeObjectIds]);
+    return deriveGroups(assignments, detectedOperations.operations, activeObjectIds, groupLabels);
+  }, [assignments, detectedOperations, activeObjectIds, groupLabels]);
 
-  // Merge derived groups with extra (empty override) groups
+  // Merge derived groups with extra (empty) groups
   const groups = useMemo(() => {
     const derivedIds = new Set(derivedGroups.map((g) => g.group_id));
     const extras = extraGroups.filter((eg) => !derivedIds.has(eg.group_id));
     return [...derivedGroups, ...extras];
   }, [derivedGroups, extraGroups]);
 
-  // Collect unique operation types for "Add Override" buttons
   const operationTypes = useMemo(() => {
     return [...new Set(groups.map((g) => g.operation_type))];
   }, [groups]);
 
-  /* --- Group settings update: updates ALL assignments in the group --- */
+  /* --- Group label editing --- */
+
+  const startEditing = useCallback((groupId: string, currentLabel: string) => {
+    setEditingGroupId(groupId);
+    setEditingLabel(currentLabel);
+  }, []);
+
+  const commitLabel = useCallback(() => {
+    if (editingGroupId && editingLabel.trim()) {
+      setGroupLabels((prev) => ({ ...prev, [editingGroupId]: editingLabel.trim() }));
+      setExtraGroups((prev) =>
+        prev.map((eg) =>
+          eg.group_id === editingGroupId ? { ...eg, label: editingLabel.trim() } : eg
+        )
+      );
+    }
+    setEditingGroupId(null);
+    setEditingLabel("");
+  }, [editingGroupId, editingLabel]);
+
+  /* --- Group settings update --- */
 
   const updateGroupSettings = useCallback(
     (groupId: string, field: keyof MachiningSettings, value: unknown) => {
@@ -128,7 +191,6 @@ export default function OperationDetailPanel({
       );
       onAssignmentsChange(updated);
 
-      // Also update extra groups settings for consistency
       setExtraGroups((prev) =>
         prev.map((eg) =>
           eg.group_id === groupId
@@ -140,7 +202,64 @@ export default function OperationDetailPanel({
     [groups, detectedOperations, activeObjectIds, assignments, onAssignmentsChange]
   );
 
-  /* --- Toggle enabled for a single operation --- */
+  /* --- Apply full settings to a group (for presets) --- */
+
+  const applySettingsToGroup = useCallback(
+    (groupId: string, settings: MachiningSettings) => {
+      const group = groups.find((g) => g.group_id === groupId);
+      if (!group) return;
+
+      const opsInGroup = detectedOperations.operations.filter(
+        (op) => group.object_ids.includes(op.object_id) && activeObjectIds.has(op.object_id)
+      );
+      const opIdsInGroup = new Set(opsInGroup.map((op) => op.operation_id));
+
+      const updated = assignments.map((a) =>
+        opIdsInGroup.has(a.operation_id) ? { ...a, settings: { ...settings } } : a
+      );
+      onAssignmentsChange(updated);
+
+      setExtraGroups((prev) =>
+        prev.map((eg) =>
+          eg.group_id === groupId ? { ...eg, settings: { ...settings } } : eg
+        )
+      );
+      setPresetMenuGroupId(null);
+    },
+    [groups, detectedOperations, activeObjectIds, assignments, onAssignmentsChange]
+  );
+
+  /* --- Save current group settings as user preset --- */
+
+  const saveAsPreset = useCallback(
+    (groupId: string, name: string) => {
+      const group = groups.find((g) => g.group_id === groupId);
+      if (!group || !name.trim()) return;
+
+      const newPreset: UserPreset = {
+        id: `user_${Date.now()}`,
+        name: name.trim(),
+        settings: { ...group.settings },
+      };
+      const updated = [...userPresets, newPreset];
+      setUserPresets(updated);
+      saveUserPresets(updated);
+      setSavingPresetGroupId(null);
+      setNewPresetName("");
+    },
+    [groups, userPresets]
+  );
+
+  const deleteUserPreset = useCallback(
+    (presetId: string) => {
+      const updated = userPresets.filter((p) => p.id !== presetId);
+      setUserPresets(updated);
+      saveUserPresets(updated);
+    },
+    [userPresets]
+  );
+
+  /* --- Toggle enabled --- */
 
   const toggleEnabled = useCallback(
     (opId: string) => {
@@ -152,7 +271,7 @@ export default function OperationDetailPanel({
     [assignments, onAssignmentsChange]
   );
 
-  /* --- Drag & drop: move object to another group --- */
+  /* --- Drag & drop --- */
 
   const handleMoveToGroup = useCallback(
     (operationId: string, targetGroupId: string) => {
@@ -161,11 +280,7 @@ export default function OperationDetailPanel({
 
       const updated = assignments.map((a) =>
         a.operation_id === operationId
-          ? {
-              ...a,
-              group_id: targetGroupId,
-              settings: { ...targetGroup.settings },
-            }
+          ? { ...a, group_id: targetGroupId, settings: { ...targetGroup.settings } }
           : a
       );
       onAssignmentsChange(updated);
@@ -173,28 +288,24 @@ export default function OperationDetailPanel({
     [groups, assignments, onAssignmentsChange]
   );
 
-  /* --- Add override group --- */
+  /* --- Add setting group --- */
 
-  const handleAddOverride = useCallback(
+  const handleAddSetting = useCallback(
     (operationType: string) => {
-      const overrideCount = groups.filter(
+      const settingCount = groups.filter(
         (g) => !g.group_id.startsWith("default_") && g.operation_type === operationType
       ).length;
-      const newGroupId = `override_${operationType}_${overrideCount + 1}`;
+      const newGroupId = `override_${operationType}_${settingCount + 1}`;
 
-      // Copy settings from the default group for this operation type
-      const defaultGroup = groups.find(
-        (g) => g.group_id === `default_${operationType}`
-      );
-      const baseSettings = defaultGroup?.settings ??
-        assignments[0]?.settings;
+      const defaultGroup = groups.find((g) => g.group_id === `default_${operationType}`);
+      const baseSettings = defaultGroup?.settings ?? assignments[0]?.settings;
       if (!baseSettings) return;
 
       setExtraGroups((prev) => [
         ...prev,
         {
           group_id: newGroupId,
-          label: `Override ${overrideCount + 1}`,
+          label: `Setting ${settingCount + 1}`,
           operation_type: operationType,
           settings: { ...baseSettings },
           object_ids: [],
@@ -204,11 +315,16 @@ export default function OperationDetailPanel({
     [groups, assignments]
   );
 
-  /* --- Remove empty override group --- */
+  /* --- Remove empty group --- */
 
   const handleRemoveGroup = useCallback(
     (groupId: string) => {
       setExtraGroups((prev) => prev.filter((eg) => eg.group_id !== groupId));
+      setGroupLabels((prev) => {
+        const next = { ...prev };
+        delete next[groupId];
+        return next;
+      });
     },
     []
   );
@@ -219,22 +335,20 @@ export default function OperationDetailPanel({
     <div style={panelStyle}>
       <div style={panelBodyStyle}>
         {stockIds.length > 1 && (
-          <StockBadge
-            activeStockId={activeStockId}
-            totalStocks={stockIds.length}
-          />
+          <StockBadge activeStockId={activeStockId} totalStocks={stockIds.length} />
         )}
 
         {groups.map((group, groupIndex) => {
           const isDefault = group.group_id.startsWith("default_");
           const isExpanded = expandedGroup === group.group_id;
           const isDragOver = dragOverGroupId === group.group_id;
+          const isEditing = editingGroupId === group.group_id;
+          const showPresetMenu = presetMenuGroupId === group.group_id;
+          const showSavePreset = savingPresetGroupId === group.group_id;
 
-          // Find operations belonging to this group
           const opsInGroup = detectedOperations.operations.filter(
             (op) =>
-              group.object_ids.includes(op.object_id) &&
-              activeObjectIds.has(op.object_id)
+              group.object_ids.includes(op.object_id) && activeObjectIds.has(op.object_id)
           );
 
           return (
@@ -243,9 +357,7 @@ export default function OperationDetailPanel({
               style={{
                 ...groupCardStyle,
                 background: getGroupBg(groupIndex, isDefault),
-                border: isDragOver
-                  ? "2px dashed #4a90d9"
-                  : "1px solid #eee",
+                border: isDragOver ? "2px dashed #4a90d9" : "1px solid #eee",
               }}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -263,122 +375,240 @@ export default function OperationDetailPanel({
               {/* Group header */}
               <div
                 style={groupHeaderStyle}
-                onClick={() =>
-                  setExpandedGroup(isExpanded ? null : group.group_id)
-                }
+                onClick={() => setExpandedGroup(isExpanded ? null : group.group_id)}
               >
-                <span>
-                  <span style={{ fontSize: 10, color: "#888", marginRight: 4 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
+                  <span style={{ fontSize: 10, color: "#888" }}>
                     {isExpanded ? "\u25BC" : "\u25B6"}
                   </span>
-                  <span style={{ fontSize: 11, color: "#666", marginRight: 4 }}>
+                  <span style={{ fontSize: 11, color: "#666" }}>
                     [{group.operation_type}]
                   </span>
-                  {group.label}
-                  <span style={{ fontSize: 11, color: "#999", marginLeft: 6 }}>
+                  {isEditing ? (
+                    <input
+                      style={labelEditStyle}
+                      value={editingLabel}
+                      autoFocus
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => setEditingLabel(e.target.value)}
+                      onBlur={commitLabel}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitLabel();
+                        if (e.key === "Escape") {
+                          setEditingGroupId(null);
+                          setEditingLabel("");
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        startEditing(group.group_id, group.label);
+                      }}
+                      title="Double-click to rename"
+                    >
+                      {group.label}
+                    </span>
+                  )}
+                  <span style={{ fontSize: 11, color: "#999" }}>
                     ({opsInGroup.length})
                   </span>
                 </span>
-                {/* Remove button for empty override groups */}
-                {group.object_ids.length === 0 && !isDefault && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveGroup(group.group_id);
-                    }}
-                    style={removeBtnStyle}
-                  >
-                    Remove
-                  </button>
-                )}
+                <span style={{ display: "flex", gap: 4 }}>
+                  {group.object_ids.length === 0 && !isDefault && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveGroup(group.group_id);
+                      }}
+                      style={removeBtnStyle}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </span>
               </div>
 
               {/* Settings fields (if expanded) */}
-              {isExpanded && opsInGroup.length > 0 && (
+              {isExpanded && (
                 <div style={settingsBodyStyle}>
-                  <NumberRow
-                    label="Depth/pass (mm)"
-                    value={group.settings.depth_per_pass}
-                    onChange={(v) =>
-                      updateGroupSettings(group.group_id, "depth_per_pass", v)
-                    }
-                  />
-                  <NumberRow
-                    label="Feed XY (mm/s)"
-                    value={group.settings.feed_rate.xy}
-                    onChange={(v) =>
-                      updateGroupSettings(group.group_id, "feed_rate", {
-                        ...group.settings.feed_rate,
-                        xy: v,
-                      })
-                    }
-                  />
-                  <NumberRow
-                    label="Feed Z (mm/s)"
-                    value={group.settings.feed_rate.z}
-                    onChange={(v) =>
-                      updateGroupSettings(group.group_id, "feed_rate", {
-                        ...group.settings.feed_rate,
-                        z: v,
-                      })
-                    }
-                  />
-                  <NumberRow
-                    label="Spindle (RPM)"
-                    value={group.settings.spindle_speed}
-                    step={1000}
-                    onChange={(v) =>
-                      updateGroupSettings(
-                        group.group_id,
-                        "spindle_speed",
-                        Math.round(v)
-                      )
-                    }
-                  />
-                  <NumberRow
-                    label="Tool dia (mm)"
-                    value={group.settings.tool.diameter}
-                    step={0.1}
-                    onChange={(v) =>
-                      updateGroupSettings(group.group_id, "tool", {
-                        ...group.settings.tool,
-                        diameter: v,
-                      })
-                    }
-                  />
-                  <div style={fieldRowStyle}>
-                    <label style={fieldLabelStyle}>Direction</label>
-                    <select
-                      style={selectStyle}
-                      value={group.settings.direction}
-                      onChange={(e) =>
-                        updateGroupSettings(
-                          group.group_id,
-                          "direction",
-                          e.target.value
-                        )
+                  {/* Preset bar */}
+                  <div style={presetBarStyle}>
+                    <button
+                      style={presetBtnStyle}
+                      onClick={() =>
+                        setPresetMenuGroupId(showPresetMenu ? null : group.group_id)
                       }
                     >
-                      <option value="climb">climb</option>
-                      <option value="conventional">conventional</option>
-                    </select>
+                      Load Preset
+                    </button>
+                    <button
+                      style={presetBtnStyle}
+                      onClick={() =>
+                        setSavingPresetGroupId(showSavePreset ? null : group.group_id)
+                      }
+                    >
+                      Save as Preset
+                    </button>
                   </div>
-                  <div style={fieldRowStyle}>
-                    <label style={fieldLabelStyle}>Tabs</label>
-                    <label style={{ fontSize: 11 }}>
+
+                  {/* Preset dropdown */}
+                  {showPresetMenu && (
+                    <div style={presetDropdownStyle}>
+                      {builtinPresets.length > 0 && (
+                        <>
+                          <div style={presetSectionLabel}>Built-in</div>
+                          {builtinPresets.map((p) => (
+                            <button
+                              key={p.id}
+                              style={presetItemStyle}
+                              onClick={() => applySettingsToGroup(group.group_id, p.settings)}
+                            >
+                              {p.name}
+                              <span style={{ fontSize: 10, color: "#999", marginLeft: 4 }}>
+                                {p.material}
+                              </span>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {userPresets.length > 0 && (
+                        <>
+                          <div style={presetSectionLabel}>My Presets</div>
+                          {userPresets.map((p) => (
+                            <div key={p.id} style={{ display: "flex", alignItems: "center" }}>
+                              <button
+                                style={{ ...presetItemStyle, flex: 1 }}
+                                onClick={() => applySettingsToGroup(group.group_id, p.settings)}
+                              >
+                                {p.name}
+                              </button>
+                              <button
+                                style={presetDeleteBtnStyle}
+                                onClick={() => deleteUserPreset(p.id)}
+                                title="Delete preset"
+                              >
+                                x
+                              </button>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                      {builtinPresets.length === 0 && userPresets.length === 0 && (
+                        <div style={{ fontSize: 11, color: "#999", padding: 6 }}>
+                          No presets available
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Save preset form */}
+                  {showSavePreset && (
+                    <div style={savePresetFormStyle}>
                       <input
-                        type="checkbox"
-                        checked={group.settings.tabs.enabled}
-                        onChange={() =>
-                          updateGroupSettings(group.group_id, "tabs", {
-                            ...group.settings.tabs,
-                            enabled: !group.settings.tabs.enabled,
+                        style={savePresetInputStyle}
+                        placeholder="Preset name..."
+                        value={newPresetName}
+                        autoFocus
+                        onChange={(e) => setNewPresetName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveAsPreset(group.group_id, newPresetName);
+                          if (e.key === "Escape") {
+                            setSavingPresetGroupId(null);
+                            setNewPresetName("");
+                          }
+                        }}
+                      />
+                      <button
+                        style={presetBtnStyle}
+                        onClick={() => saveAsPreset(group.group_id, newPresetName)}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Settings fields */}
+                  {opsInGroup.length > 0 && (
+                    <>
+                      <NumberRow
+                        label="Depth/pass (mm)"
+                        value={group.settings.depth_per_pass}
+                        onChange={(v) =>
+                          updateGroupSettings(group.group_id, "depth_per_pass", v)
+                        }
+                      />
+                      <NumberRow
+                        label="Feed XY (mm/s)"
+                        value={group.settings.feed_rate.xy}
+                        onChange={(v) =>
+                          updateGroupSettings(group.group_id, "feed_rate", {
+                            ...group.settings.feed_rate,
+                            xy: v,
                           })
                         }
                       />
-                      {" "}enabled ({group.settings.tabs.count})
-                    </label>
-                  </div>
+                      <NumberRow
+                        label="Feed Z (mm/s)"
+                        value={group.settings.feed_rate.z}
+                        onChange={(v) =>
+                          updateGroupSettings(group.group_id, "feed_rate", {
+                            ...group.settings.feed_rate,
+                            z: v,
+                          })
+                        }
+                      />
+                      <NumberRow
+                        label="Spindle (RPM)"
+                        value={group.settings.spindle_speed}
+                        step={1000}
+                        onChange={(v) =>
+                          updateGroupSettings(group.group_id, "spindle_speed", Math.round(v))
+                        }
+                      />
+                      <NumberRow
+                        label="Tool dia (mm)"
+                        value={group.settings.tool.diameter}
+                        step={0.1}
+                        onChange={(v) =>
+                          updateGroupSettings(group.group_id, "tool", {
+                            ...group.settings.tool,
+                            diameter: v,
+                          })
+                        }
+                      />
+                      <div style={fieldRowStyle}>
+                        <label style={fieldLabelStyle}>Direction</label>
+                        <select
+                          style={selectStyle}
+                          value={group.settings.direction}
+                          onChange={(e) =>
+                            updateGroupSettings(group.group_id, "direction", e.target.value)
+                          }
+                        >
+                          <option value="climb">climb</option>
+                          <option value="conventional">conventional</option>
+                        </select>
+                      </div>
+                      <div style={fieldRowStyle}>
+                        <label style={fieldLabelStyle}>Tabs</label>
+                        <label style={{ fontSize: 11 }}>
+                          <input
+                            type="checkbox"
+                            checked={group.settings.tabs.enabled}
+                            onChange={() =>
+                              updateGroupSettings(group.group_id, "tabs", {
+                                ...group.settings.tabs,
+                                enabled: !group.settings.tabs.enabled,
+                              })
+                            }
+                          />
+                          {" "}enabled ({group.settings.tabs.count})
+                        </label>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -387,7 +617,7 @@ export default function OperationDetailPanel({
                 <div style={{ borderTop: "1px solid #e8e8e8", margin: "4px 0" }} />
               )}
 
-              {/* Object rows (always visible) */}
+              {/* Object rows */}
               {opsInGroup.map((op) => {
                 const assignment = assignments.find(
                   (a) => a.operation_id === op.operation_id
@@ -404,10 +634,7 @@ export default function OperationDetailPanel({
                 return (
                   <div
                     key={op.operation_id}
-                    style={{
-                      ...objectRowStyle,
-                      opacity: isDragged ? 0.4 : 1,
-                    }}
+                    style={{ ...objectRowStyle, opacity: isDragged ? 0.4 : 1 }}
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData("text/plain", op.operation_id);
@@ -446,7 +673,14 @@ export default function OperationDetailPanel({
 
               {/* Empty group hint */}
               {opsInGroup.length === 0 && (
-                <div style={{ fontSize: 11, color: "#aaa", padding: "4px 8px", fontStyle: "italic" }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#aaa",
+                    padding: "4px 8px",
+                    fontStyle: "italic",
+                  }}
+                >
                   Drag objects here
                 </div>
               )}
@@ -454,14 +688,14 @@ export default function OperationDetailPanel({
           );
         })}
 
-        {/* Add Override buttons */}
+        {/* Add Setting buttons */}
         {operationTypes.map((opType) => (
           <button
             key={opType}
-            onClick={() => handleAddOverride(opType)}
-            style={addOverrideBtnStyle}
+            onClick={() => handleAddSetting(opType)}
+            style={addSettingBtnStyle}
           >
-            + Add Override ({opType})
+            + Add Setting ({opType})
           </button>
         ))}
       </div>
@@ -528,6 +762,16 @@ const groupHeaderStyle: React.CSSProperties = {
   fontSize: 12,
 };
 
+const labelEditStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  border: "1px solid #4a90d9",
+  borderRadius: 3,
+  padding: "1px 4px",
+  outline: "none",
+  width: 100,
+};
+
 const objectRowStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -590,7 +834,7 @@ const removeBtnStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-const addOverrideBtnStyle: React.CSSProperties = {
+const addSettingBtnStyle: React.CSSProperties = {
   fontSize: 11,
   color: "#1976d2",
   background: "none",
@@ -600,4 +844,74 @@ const addOverrideBtnStyle: React.CSSProperties = {
   cursor: "pointer",
   width: "100%",
   marginBottom: 4,
+};
+
+const presetBarStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 4,
+  marginBottom: 6,
+};
+
+const presetBtnStyle: React.CSSProperties = {
+  fontSize: 10,
+  color: "#555",
+  background: "#fff",
+  border: "1px solid #ccc",
+  borderRadius: 4,
+  padding: "2px 8px",
+  cursor: "pointer",
+};
+
+const presetDropdownStyle: React.CSSProperties = {
+  background: "#fff",
+  border: "1px solid #ddd",
+  borderRadius: 4,
+  marginBottom: 6,
+  maxHeight: 160,
+  overflowY: "auto",
+  padding: 4,
+};
+
+const presetSectionLabel: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 600,
+  color: "#888",
+  padding: "4px 6px 2px",
+  textTransform: "uppercase",
+  letterSpacing: 0.5,
+};
+
+const presetItemStyle: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  textAlign: "left",
+  fontSize: 11,
+  background: "none",
+  border: "none",
+  padding: "4px 6px",
+  cursor: "pointer",
+  borderRadius: 3,
+};
+
+const presetDeleteBtnStyle: React.CSSProperties = {
+  fontSize: 10,
+  color: "#999",
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  padding: "2px 6px",
+};
+
+const savePresetFormStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 4,
+  marginBottom: 6,
+};
+
+const savePresetInputStyle: React.CSSProperties = {
+  fontSize: 11,
+  border: "1px solid #ccc",
+  borderRadius: 4,
+  padding: "2px 6px",
+  flex: 1,
 };
