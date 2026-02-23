@@ -426,3 +426,43 @@ class SbpZipRequest(BaseModel):
     object_origins: dict[str, list[float]] = {}
     bounding_boxes: dict[str, BoundingBox] = {}
     post_processor: PostProcessorSettings
+
+
+# --- AI CAD Node ---
+
+
+class AiCadRequest(BaseModel):
+    """Request to generate a 3D model from text/image prompt."""
+    prompt: str
+    image_base64: str | None = None
+    model: str | None = None  # OpenRouter model ID; None = use default
+
+
+class AiCadCodeRequest(BaseModel):
+    """Request to execute manually-edited build123d code."""
+    code: str
+
+
+class AiCadResult(BrepImportResult):
+    """AI CAD output — extends BrepImportResult with generation metadata."""
+    generated_code: str
+    generation_id: str
+    prompt_used: str
+    model_used: str
+
+
+class GenerationSummary(BaseModel):
+    """Summary for library listing."""
+    generation_id: str
+    prompt: str
+    model_used: str
+    status: str
+    created_at: str
+
+
+class ModelInfo(BaseModel):
+    """Available LLM model info."""
+    id: str
+    name: str
+    is_default: bool
+    supports_vision: bool
