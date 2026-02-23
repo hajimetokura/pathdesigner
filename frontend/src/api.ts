@@ -112,7 +112,8 @@ export async function generateToolpath(
   detectedOperations: OperationDetectResult,
   sheet: SheetSettings,
   placements: PlacementItem[] = [],
-  objectOrigins: Record<string, [number, number]> = {}
+  objectOrigins: Record<string, [number, number]> = {},
+  boundingBoxes: Record<string, { x: number; y: number; z: number }> = {}
 ): Promise<ToolpathGenResult> {
   const res = await fetch(`${API_URL}/api/generate-toolpath`, {
     method: "POST",
@@ -123,6 +124,7 @@ export async function generateToolpath(
       sheet,
       placements,
       object_origins: objectOrigins,
+      bounding_boxes: boundingBoxes,
     }),
   });
   if (!res.ok) {

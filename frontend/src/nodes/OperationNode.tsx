@@ -62,15 +62,17 @@ export default function OperationNode({ id, data, selected }: NodeProps) {
   const syncToNodeData = useCallback(
     (det: OperationDetectResult, assign: OperationAssignment[], stock: SheetSettings | null, plc: PlacementItem[], objects: BrepObject[]) => {
       const sid = upstream?.activeSheetId ?? "sheet_1";
-      // Build objectOrigins map for ToolpathGenNode
+      // Build objectOrigins and boundingBoxes maps for ToolpathGenNode
       const objectOrigins: Record<string, [number, number]> = {};
+      const boundingBoxes: Record<string, { x: number; y: number; z: number }> = {};
       for (const obj of objects) {
         objectOrigins[obj.object_id] = [obj.origin.position[0], obj.origin.position[1]];
+        boundingBoxes[obj.object_id] = obj.bounding_box;
       }
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, sheetSettings: stock, placements: plc, objectOrigins, activeSheetId: sid } }
+            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, sheetSettings: stock, placements: plc, objectOrigins, boundingBoxes, activeSheetId: sid } }
             : n
         )
       );

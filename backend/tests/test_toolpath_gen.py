@@ -558,6 +558,188 @@ def test_rotation_0_no_change():
     assert path[0][1] == 20.0
 
 
+def test_pocket_operation_generates_toolpath():
+    """Pocket operation should generate toolpath via pocket_toolpath module."""
+    pocket_contour = Contour(
+        id="c_pocket",
+        type="pocket",
+        coords=[
+            [10, 10], [40, 10], [40, 30], [10, 30], [10, 10],
+        ],
+        closed=True,
+    )
+    pocket_settings = MachiningSettings(
+        operation_type="pocket",
+        tool=Tool(diameter=6.35, type="endmill", flutes=2),
+        feed_rate=FeedRate(xy=60, z=20),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=3.0,
+        total_depth=6.0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+        pocket_pattern="contour-parallel",
+        pocket_stepover=0.5,
+    )
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_pocket",
+                object_id="obj_001",
+                operation_type="pocket",
+                geometry=OperationGeometry(
+                    contours=[pocket_contour],
+                    offset_applied=OffsetApplied(distance=0, side="none"),
+                    depth=6.0,
+                ),
+                suggested_settings=pocket_settings,
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_pocket",
+            material_id="mtl_1",
+            settings=pocket_settings,
+            order=1,
+        )
+    ]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=18)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock)
+
+    assert len(result.toolpaths) == 1
+    tp = result.toolpaths[0]
+    assert tp.operation_id == "op_pocket"
+    assert len(tp.passes) > 0
+    # Should have multiple passes (Z step-down × rings)
+    assert tp.settings.operation_type == "pocket"
+
+
+def test_drill_operation_generates_toolpath():
+    """Drill operation should generate peck drill passes."""
+    drill_contour = Contour(
+        id="c_drill",
+        type="drill_center",
+        coords=[[25.0, 15.0]],
+        closed=False,
+    )
+    drill_settings = MachiningSettings(
+        operation_type="drill",
+        tool=Tool(diameter=6.35, type="endmill", flutes=2),
+        feed_rate=FeedRate(xy=75, z=15),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=6.0,
+        total_depth=10.0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+        depth_per_peck=5.0,
+    )
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_drill",
+                object_id="obj_001",
+                operation_type="drill",
+                geometry=OperationGeometry(
+                    contours=[drill_contour],
+                    offset_applied=OffsetApplied(distance=0, side="none"),
+                    depth=10.0,
+                ),
+                suggested_settings=drill_settings,
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_drill",
+            material_id="mtl_1",
+            settings=drill_settings,
+            order=1,
+        )
+    ]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=18)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock)
+
+    assert len(result.toolpaths) == 1
+    tp = result.toolpaths[0]
+    assert tp.operation_id == "op_drill"
+    # 10mm / 5mm peck = 2 passes
+    assert len(tp.passes) == 2
+    # Each pass should be at the drill center
+    for p in tp.passes:
+        assert p.path == [[25.0, 15.0]]
+    assert tp.settings.operation_type == "drill"
+
+
+def test_pocket_raster_generates_toolpath():
+    """Pocket with raster pattern should generate scan-line passes."""
+    pocket_contour = Contour(
+        id="c_pocket",
+        type="pocket",
+        coords=[
+            [0, 0], [50, 0], [50, 30], [0, 30], [0, 0],
+        ],
+        closed=True,
+    )
+    pocket_settings = MachiningSettings(
+        operation_type="pocket",
+        tool=Tool(diameter=6.35, type="endmill", flutes=2),
+        feed_rate=FeedRate(xy=60, z=20),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=3.0,
+        total_depth=3.0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+        pocket_pattern="raster",
+        pocket_stepover=0.5,
+    )
+    detected = OperationDetectResult(
+        operations=[
+            DetectedOperation(
+                operation_id="op_pocket",
+                object_id="obj_001",
+                operation_type="pocket",
+                geometry=OperationGeometry(
+                    contours=[pocket_contour],
+                    offset_applied=OffsetApplied(distance=0, side="none"),
+                    depth=3.0,
+                ),
+                suggested_settings=pocket_settings,
+            )
+        ]
+    )
+    assignments = [
+        OperationAssignment(
+            operation_id="op_pocket",
+            material_id="mtl_1",
+            settings=pocket_settings,
+            order=1,
+        )
+    ]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=18)]
+    )
+
+    result = generate_toolpath_from_operations(assignments, detected, stock)
+
+    assert len(result.toolpaths) == 1
+    tp = result.toolpaths[0]
+    assert len(tp.passes) > 0
+    # Raster should have many scan lines
+    assert tp.settings.pocket_pattern == "raster"
+
+
 def test_toolpath_ordering_by_placement():
     """Toolpaths should be ordered by placement: y_offset asc, then x_offset asc."""
     settings = _make_settings()

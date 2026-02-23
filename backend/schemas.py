@@ -125,6 +125,11 @@ class MachiningSettings(BaseModel):
     direction: str  # "climb" | "conventional"
     offset_side: str  # "outside" | "inside" | "none"
     tabs: TabSettings
+    # Pocket-specific
+    pocket_pattern: str = "contour-parallel"  # "contour-parallel" | "raster"
+    pocket_stepover: float = 0.5  # 0-1 ratio of tool diameter
+    # Drill-specific
+    depth_per_peck: float = 6.0  # mm
 
 
 class PresetItem(BaseModel):

@@ -51,12 +51,12 @@ function deriveGroups(
         label: groupLabels[groupId] ?? defaultLabel,
         operation_type: op.operation_type,
         settings: { ...a.settings },
-        object_ids: [],
+        operation_ids: [],
       });
     }
     const group = groupMap.get(groupId)!;
-    if (!group.object_ids.includes(op.object_id)) {
-      group.object_ids.push(op.object_id);
+    if (!group.operation_ids.includes(op.operation_id)) {
+      group.operation_ids.push(op.operation_id);
     }
   }
 
@@ -182,10 +182,7 @@ export default function OperationDetailPanel({
       const group = groups.find((g) => g.group_id === groupId);
       if (!group) return;
 
-      const opsInGroup = detectedOperations.operations.filter(
-        (op) => group.object_ids.includes(op.object_id) && activeObjectIds.has(op.object_id)
-      );
-      const opIdsInGroup = new Set(opsInGroup.map((op) => op.operation_id));
+      const opIdsInGroup = new Set(group.operation_ids);
 
       const updated = assignments.map((a) =>
         opIdsInGroup.has(a.operation_id)
@@ -202,7 +199,7 @@ export default function OperationDetailPanel({
         )
       );
     },
-    [groups, detectedOperations, activeObjectIds, assignments, onAssignmentsChange]
+    [groups, assignments, onAssignmentsChange]
   );
 
   /* --- Apply full settings to a group (for presets) --- */
@@ -212,10 +209,7 @@ export default function OperationDetailPanel({
       const group = groups.find((g) => g.group_id === groupId);
       if (!group) return;
 
-      const opsInGroup = detectedOperations.operations.filter(
-        (op) => group.object_ids.includes(op.object_id) && activeObjectIds.has(op.object_id)
-      );
-      const opIdsInGroup = new Set(opsInGroup.map((op) => op.operation_id));
+      const opIdsInGroup = new Set(group.operation_ids);
 
       const updated = assignments.map((a) =>
         opIdsInGroup.has(a.operation_id) ? { ...a, settings: { ...settings } } : a
@@ -239,7 +233,7 @@ export default function OperationDetailPanel({
 
       setPresetMenuGroupId(null);
     },
-    [groups, detectedOperations, activeObjectIds, assignments, onAssignmentsChange, groupLabels, onGroupLabelsChange]
+    [groups, assignments, onAssignmentsChange, groupLabels, onGroupLabelsChange]
   );
 
   /* --- Save current group settings as user preset --- */
@@ -321,7 +315,7 @@ export default function OperationDetailPanel({
           label: `Setting ${settingCount + 1}`,
           operation_type: operationType,
           settings: { ...baseSettings },
-          object_ids: [],
+          operation_ids: [],
         },
       ]);
     },
@@ -358,8 +352,7 @@ export default function OperationDetailPanel({
           const showSavePreset = savingPresetGroupId === group.group_id;
 
           const opsInGroup = detectedOperations.operations.filter(
-            (op) =>
-              group.object_ids.includes(op.object_id) && activeObjectIds.has(op.object_id)
+            (op) => group.operation_ids.includes(op.operation_id)
           );
 
           return (
@@ -427,7 +420,7 @@ export default function OperationDetailPanel({
                   </span>
                 </span>
                 <span style={{ display: "flex", gap: 4 }}>
-                  {group.object_ids.length === 0 && !isDefault && (
+                  {group.operation_ids.length === 0 && !isDefault && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -542,13 +535,24 @@ export default function OperationDetailPanel({
                   {/* Settings fields */}
                   {opsInGroup.length > 0 && (
                     <>
-                      <NumberRow
-                        label="Depth/pass (mm)"
-                        value={group.settings.depth_per_pass}
-                        onChange={(v) =>
-                          updateGroupSettings(group.group_id, "depth_per_pass", v)
-                        }
-                      />
+                      {/* Common fields */}
+                      {group.operation_type === "drill" ? (
+                        <NumberRow
+                          label="Depth/peck (mm)"
+                          value={group.settings.depth_per_peck ?? 6}
+                          onChange={(v) =>
+                            updateGroupSettings(group.group_id, "depth_per_peck", v)
+                          }
+                        />
+                      ) : (
+                        <NumberRow
+                          label="Depth/pass (mm)"
+                          value={group.settings.depth_per_pass}
+                          onChange={(v) =>
+                            updateGroupSettings(group.group_id, "depth_per_pass", v)
+                          }
+                        />
+                      )}
                       <NumberRow
                         label="Feed XY (mm/s)"
                         value={group.settings.feed_rate.xy}
@@ -588,35 +592,76 @@ export default function OperationDetailPanel({
                           })
                         }
                       />
-                      <div style={fieldRowStyle}>
-                        <label style={fieldLabelStyle}>Direction</label>
-                        <select
-                          style={selectStyle}
-                          value={group.settings.direction}
-                          onChange={(e) =>
-                            updateGroupSettings(group.group_id, "direction", e.target.value)
-                          }
-                        >
-                          <option value="climb">climb</option>
-                          <option value="conventional">conventional</option>
-                        </select>
-                      </div>
-                      <div style={fieldRowStyle}>
-                        <label style={fieldLabelStyle}>Tabs</label>
-                        <label style={{ fontSize: 11 }}>
-                          <input
-                            type="checkbox"
-                            checked={group.settings.tabs.enabled}
-                            onChange={() =>
-                              updateGroupSettings(group.group_id, "tabs", {
-                                ...group.settings.tabs,
-                                enabled: !group.settings.tabs.enabled,
-                              })
+
+                      {/* Pocket-specific fields */}
+                      {group.operation_type === "pocket" && (
+                        <>
+                          <div style={fieldRowStyle}>
+                            <label style={fieldLabelStyle}>Pattern</label>
+                            <select
+                              style={selectStyle}
+                              value={group.settings.pocket_pattern ?? "contour-parallel"}
+                              onChange={(e) =>
+                                updateGroupSettings(
+                                  group.group_id,
+                                  "pocket_pattern",
+                                  e.target.value
+                                )
+                              }
+                            >
+                              <option value="contour-parallel">Contour Parallel</option>
+                              <option value="raster">Raster (Zigzag)</option>
+                            </select>
+                          </div>
+                          <NumberRow
+                            label="Stepover (%)"
+                            value={Math.round((group.settings.pocket_stepover ?? 0.5) * 100)}
+                            step={5}
+                            onChange={(v) =>
+                              updateGroupSettings(
+                                group.group_id,
+                                "pocket_stepover",
+                                Math.max(0.1, Math.min(1, v / 100))
+                              )
                             }
                           />
-                          {" "}enabled ({group.settings.tabs.count})
-                        </label>
-                      </div>
+                        </>
+                      )}
+
+                      {/* Contour-specific fields */}
+                      {group.operation_type === "contour" && (
+                        <>
+                          <div style={fieldRowStyle}>
+                            <label style={fieldLabelStyle}>Direction</label>
+                            <select
+                              style={selectStyle}
+                              value={group.settings.direction}
+                              onChange={(e) =>
+                                updateGroupSettings(group.group_id, "direction", e.target.value)
+                              }
+                            >
+                              <option value="climb">climb</option>
+                              <option value="conventional">conventional</option>
+                            </select>
+                          </div>
+                          <div style={fieldRowStyle}>
+                            <label style={fieldLabelStyle}>Tabs</label>
+                            <label style={{ fontSize: 11 }}>
+                              <input
+                                type="checkbox"
+                                checked={group.settings.tabs.enabled}
+                                onChange={() =>
+                                  updateGroupSettings(group.group_id, "tabs", {
+                                    ...group.settings.tabs,
+                                    enabled: !group.settings.tabs.enabled,
+                                  })
+                                }
+                              />
+                              {" "}enabled ({group.settings.tabs.count})
+                            </label>
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
                 </div>

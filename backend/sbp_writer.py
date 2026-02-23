@@ -134,12 +134,19 @@ class SbpWriter:
             return lines
 
         start_x, start_y = first_path[0]
+        is_drill = toolpath.settings and toolpath.settings.operation_type == "drill"
 
         # Jog to start position
         lines.append(f"J2,{start_x},{start_y}")
 
-        for p in passes:
-            lines += self._single_pass(p)
+        if is_drill:
+            # Peck drill: retract to safe_z between each peck
+            for p in passes:
+                lines += self._descend(p.path[0], p.z_depth)
+                lines.append(f"JZ,{self.s.safe_z}")
+        else:
+            for p in passes:
+                lines += self._single_pass(p)
 
         # Retract after all passes
         lines.append(f"JZ,{self.s.safe_z}")
