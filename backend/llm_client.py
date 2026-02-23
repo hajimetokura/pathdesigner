@@ -262,6 +262,163 @@ with BuildPart() as bp:
 result = bp.part
 """
 
+_FLAT_CHEATSHEET = """\
+
+═══ FLAT / ENGRAVING PROFILE ═══
+
+CORE CONCEPT: 2D outlines, pockets, and text engraving on flat stock.
+
+TEXT OPERATIONS:
+  Text("string", font_size=20)              # text shape (auto-Face)
+  Text("string", font_size=20, font="Arial") # with font
+  Text() is used inside BuildSketch — no make_face() needed
+
+SKETCH SHAPES:
+  Rectangle(w, h)
+  RectangleRounded(w, h, radius)
+  Circle(radius)
+  Polygon(*pts)                             # arbitrary polygon
+  RegularPolygon(radius, side_count)
+  Ellipse(x_radius, y_radius)
+
+LINES (for complex outlines, use inside BuildSketch > BuildLine):
+  Line(pt1, pt2)
+  Polyline(*pts)
+  Spline(*pts)                              # smooth curve
+  CenterArc(center, radius, start_angle, arc_size)
+  RadiusArc(pt1, pt2, radius)
+  make_face()                               # REQUIRED after BuildLine
+
+OPERATIONS:
+  extrude(sk.sketch, amount=thickness)      # sketch → solid
+  extrude(amount=-depth, mode=Mode.SUBTRACT) # pocket from top
+  offset(amount=d)                          # expand/shrink 2D outline
+
+═══ PITFALLS ═══
+
+1. Text() inside BuildSketch auto-creates Face — do NOT call make_face()
+2. BuildLine shapes MUST form a closed loop (start point = end point)
+3. POCKET DEPTH is negative + Mode.SUBTRACT: extrude(amount=-3, mode=Mode.SUBTRACT)
+4. Spline/Line must connect end-to-end: Spline ends at pt, next Line starts at pt
+5. For text on a plate, subtract the text shape with SUBTRACT mode
+6. Complex outlines: BuildLine → make_face() → extrude
+
+═══ PATTERNS ═══
+
+# Text engraving on a nameplate:
+thickness = 6
+engrave_depth = 2
+with BuildPart() as bp:
+    with BuildSketch():
+        RectangleRounded(120, 40, radius=5)
+    extrude(amount=thickness)
+    top = bp.faces().sort_by(Axis.Z)[-1]
+    with BuildSketch(top):
+        Text("HELLO", font_size=16)
+    extrude(amount=-engrave_depth, mode=Mode.SUBTRACT)
+result = bp.part
+
+# Complex outline sign (Spline border):
+thickness = 6
+with BuildPart() as bp:
+    with BuildSketch():
+        with BuildLine():
+            Spline((0, 0), (40, 20), (80, 10), (120, 25), (160, 0))
+            Line((160, 0), (160, -60))
+            Line((160, -60), (0, -60))
+            Line((0, -60), (0, 0))
+        make_face()
+    extrude(amount=thickness)
+result = bp.part
+
+# Bracket with polar hole pattern:
+thickness = 8
+with BuildPart() as bp:
+    with BuildSketch():
+        Circle(50)
+        Circle(10, mode=Mode.SUBTRACT)  # center hole
+    extrude(amount=thickness)
+    top = bp.faces().sort_by(Axis.Z)[-1]
+    with BuildSketch(top):
+        with PolarLocations(30, 6):
+            Circle(4)  # 6 bolt holes
+    extrude(amount=-thickness, mode=Mode.SUBTRACT)
+result = bp.part
+"""
+
+_3D_CHEATSHEET = """\
+
+═══ 3D MODELING PROFILE ═══
+
+CORE CONCEPT: Freeform 3D shapes using revolve, loft, sweep, shell.
+
+3D OPERATIONS:
+  revolve(axis=Axis.Z, revolution_arc=360)  # rotate profile
+  loft()                                     # connect sections
+  sweep()                                    # sweep along path
+  offset(amount=-t, openings=face)           # shell (hollow out)
+  fillet(edges, radius)                      # round edges
+  chamfer(edges, length)                     # bevel edges
+  split(bisect_by=Plane.XZ)                 # cut in half
+
+PLANES & PATHS:
+  Plane.XY                  # default (Z normal)
+  Plane.XZ                  # for revolve profiles (Y normal)
+  Plane.XY.offset(20)       # parallel plane at Z=20
+  path.line ^ 0             # plane at path start (for sweep)
+  path.line ^ 0.5           # plane at path midpoint
+
+SELECTORS:
+  bp.edges().group_by(Axis.Z)[-1]           # top edges (for fillet)
+  bp.edges().filter_by(Axis.Z)              # vertical edges
+  bp.faces().sort_by(Axis.Z)[-1]            # top face (for shell opening)
+  bp.faces().filter_by(GeomType.CYLINDER)   # cylindrical faces
+  bp.edges().filter_by(GeomType.CIRCLE)     # circular edges
+
+═══ PITFALLS ═══
+
+1. REVOLVE PROFILE must be on ONE SIDE of axis (X≥0 for Axis.Z on XZ plane)
+2. SWEEP: sketch plane = path.line ^ 0 (plane at path start)
+3. LOFT: BuildSketch sections from bottom to top (Z order matters)
+4. SHELL: must specify openings= face, or it creates fully enclosed void
+5. FILLET/CHAMFER only inside BuildPart — not on Algebra objects
+6. FILLET RADIUS must be less than smallest adjacent edge length
+
+═══ PATTERNS ═══
+
+# Vase (revolve + shell):
+with BuildPart() as bp:
+    with BuildSketch(Plane.XZ):
+        with BuildLine():
+            Polyline((0, 0), (30, 0), (25, 40), (15, 70), (20, 100))
+            Line((20, 100), (0, 100))
+            Line((0, 100), (0, 0))
+        make_face()
+    revolve(axis=Axis.Z)
+    offset(amount=-3, openings=bp.faces().sort_by(Axis.Z)[-1])
+result = bp.part
+
+# Tray (rounded box + shell):
+with BuildPart() as bp:
+    Box(150, 100, 40)
+    fillet(bp.edges().filter_by(Axis.Z), radius=10)
+    top = bp.faces().sort_by(Axis.Z)[-1]
+    offset(amount=-3, openings=top)
+result = bp.part
+
+# Pipe connector (sweep + boolean):
+with BuildPart() as bp:
+    with BuildLine() as path:
+        Spline((0, 0, 0), (30, 0, 20), (60, 0, 20), (90, 0, 0))
+    with BuildSketch(path.line ^ 0):
+        Circle(8)
+    sweep()
+    with BuildSketch(path.line ^ 0):
+        Circle(6)
+    sweep(mode=Mode.SUBTRACT)
+result = bp.part
+"""
+
 _PROFILES: dict[str, dict] = {
     "general": {
         "name": "汎用",
@@ -272,6 +429,16 @@ _PROFILES: dict[str, dict] = {
         "name": "家具・板材",
         "description": "板材CNC加工パーツ",
         "cheatsheet": _FURNITURE_CHEATSHEET,
+    },
+    "flat": {
+        "name": "平面加工・彫刻",
+        "description": "2D切り抜き・ポケット・テキスト彫刻",
+        "cheatsheet": _FLAT_CHEATSHEET,
+    },
+    "3d": {
+        "name": "3D造形",
+        "description": "回転体・ロフト・スイープ・シェル",
+        "cheatsheet": _3D_CHEATSHEET,
     },
 }
 

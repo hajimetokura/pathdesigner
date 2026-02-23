@@ -254,3 +254,59 @@ result = bp.part
     objects, step_bytes = execute_build123d_code(code)
     assert len(objects) >= 1
     assert step_bytes is not None
+
+
+def test_flat_profile_has_patterns():
+    """Flat profile includes text, pocket, and outline keywords."""
+    from llm_client import _build_system_prompt
+    prompt = _build_system_prompt("flat")
+    assert "FLAT" in prompt or "ENGRAVING" in prompt
+    assert "Text" in prompt
+    assert "make_face" in prompt
+    assert "SUBTRACT" in prompt
+
+
+def test_flat_pattern_nameplate_executes():
+    """Flat pattern example (nameplate with text engraving) actually runs."""
+    from nodes.ai_cad import execute_build123d_code
+    code = """\
+thickness = 6
+engrave_depth = 2
+with BuildPart() as bp:
+    with BuildSketch():
+        RectangleRounded(120, 40, radius=5)
+    extrude(amount=thickness)
+    top = bp.faces().sort_by(Axis.Z)[-1]
+    with BuildSketch(top):
+        Text("HELLO", font_size=16)
+    extrude(amount=-engrave_depth, mode=Mode.SUBTRACT)
+result = bp.part
+"""
+    objects, step_bytes = execute_build123d_code(code)
+    assert len(objects) >= 1
+
+
+def test_3d_profile_has_patterns():
+    """3D profile includes revolve, loft, sweep, shell keywords."""
+    from llm_client import _build_system_prompt
+    prompt = _build_system_prompt("3d")
+    assert "3D" in prompt
+    assert "revolve" in prompt
+    assert "loft" in prompt
+    assert "sweep" in prompt
+    assert "offset" in prompt or "shell" in prompt.lower()
+
+
+def test_3d_pattern_tray_executes():
+    """3D pattern example (tray with shell) actually runs."""
+    from nodes.ai_cad import execute_build123d_code
+    code = """\
+with BuildPart() as bp:
+    Box(150, 100, 40)
+    fillet(bp.edges().filter_by(Axis.Z), radius=10)
+    top = bp.faces().sort_by(Axis.Z)[-1]
+    offset(amount=-3, openings=top)
+result = bp.part
+"""
+    objects, step_bytes = execute_build123d_code(code)
+    assert len(objects) >= 1
