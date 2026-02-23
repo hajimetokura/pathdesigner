@@ -11,6 +11,9 @@ import re
 
 from openai import AsyncOpenAI
 
+from nodes.ai_cad import execute_build123d_code, CodeExecutionError
+from schemas import BrepObject
+
 AVAILABLE_MODELS: dict[str, dict] = {
     "google/gemini-2.5-flash-lite": {
         "name": "Gemini 2.5 Flash Lite",
@@ -157,6 +160,7 @@ class LLMClient:
         self.default_model = default_model or os.environ.get(
             "AI_CAD_DEFAULT_MODEL", "google/gemini-2.5-flash-lite"
         )
+        self.max_retries = int(os.environ.get("AI_CAD_MAX_RETRIES", "2"))
         self._client = AsyncOpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=key,
@@ -217,6 +221,57 @@ class LLMClient:
 
         raw = response.choices[0].message.content or ""
         return _strip_code_fences(raw)
+
+    async def generate_and_execute(
+        self,
+        prompt: str,
+        *,
+        messages: list[dict] | None = None,
+        image_base64: str | None = None,
+        model: str | None = None,
+        max_retries: int | None = None,
+    ) -> tuple[str, list[BrepObject], bytes | None]:
+        """Generate code, execute it, retry on failure.
+
+        Returns: (final_code, objects, step_bytes)
+        Raises: CodeExecutionError after all retries exhausted
+        """
+        retries = max_retries if max_retries is not None else self.max_retries
+
+        # Initial generation
+        if messages:
+            code = await self.generate_with_history(messages, model)
+        else:
+            code = await self.generate(prompt, image_base64, model)
+
+        # Try execute + retry loop
+        last_error: CodeExecutionError | None = None
+        retry_messages = list(messages or [])
+        if not retry_messages:
+            retry_messages.append({"role": "user", "content": prompt})
+        retry_messages.append({"role": "assistant", "content": code})
+
+        for attempt in range(1 + retries):
+            try:
+                objects, step_bytes = execute_build123d_code(code)
+                return code, objects, step_bytes
+            except CodeExecutionError as e:
+                last_error = e
+                if attempt >= retries:
+                    break
+                # Build retry feedback
+                retry_messages.append({
+                    "role": "user",
+                    "content": (
+                        f"Your code produced an error:\n{e}\n\n"
+                        f"Failed code:\n```python\n{code}\n```\n\n"
+                        f"Fix the code and output only the corrected version."
+                    ),
+                })
+                code = await self.generate_with_history(retry_messages, model)
+                retry_messages.append({"role": "assistant", "content": code})
+
+        raise last_error  # type: ignore[misc]
 
     def list_models(self) -> list[dict]:
         """Return available models with metadata."""
