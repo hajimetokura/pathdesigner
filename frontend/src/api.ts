@@ -15,6 +15,10 @@ import type {
   MeshDataResult,
   PlacementItem,
   AutoNestingResponse,
+  AiCadResult,
+  GenerationSummary,
+  ModelInfo,
+  ProfileInfo,
 } from "./types";
 import { API_BASE_URL } from "./config";
 import { DEFAULT_TOOL_DIAMETER_MM, DEFAULT_OFFSET_SIDE, DEFAULT_CLEARANCE_MM } from "./constants";
@@ -227,5 +231,65 @@ export async function generateSbpZip(
       post_processor: postProcessor,
     }),
     "ZIP generation failed"
+  );
+}
+
+/** AI CAD API */
+
+export async function generateAiCad(
+  prompt: string,
+  imageBase64?: string,
+  model?: string,
+  profile?: string,
+): Promise<AiCadResult> {
+  return requestJson<AiCadResult>(
+    `${API_BASE_URL}/ai-cad/generate`,
+    jsonPost({ prompt, image_base64: imageBase64, model, profile }),
+    "AI generation failed"
+  );
+}
+
+export async function executeAiCadCode(code: string): Promise<AiCadResult> {
+  return requestJson<AiCadResult>(
+    `${API_BASE_URL}/ai-cad/execute`,
+    jsonPost({ code }),
+    "Code execution failed"
+  );
+}
+
+export async function fetchAiCadModels(): Promise<ModelInfo[]> {
+  return requestJson<ModelInfo[]>(
+    `${API_BASE_URL}/ai-cad/models`,
+    undefined,
+    "Failed to fetch models"
+  );
+}
+
+export async function fetchAiCadProfiles(): Promise<ProfileInfo[]> {
+  return requestJson<ProfileInfo[]>(
+    `${API_BASE_URL}/ai-cad/profiles`,
+    undefined,
+    "Failed to fetch profiles"
+  );
+}
+
+export async function fetchAiCadLibrary(
+  search?: string,
+): Promise<GenerationSummary[]> {
+  const params = search ? `?search=${encodeURIComponent(search)}` : "";
+  return requestJson<GenerationSummary[]>(
+    `${API_BASE_URL}/ai-cad/library${params}`,
+    undefined,
+    "Failed to fetch library"
+  );
+}
+
+export async function loadAiCadGeneration(
+  genId: string,
+): Promise<AiCadResult> {
+  return requestJson<AiCadResult>(
+    `${API_BASE_URL}/ai-cad/library/${genId}`,
+    undefined,
+    "Failed to load generation"
   );
 }
