@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BrepObject, StockSettings, PlacementItem } from "../types";
 import { autoNesting } from "../api";
+import StockTabs from "./StockTabs";
 
 /** Rotate a 2D point (x,y) by `angle` degrees around (cx,cy). */
 function rotatePoint(
@@ -298,28 +299,12 @@ export default function PlacementPanel({
         </div>
 
         {/* Stock Tabs */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-          {stockIds.map((sid) => {
-            const count = placements.filter((p) => p.stock_id === sid).length;
-            return (
-              <button
-                key={sid}
-                onClick={() => onActiveStockChange(sid)}
-                style={{
-                  padding: "4px 12px",
-                  fontSize: 12,
-                  background: sid === activeStockId ? "#4a90d9" : "#e0e0e0",
-                  color: sid === activeStockId ? "#fff" : "#333",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                }}
-              >
-                {sid.replace("stock_", "Sheet ")} ({count})
-              </button>
-            );
-          })}
-        </div>
+        <StockTabs
+          stockIds={stockIds}
+          activeStockId={activeStockId}
+          onChange={onActiveStockChange}
+          counts={Object.fromEntries(stockIds.map((sid) => [sid, placements.filter((p) => p.stock_id === sid).length]))}
+        />
       </div>
 
       <div style={{ padding: "0 16px 16px" }}>
