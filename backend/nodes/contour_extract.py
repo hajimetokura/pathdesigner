@@ -18,23 +18,28 @@ def extract_contours(
     object_id: str,
     tool_diameter: float = 6.35,
     offset_side: str = "outside",
+    solid: Solid | None = None,
 ) -> ContourExtractResult:
-    """Extract 2D contours from a STEP file by sectioning at Z=0."""
-    compound = import_step(str(step_path))
-    solids = compound.solids()
-    if not solids:
-        raise ValueError("STEP file contains no solids")
+    """Extract 2D contours from a STEP file by sectioning at Z=0.
 
-    # Map object_id (e.g. "obj_002") to solid index
-    try:
-        idx = int(object_id.split("_")[1]) - 1
-    except (IndexError, ValueError):
-        raise ValueError(f"Invalid object_id format: {object_id!r}")
-    if idx < 0 or idx >= len(solids):
-        raise ValueError(
-            f"object_id {object_id!r} out of range (file has {len(solids)} solids)"
-        )
-    solid = solids[idx]
+    If *solid* is provided, it is used directly and the STEP file is not re-imported.
+    """
+    if solid is None:
+        compound = import_step(str(step_path))
+        solids = compound.solids()
+        if not solids:
+            raise ValueError("STEP file contains no solids")
+
+        # Map object_id (e.g. "obj_002") to solid index
+        try:
+            idx = int(object_id.split("_")[1]) - 1
+        except (IndexError, ValueError):
+            raise ValueError(f"Invalid object_id format: {object_id!r}")
+        if idx < 0 or idx >= len(solids):
+            raise ValueError(
+                f"object_id {object_id!r} out of range (file has {len(solids)} solids)"
+            )
+        solid = solids[idx]
     bb = solid.bounding_box()
 
     # Section at bottom face (Z = bb.min.Z)

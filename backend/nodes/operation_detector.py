@@ -10,53 +10,12 @@ from nodes.geometry_utils import sample_wire_coords
 from schemas import (
     Contour,
     DetectedOperation,
-    FeedRate,
     MachiningSettings,
     OffsetApplied,
     OperationDetectResult,
     OperationGeometry,
-    TabSettings,
     Tool,
-)
-
-# Default suggested settings per operation type
-_DEFAULT_CONTOUR_SETTINGS = dict(
-    operation_type="contour",
-    tool=Tool(diameter=6.35, type="endmill", flutes=2),
-    feed_rate=FeedRate(xy=75, z=25),
-    jog_speed=200,
-    spindle_speed=18000,
-    depth_per_pass=6.0,
-    total_depth=18.0,
-    direction="climb",
-    offset_side="outside",
-    tabs=TabSettings(enabled=True, height=8, width=5, count=4),
-)
-
-_DEFAULT_POCKET_SETTINGS = dict(
-    operation_type="pocket",
-    tool=Tool(diameter=6.35, type="endmill", flutes=2),
-    feed_rate=FeedRate(xy=60, z=20),
-    jog_speed=200,
-    spindle_speed=18000,
-    depth_per_pass=3.0,
-    total_depth=6.0,
-    direction="climb",
-    offset_side="none",
-    tabs=TabSettings(enabled=False, height=0, width=0, count=0),
-)
-
-_DEFAULT_DRILL_SETTINGS = dict(
-    operation_type="drill",
-    tool=Tool(diameter=6.35, type="endmill", flutes=2),
-    feed_rate=FeedRate(xy=75, z=15),
-    jog_speed=200,
-    spindle_speed=18000,
-    depth_per_pass=6.0,
-    total_depth=10.0,
-    direction="climb",
-    offset_side="none",
-    tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+    default_settings_for,
 )
 
 
@@ -108,11 +67,8 @@ def detect_operations(
                     coords=[[cx, cy]],
                     closed=False,
                 )
-                suggested = MachiningSettings(
-                    **{
-                        **_DEFAULT_DRILL_SETTINGS,
-                        "total_depth": feature["depth"],
-                    }
+                suggested = default_settings_for("drill").model_copy(
+                    update={"total_depth": feature["depth"]}
                 )
                 if tool_diameter != 6.35:
                     suggested = suggested.model_copy(
@@ -144,11 +100,8 @@ def detect_operations(
                 if pocket_contour is None:
                     continue
 
-                suggested = MachiningSettings(
-                    **{
-                        **_DEFAULT_POCKET_SETTINGS,
-                        "total_depth": feature["depth"],
-                    }
+                suggested = default_settings_for("pocket").model_copy(
+                    update={"total_depth": feature["depth"]}
                 )
                 if tool_diameter != 6.35:
                     suggested = suggested.model_copy(
@@ -174,10 +127,11 @@ def detect_operations(
             object_id=object_id,
             tool_diameter=tool_diameter,
             offset_side=offset_side,
+            solid=solid,
         )
         op_counter += 1
-        suggested = MachiningSettings(
-            **{**_DEFAULT_CONTOUR_SETTINGS, "total_depth": thickness}
+        suggested = default_settings_for("contour").model_copy(
+            update={"total_depth": thickness}
         )
         if tool_diameter != 6.35:
             suggested = suggested.model_copy(
