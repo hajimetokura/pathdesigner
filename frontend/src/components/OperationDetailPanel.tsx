@@ -20,6 +20,8 @@ interface Props {
   placements: PlacementItem[];
   stockIds: string[];
   activeStockId: string;
+  groupLabels: Record<string, string>;
+  onGroupLabelsChange: (labels: Record<string, string>) => void;
 }
 
 /* --- Helper: derive groups from assignments + detected operations --- */
@@ -110,12 +112,13 @@ export default function OperationDetailPanel({
   placements,
   stockIds,
   activeStockId,
+  groupLabels,
+  onGroupLabelsChange,
 }: Props) {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [draggedOpId, setDraggedOpId] = useState<string | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
   const [extraGroups, setExtraGroups] = useState<SettingsGroup[]>([]);
-  const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingLabel, setEditingLabel] = useState("");
 
@@ -161,7 +164,7 @@ export default function OperationDetailPanel({
 
   const commitLabel = useCallback(() => {
     if (editingGroupId && editingLabel.trim()) {
-      setGroupLabels((prev) => ({ ...prev, [editingGroupId]: editingLabel.trim() }));
+      onGroupLabelsChange({ ...groupLabels, [editingGroupId]: editingLabel.trim() });
       setExtraGroups((prev) =>
         prev.map((eg) =>
           eg.group_id === editingGroupId ? { ...eg, label: editingLabel.trim() } : eg
@@ -170,7 +173,7 @@ export default function OperationDetailPanel({
     }
     setEditingGroupId(null);
     setEditingLabel("");
-  }, [editingGroupId, editingLabel]);
+  }, [editingGroupId, editingLabel, groupLabels, onGroupLabelsChange]);
 
   /* --- Group settings update --- */
 
@@ -226,7 +229,7 @@ export default function OperationDetailPanel({
       );
 
       if (presetName) {
-        setGroupLabels((prev) => ({ ...prev, [groupId]: presetName }));
+        onGroupLabelsChange({ ...groupLabels, [groupId]: presetName });
         setExtraGroups((prev) =>
           prev.map((eg) =>
             eg.group_id === groupId ? { ...eg, label: presetName } : eg
@@ -236,7 +239,7 @@ export default function OperationDetailPanel({
 
       setPresetMenuGroupId(null);
     },
-    [groups, detectedOperations, activeObjectIds, assignments, onAssignmentsChange]
+    [groups, detectedOperations, activeObjectIds, assignments, onAssignmentsChange, groupLabels, onGroupLabelsChange]
   );
 
   /* --- Save current group settings as user preset --- */
@@ -330,13 +333,11 @@ export default function OperationDetailPanel({
   const handleRemoveGroup = useCallback(
     (groupId: string) => {
       setExtraGroups((prev) => prev.filter((eg) => eg.group_id !== groupId));
-      setGroupLabels((prev) => {
-        const next = { ...prev };
-        delete next[groupId];
-        return next;
-      });
+      const next = { ...groupLabels };
+      delete next[groupId];
+      onGroupLabelsChange(next);
     },
-    []
+    [groupLabels, onGroupLabelsChange]
   );
 
   /* --- Render --- */

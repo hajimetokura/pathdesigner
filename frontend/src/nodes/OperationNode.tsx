@@ -29,6 +29,7 @@ export default function OperationNode({ id, data }: NodeProps) {
   const [detected, setDetected] = useState<OperationDetectResult | null>(null);
   const [assignments, setAssignments] = useState<OperationAssignment[]>([]);
   const [error, setError] = useState("");
+  const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
   const { setNodes } = useReactFlow();
   const lastFileIdRef = useRef<string | null>(null);
 
@@ -153,6 +154,11 @@ export default function OperationNode({ id, data }: NodeProps) {
     [detected, upstream, syncToNodeData]
   );
 
+  const handleGroupLabelsChange = useCallback(
+    (labels: Record<string, string>) => setGroupLabels(labels),
+    []
+  );
+
   const filteredOps = useMemo(() =>
     detected ? detected.operations.filter((op) => activeObjectIds.has(op.object_id)) : [],
     [detected, activeObjectIds]
@@ -181,6 +187,8 @@ export default function OperationNode({ id, data }: NodeProps) {
           placements={allPlacements}
           stockIds={stockIds}
           activeStockId={activeStockId}
+          groupLabels={groupLabels}
+          onGroupLabelsChange={handleGroupLabelsChange}
         />
       ),
     });
