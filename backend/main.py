@@ -1,7 +1,12 @@
 import io
+import json
 import uuid
 import zipfile
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 import yaml
 from fastapi import FastAPI, HTTPException, UploadFile
@@ -13,6 +18,9 @@ from nodes.contour_extract import extract_contours
 from nodes.mesh_export import tessellate_step_file
 from nodes.operation_detector import detect_operations
 from nodes.toolpath_gen import generate_toolpath, generate_toolpath_from_operations
+from nodes.ai_cad import execute_build123d_code, CodeExecutionError
+from llm_client import LLMClient
+from db import GenerationDB
 from sbp_writer import SbpWriter
 from schemas import (
     BrepImportResult, ContourExtractRequest, ContourExtractResult,
@@ -25,6 +33,8 @@ from schemas import (
     PlacementItem, ValidatePlacementRequest, ValidatePlacementResponse,
     AutoNestingRequest, AutoNestingResponse,
     SbpZipRequest,
+    AiCadRequest, AiCadCodeRequest, AiCadResult,
+    GenerationSummary, ModelInfo, ProfileInfo,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -40,6 +50,35 @@ app.add_middleware(
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 PRESETS_DIR = Path(__file__).parent / "presets"
+
+DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR.mkdir(exist_ok=True)
+GENERATIONS_DIR = DATA_DIR / "generations"
+GENERATIONS_DIR.mkdir(exist_ok=True)
+
+_db: GenerationDB | None = None
+_llm: LLMClient | None = None
+
+
+async def _get_db() -> GenerationDB:
+    global _db
+    if _db is None:
+        _db = GenerationDB(DATA_DIR / "pathdesigner.db")
+        await _db.init()
+    return _db
+
+
+def _get_llm() -> LLMClient:
+    global _llm
+    if _llm is None:
+        _llm = LLMClient()
+    return _llm
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    if _db is not None:
+        await _db.close()
 
 
 def _get_uploaded_step_path(file_id: str) -> Path:
@@ -383,3 +422,154 @@ def generate_sbp_zip_endpoint(req: SbpZipRequest):
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=pathdesigner_sheets.zip"},
     )
+
+
+# --- AI CAD Endpoints ---
+
+
+@app.get("/ai-cad/models", response_model=list[ModelInfo])
+def get_ai_cad_models():
+    """Return available LLM models."""
+    return _get_llm().list_models()
+
+
+@app.get("/ai-cad/profiles", response_model=list[ProfileInfo])
+def get_ai_cad_profiles():
+    """Return available prompt profiles."""
+    return _get_llm().list_profiles_info()
+
+
+@app.post("/ai-cad/generate", response_model=AiCadResult)
+async def ai_cad_generate(req: AiCadRequest):
+    """Generate 3D model from text/image prompt via LLM."""
+    llm = _get_llm()
+    db = await _get_db()
+    model_used = req.model or llm.default_model
+
+    try:
+        code, objects, step_bytes = await llm.generate_and_execute(
+            req.prompt,
+            image_base64=req.image_base64,
+            model=req.model,
+            profile=req.profile,
+        )
+    except CodeExecutionError as e:
+        await db.save_generation(
+            prompt=req.prompt, code="(failed)", result_json=None,
+            model_used=model_used, status="error", error_message=str(e),
+        )
+        raise HTTPException(status_code=422, detail=f"Code execution failed: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM generation failed: {e}")
+
+    # Save STEP + generation
+    file_id = f"ai-cad-{uuid.uuid4().hex[:8]}"
+    result = BrepImportResult(
+        file_id=file_id, objects=objects, object_count=len(objects),
+    )
+
+    step_path = None
+    if step_bytes:
+        gen_dir = GENERATIONS_DIR / file_id
+        gen_dir.mkdir(exist_ok=True)
+        step_file = gen_dir / "model.step"
+        step_file.write_bytes(step_bytes)
+        step_path = str(step_file)
+        (UPLOAD_DIR / f"{file_id}.step").write_bytes(step_bytes)
+
+    gen_id = await db.save_generation(
+        prompt=req.prompt, code=code,
+        result_json=result.model_dump_json(),
+        model_used=model_used, status="success",
+        step_path=step_path,
+    )
+
+    return AiCadResult(
+        file_id=file_id, objects=objects, object_count=len(objects),
+        generated_code=code, generation_id=gen_id,
+        prompt_used=req.prompt, model_used=model_used,
+    )
+
+
+@app.post("/ai-cad/execute", response_model=AiCadResult)
+async def ai_cad_execute(req: AiCadCodeRequest):
+    """Execute manually-edited build123d code."""
+    db = await _get_db()
+
+    try:
+        objects, step_bytes = execute_build123d_code(req.code)
+    except CodeExecutionError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    file_id = f"ai-cad-{uuid.uuid4().hex[:8]}"
+    result = BrepImportResult(
+        file_id=file_id, objects=objects, object_count=len(objects),
+    )
+
+    # Save STEP to uploads for downstream compatibility
+    if step_bytes:
+        (UPLOAD_DIR / f"{file_id}.step").write_bytes(step_bytes)
+        gen_dir = GENERATIONS_DIR / file_id
+        gen_dir.mkdir(exist_ok=True)
+        (gen_dir / "model.step").write_bytes(step_bytes)
+
+    gen_id = await db.save_generation(
+        prompt="(manual code)", code=req.code,
+        result_json=result.model_dump_json(),
+        model_used="manual", status="success",
+    )
+
+    return AiCadResult(
+        file_id=file_id, objects=objects, object_count=len(objects),
+        generated_code=req.code, generation_id=gen_id,
+        prompt_used="(manual code)", model_used="manual",
+    )
+
+
+@app.get("/ai-cad/library", response_model=list[GenerationSummary])
+async def ai_cad_library(search: str | None = None, limit: int = 50, offset: int = 0):
+    """List past generations."""
+    db = await _get_db()
+    rows = await db.list_generations(search=search, limit=limit, offset=offset)
+    return [
+        GenerationSummary(
+            generation_id=r["id"],
+            prompt=r["prompt"],
+            model_used=r["model_used"],
+            status=r["status"],
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
+
+
+@app.get("/ai-cad/library/{gen_id}", response_model=AiCadResult)
+async def ai_cad_load(gen_id: str):
+    """Load a specific generation from library."""
+    db = await _get_db()
+    row = await db.get_generation(gen_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Generation not found")
+
+    if row["status"] != "success" or not row["result_json"]:
+        raise HTTPException(status_code=422, detail="Generation was not successful")
+
+    result_data = json.loads(row["result_json"])
+
+    return AiCadResult(
+        file_id=result_data["file_id"],
+        objects=result_data["objects"],
+        object_count=result_data["object_count"],
+        generated_code=row["code"],
+        generation_id=row["id"],
+        prompt_used=row["prompt"],
+        model_used=row["model_used"],
+    )
+
+
+@app.delete("/ai-cad/library/{gen_id}")
+async def ai_cad_delete(gen_id: str):
+    """Delete a generation."""
+    db = await _get_db()
+    await db.delete_generation(gen_id)
+    return {"deleted": gen_id}

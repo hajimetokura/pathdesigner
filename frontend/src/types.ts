@@ -253,3 +253,33 @@ export interface AutoNestingResponse {
   sheet_count: number;
   warnings: string[];
 }
+
+/** AI CAD Node types */
+
+export interface AiCadResult extends BrepImportResult {
+  generated_code: string;
+  generation_id: string;
+  prompt_used: string;
+  model_used: string;
+}
+
+export interface GenerationSummary {
+  generation_id: string;
+  prompt: string;
+  model_used: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  is_default: boolean;
+  supports_vision: boolean;
+}
+
+export interface ProfileInfo {
+  id: string;
+  name: string;
+  description: string;
+}

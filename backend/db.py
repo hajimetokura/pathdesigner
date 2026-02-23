@@ -1,0 +1,110 @@
+"""SQLite database for AI CAD generation history."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+
+import aiosqlite
+
+_SCHEMA = """\
+CREATE TABLE IF NOT EXISTS generations (
+    id TEXT PRIMARY KEY,
+    prompt TEXT NOT NULL,
+    image_path TEXT,
+    code TEXT NOT NULL,
+    result_json TEXT,
+    step_path TEXT,
+    model_used TEXT NOT NULL,
+    status TEXT NOT NULL,
+    error_message TEXT,
+    tags TEXT,
+    created_at TEXT NOT NULL
+);
+"""
+
+
+class GenerationDB:
+    """Async SQLite wrapper for generation storage."""
+
+    def __init__(self, db_path: str | Path):
+        self._db_path = str(db_path)
+        self._conn: aiosqlite.Connection | None = None
+
+    async def init(self):
+        """Open connection and create tables."""
+        self._conn = await aiosqlite.connect(self._db_path)
+        self._conn.row_factory = aiosqlite.Row
+        await self._conn.executescript(_SCHEMA)
+        await self._conn.commit()
+
+    async def close(self):
+        if self._conn:
+            await self._conn.close()
+
+    async def save_generation(
+        self,
+        prompt: str,
+        code: str,
+        result_json: str | None,
+        model_used: str,
+        status: str,
+        image_path: str | None = None,
+        step_path: str | None = None,
+        error_message: str | None = None,
+        tags: str | None = None,
+    ) -> str:
+        """Save a generation record. Returns the generation ID."""
+        gen_id = uuid.uuid4().hex[:12]
+        now = datetime.now(timezone.utc).isoformat()
+        await self._conn.execute(
+            """INSERT INTO generations
+               (id, prompt, image_path, code, result_json, step_path,
+                model_used, status, error_message, tags, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (gen_id, prompt, image_path, code, result_json, step_path,
+             model_used, status, error_message, tags, now),
+        )
+        await self._conn.commit()
+        return gen_id
+
+    async def get_generation(self, gen_id: str) -> dict | None:
+        """Get a single generation by ID."""
+        cursor = await self._conn.execute(
+            "SELECT * FROM generations WHERE id = ?", (gen_id,)
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+    async def list_generations(
+        self,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict]:
+        """List generations, most recent first."""
+        if search:
+            cursor = await self._conn.execute(
+                """SELECT id, prompt, model_used, status, created_at
+                   FROM generations
+                   WHERE prompt LIKE ?
+                   ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+                (f"%{search}%", limit, offset),
+            )
+        else:
+            cursor = await self._conn.execute(
+                """SELECT id, prompt, model_used, status, created_at
+                   FROM generations
+                   ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+                (limit, offset),
+            )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+
+    async def delete_generation(self, gen_id: str):
+        """Delete a generation record."""
+        await self._conn.execute(
+            "DELETE FROM generations WHERE id = ?", (gen_id,)
+        )
+        await self._conn.commit()
