@@ -3,14 +3,14 @@ import { Position, type NodeProps } from "@xyflow/react";
 import type { ToolpathGenResult, SheetSettings, PlacementItem } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
-import type { PanelTab } from "../components/SidePanel";
 import ToolpathPreviewPanel from "../components/ToolpathPreviewPanel";
+import { usePanelTabs } from "../contexts/PanelTabsContext";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { SheetBadge } from "../components/SheetBadge";
 
-export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
+export default function ToolpathPreviewNode({ id, selected }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
+  const { openTab } = usePanelTabs();
 
   // Subscribe to upstream ToolpathGenNode data
   const extractUpstream = useCallback((d: Record<string, unknown>) => ({
@@ -134,7 +134,7 @@ export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
   }, [toolpathResult, drawToolpath]);
 
   const handleEnlarge = useCallback(() => {
-    if (!toolpathResult || !openTab) return;
+    if (!toolpathResult) return;
     openTab({
       id: `preview-${id}`,
       label: "Preview",

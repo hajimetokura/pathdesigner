@@ -8,7 +8,7 @@ export interface BoundingBox {
 
 export interface Origin {
   position: [number, number, number];
-  reference: string;
+  reference: "bounding_box_min" | "bounding_box_center" | "model_origin";
   description: string;
 }
 
@@ -24,10 +24,10 @@ export interface BrepObject {
   bounding_box: BoundingBox;
   thickness: number;
   origin: Origin;
-  unit: string;
+  unit: "mm" | "inch";
   is_closed: boolean;
   is_planar: boolean;
-  machining_type: string;
+  machining_type: "2d" | "2.5d" | "double_sided" | "3d";
   faces_analysis: FacesAnalysis;
   outline: [number, number][];  // bottom-face outline, relative to BB min
 }
@@ -42,19 +42,20 @@ export interface BrepImportResult {
 
 export interface Contour {
   id: string;
-  type: string; // "exterior" | "interior"
+  type: "exterior" | "interior" | "pocket" | "drill_center";
   coords: [number, number][];
   closed: boolean;
 }
 
 export interface OffsetApplied {
   distance: number;
-  side: string;
+  side: "outside" | "inside" | "none";
 }
 
 export interface ContourExtractResult {
   object_id: string;
   slice_z: number;
+  thickness: number;
   contours: Contour[];
   offset_applied: OffsetApplied;
 }
@@ -79,7 +80,7 @@ export interface SheetSettings {
 
 export interface Tool {
   diameter: number;
-  type: string; // "endmill" | "ballnose" | "v_bit"
+  type: "endmill" | "ballnose" | "v_bit";
   flutes: number;
 }
 
@@ -96,15 +97,15 @@ export interface TabSettings {
 }
 
 export interface MachiningSettings {
-  operation_type: string; // "contour" | "pocket" | "drill" | "engrave"
+  operation_type: "contour" | "pocket" | "drill" | "engrave";
   tool: Tool;
   feed_rate: FeedRate;
   jog_speed: number;
   spindle_speed: number;
   depth_per_pass: number;
   total_depth: number;
-  direction: string; // "climb" | "conventional"
-  offset_side: string; // "outside" | "inside" | "none"
+  direction: "climb" | "conventional";
+  offset_side: "outside" | "inside" | "none";
   tabs: TabSettings;
   // Pocket-specific
   pocket_pattern?: "contour-parallel" | "raster";
@@ -137,7 +138,7 @@ export interface OperationGeometry {
 export interface DetectedOperation {
   operation_id: string;
   object_id: string;
-  operation_type: string;
+  operation_type: "contour" | "pocket" | "drill" | "engrave";
   geometry: OperationGeometry;
   suggested_settings: MachiningSettings;
   enabled: boolean;
@@ -174,8 +175,8 @@ export interface OperationEditResult {
 
 export interface PostProcessorSettings {
   machine_name: string;
-  output_format: string;
-  unit: string;
+  output_format: "sbp" | "gcode";
+  unit: "mm" | "inch";
   bed_size: [number, number];
   safe_z: number;
   home_position: [number, number];
@@ -213,7 +214,7 @@ export interface ToolpathGenResult {
 export interface OutputResult {
   code: string;
   filename: string;
-  format: string;
+  format: "sbp" | "gcode";
 }
 
 /** Placement types */

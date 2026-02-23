@@ -9,10 +9,10 @@ import type {
   PlacementItem,
   BoundingBox,
 } from "../types";
-import type { PanelTab } from "../components/SidePanel";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import CncCodePanel from "../components/CncCodePanel";
+import { usePanelTabs } from "../contexts/PanelTabsContext";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { generateSbpZip } from "../api";
 import { SheetBadge } from "../components/SheetBadge";
@@ -27,8 +27,8 @@ interface UpstreamZipData {
   postProcessorSettings: PostProcessorSettings;
 }
 
-export default function CncCodeNode({ id, data, selected }: NodeProps) {
-  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
+export default function CncCodeNode({ id, selected }: NodeProps) {
+  const { openTab } = usePanelTabs();
   const [zipLoading, setZipLoading] = useState(false);
 
   // Subscribe to upstream ToolpathGenNode's outputResult
@@ -115,7 +115,7 @@ export default function CncCodeNode({ id, data, selected }: NodeProps) {
   }, [zipData]);
 
   const handleViewCode = useCallback(() => {
-    if (!outputResult || !openTab) return;
+    if (!outputResult) return;
     openTab({
       id: `cnc-code-${id}`,
       label: "CNC Code",

@@ -8,13 +8,12 @@ import type {
 import { validatePlacement } from "../api";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
-import type { PanelTab } from "../components/SidePanel";
 import PlacementPanel from "../components/PlacementPanel";
+import { usePanelTabs } from "../contexts/PanelTabsContext";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 
-export default function PlacementNode({ id, data, selected }: NodeProps) {
-  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
-  const updateTab = (data as Record<string, unknown>).updateTab as ((tab: PanelTab) => void) | undefined;
+export default function PlacementNode({ id, selected }: NodeProps) {
+  const { openTab, updateTab } = usePanelTabs();
   const [placements, setPlacements] = useState<PlacementItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [activeSheetId, setActiveSheetId] = useState("sheet_1");
@@ -212,7 +211,7 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
   const hasData = brepResult && sheetSettings;
 
   const handleOpenPanel = useCallback(() => {
-    if (!hasData || !openTab) return;
+    if (!hasData) return;
     openTab({
       id: `placement-${id}`,
       label: "Placement",
@@ -233,7 +232,7 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
 
   // Update tab content when placements/warnings change (only if tab is already open)
   useEffect(() => {
-    if (hasData && updateTab) {
+    if (hasData) {
       updateTab({
         id: `placement-${id}`,
         label: "Placement",

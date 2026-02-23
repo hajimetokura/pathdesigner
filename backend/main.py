@@ -8,8 +8,6 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from pydantic import BaseModel as PydanticBaseModel
-
 from nodes.brep_import import analyze_step_file
 from nodes.contour_extract import extract_contours
 from nodes.mesh_export import tessellate_step_file
@@ -21,7 +19,7 @@ from schemas import (
     MachiningSettings, PresetItem, ValidateSettingsRequest, ValidateSettingsResponse,
     ToolpathGenRequest, ToolpathGenResult,
     SbpGenRequest, OutputResult,
-    OperationDetectResult,
+    DetectOperationsRequest, OperationDetectResult,
     SheetSettings, SheetMaterial, BoundingBox,
     MeshDataRequest, MeshDataResult, ObjectMesh,
     PlacementItem, ValidatePlacementRequest, ValidatePlacementResponse,
@@ -42,6 +40,14 @@ app.add_middleware(
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 PRESETS_DIR = Path(__file__).parent / "presets"
+
+
+def _get_uploaded_step_path(file_id: str) -> Path:
+    """Resolve a file_id to its uploaded STEP file path, or raise 404."""
+    matches = list(UPLOAD_DIR.glob(f"{file_id}.*"))
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"File not found: {file_id}")
+    return matches[0]
 
 
 @app.get("/health")
@@ -84,11 +90,7 @@ async def upload_step(file: UploadFile):
 @app.post("/api/extract-contours", response_model=ContourExtractResult)
 async def extract_contours_endpoint(req: ContourExtractRequest):
     """Extract 2D contours from a previously uploaded STEP file."""
-    matches = list(UPLOAD_DIR.glob(f"{req.file_id}.*"))
-    if not matches:
-        raise HTTPException(status_code=404, detail=f"File not found: {req.file_id}")
-
-    step_path = matches[0]
+    step_path = _get_uploaded_step_path(req.file_id)
 
     try:
         result = extract_contours(
@@ -151,23 +153,14 @@ def get_presets():
     return result
 
 
-class DetectOperationsRequest(PydanticBaseModel):
-    file_id: str
-    object_ids: list[str]
-    tool_diameter: float = 6.35
-    offset_side: str = "outside"
-
-
 @app.post("/api/detect-operations", response_model=OperationDetectResult)
 def detect_operations_endpoint(req: DetectOperationsRequest):
     """Detect machining operations from uploaded STEP file."""
-    matches = list(UPLOAD_DIR.glob(f"{req.file_id}.*"))
-    if not matches:
-        raise HTTPException(status_code=404, detail=f"File not found: {req.file_id}")
+    step_path = _get_uploaded_step_path(req.file_id)
 
     try:
         result = detect_operations(
-            step_path=matches[0],
+            step_path=step_path,
             file_id=req.file_id,
             object_ids=req.object_ids,
             tool_diameter=req.tool_diameter,
@@ -194,15 +187,27 @@ def generate_toolpath_endpoint(req: ToolpathGenRequest):
     return result
 
 
+def _generate_sbp_code(
+    toolpaths: list,
+    operations: list,
+    post_processor,
+    sheet,
+) -> str:
+    """Build SBP code from toolpaths using the first operation's settings."""
+    if not operations:
+        raise ValueError("No operations provided")
+    machining = operations[0].settings
+    writer = SbpWriter(post_processor, machining, sheet)
+    return writer.generate(toolpaths)
+
+
 @app.post("/api/generate-sbp", response_model=OutputResult)
 def generate_sbp_endpoint(req: SbpGenRequest):
     """Generate SBP code from toolpath data + post processor settings."""
     try:
-        machining = req.operations[0].settings if req.operations else None
-        if not machining:
-            raise ValueError("No operations provided")
-        writer = SbpWriter(req.post_processor, machining, req.sheet)
-        sbp_code = writer.generate(req.toolpath_result.toolpaths)
+        sbp_code = _generate_sbp_code(
+            req.toolpath_result.toolpaths, req.operations, req.post_processor, req.sheet
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SBP generation failed: {e}")
     return OutputResult(code=sbp_code, filename="output.sbp", format="sbp")
@@ -211,12 +216,10 @@ def generate_sbp_endpoint(req: SbpGenRequest):
 @app.post("/api/mesh-data", response_model=MeshDataResult)
 def mesh_data_endpoint(req: MeshDataRequest):
     """Return tessellated mesh data for 3D preview."""
-    matches = list(UPLOAD_DIR.glob(f"{req.file_id}.*"))
-    if not matches:
-        raise HTTPException(status_code=404, detail=f"File not found: {req.file_id}")
+    step_path = _get_uploaded_step_path(req.file_id)
 
     try:
-        raw_meshes = tessellate_step_file(matches[0])
+        raw_meshes = tessellate_step_file(step_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Tessellation failed: {e}")
 
@@ -368,9 +371,9 @@ def generate_sbp_zip_endpoint(req: SbpZipRequest):
             )
 
             # Generate SBP
-            machining = filtered_ops[0].settings
-            writer = SbpWriter(req.post_processor, machining, req.sheet)
-            sbp_code = writer.generate(tp_result.toolpaths)
+            sbp_code = _generate_sbp_code(
+                tp_result.toolpaths, filtered_ops, req.post_processor, req.sheet
+            )
 
             zf.writestr(f"{sheet_id}.sbp", sbp_code)
 

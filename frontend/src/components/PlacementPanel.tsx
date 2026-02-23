@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BrepObject, SheetSettings, PlacementItem } from "../types";
 import { autoNesting } from "../api";
 import SheetTabs from "./SheetTabs";
+import { DEFAULT_SHEET_ID, DEFAULT_CLEARANCE_MM } from "../constants";
 
 /** Rotate a 2D point (x,y) by `angle` degrees around (cx,cy). */
 function rotatePoint(
@@ -58,13 +59,13 @@ export default function PlacementPanel({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState<{ mx: number; my: number; ox: number; oy: number } | null>(null);
-  const [clearance, setClearance] = useState(5);
+  const [clearance, setClearance] = useState(DEFAULT_CLEARANCE_MM);
   const [nestingLoading, setNestingLoading] = useState(false);
 
   // Sheet list derived from placements
   const sheetIds = useMemo(() => {
     const ids = [...new Set(placements.map((p) => p.sheet_id))];
-    if (ids.length === 0) ids.push("sheet_1");
+    if (ids.length === 0) ids.push(DEFAULT_SHEET_ID);
     return ids.sort();
   }, [placements]);
 

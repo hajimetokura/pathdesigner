@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import type { PostProcessorSettings } from "../types";
-import type { PanelTab } from "../components/SidePanel";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import PostProcessorPanel from "../components/PostProcessorPanel";
+import { usePanelTabs } from "../contexts/PanelTabsContext";
 
 const DEFAULT_SETTINGS: PostProcessorSettings = {
   machine_name: "ShopBot PRS-alpha 96-48",
@@ -17,10 +17,10 @@ const DEFAULT_SETTINGS: PostProcessorSettings = {
   warmup_pause: 2,
 };
 
-export default function PostProcessorNode({ id, data, selected }: NodeProps) {
+export default function PostProcessorNode({ id, selected }: NodeProps) {
   const { setNodes } = useReactFlow();
   const [settings, setSettings] = useState<PostProcessorSettings>(DEFAULT_SETTINGS);
-  const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
+  const { openTab } = usePanelTabs();
 
   // Sync settings to node data
   useEffect(() => {
@@ -32,7 +32,6 @@ export default function PostProcessorNode({ id, data, selected }: NodeProps) {
   }, [id, settings, setNodes]);
 
   const handleOpenPanel = useCallback(() => {
-    if (!openTab) return;
     openTab({
       id: `postproc-${id}`,
       label: "Post Proc",
