@@ -310,3 +310,16 @@ result = bp.part
 """
     objects, step_bytes = execute_build123d_code(code)
     assert len(objects) >= 1
+
+
+def test_list_profiles_info():
+    """list_profiles_info() returns all available profiles."""
+    client = LLMClient(api_key="test-key")
+    profiles = client.list_profiles_info()
+    assert len(profiles) == 4
+    ids = [p["id"] for p in profiles]
+    assert "general" in ids
+    assert "furniture" in ids
+    assert "flat" in ids
+    assert "3d" in ids
+    assert all("name" in p and "description" in p for p in profiles)

@@ -436,11 +436,7 @@ def get_ai_cad_models():
 @app.get("/ai-cad/profiles", response_model=list[ProfileInfo])
 def get_ai_cad_profiles():
     """Return available prompt profiles."""
-    from llm_client import _PROFILES
-    return [
-        ProfileInfo(id=pid, name=p["name"], description=p["description"])
-        for pid, p in _PROFILES.items()
-    ]
+    return _get_llm().list_profiles_info()
 
 
 @app.post("/ai-cad/generate", response_model=AiCadResult)

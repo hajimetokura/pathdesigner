@@ -501,7 +501,7 @@ class LLMClient:
 
         response = await self._client.chat.completions.create(
             model=use_model,
-            messages=messages,
+            messages=messages,  # type: ignore[arg-type]
         )
 
         raw = response.choices[0].message.content or ""
@@ -523,7 +523,7 @@ class LLMClient:
 
         response = await self._client.chat.completions.create(
             model=use_model,
-            messages=full_messages,
+            messages=full_messages,  # type: ignore[arg-type]
         )
 
         raw = response.choices[0].message.content or ""
@@ -580,6 +580,13 @@ class LLMClient:
                 retry_messages.append({"role": "assistant", "content": code})
 
         raise last_error  # type: ignore[misc]
+
+    def list_profiles_info(self) -> list[dict]:
+        """Return available prompt profiles with metadata."""
+        return [
+            {"id": pid, "name": p["name"], "description": p["description"]}
+            for pid, p in _PROFILES.items()
+        ]
 
     def list_models(self) -> list[dict]:
         """Return available models with metadata."""
