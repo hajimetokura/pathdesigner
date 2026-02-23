@@ -139,6 +139,73 @@ def test_sbp_gen_request_new_format():
     assert len(req.sheet.materials) == 1
 
 
+def test_default_settings_for_contour():
+    """default_settings_for('contour') should return valid contour settings."""
+    from schemas import default_settings_for
+    s = default_settings_for("contour")
+    assert s.operation_type == "contour"
+    assert s.tabs.enabled is True
+    assert s.offset_side == "outside"
+
+
+def test_default_settings_for_pocket():
+    """default_settings_for('pocket') should return valid pocket settings."""
+    from schemas import default_settings_for
+    s = default_settings_for("pocket")
+    assert s.operation_type == "pocket"
+    assert s.tabs.enabled is False
+    assert s.offset_side == "none"
+
+
+def test_default_settings_for_drill():
+    """default_settings_for('drill') should return valid drill settings."""
+    from schemas import default_settings_for
+    s = default_settings_for("drill")
+    assert s.operation_type == "drill"
+    assert s.tabs.enabled is False
+    assert s.depth_per_peck > 0
+
+
+def test_machining_settings_pocket():
+    """Pocket settings should use pocket-specific fields."""
+    settings = MachiningSettings(
+        operation_type="pocket",
+        tool=Tool(diameter=6.35, type="endmill", flutes=2),
+        feed_rate=FeedRate(xy=50, z=20),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=3.0,
+        total_depth=6.0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+        pocket_pattern="contour-parallel",
+        pocket_stepover=0.4,
+    )
+    assert settings.operation_type == "pocket"
+    assert settings.pocket_pattern == "contour-parallel"
+    assert settings.pocket_stepover == 0.4
+
+
+def test_machining_settings_drill():
+    """Drill settings should use drill-specific fields."""
+    settings = MachiningSettings(
+        operation_type="drill",
+        tool=Tool(diameter=3.0, type="endmill", flutes=2),
+        feed_rate=FeedRate(xy=50, z=15),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=3.0,
+        total_depth=18.0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+        depth_per_peck=4.0,
+    )
+    assert settings.operation_type == "drill"
+    assert settings.depth_per_peck == 4.0
+
+
 def test_api_imports():
     """Verify main.py can import all required schemas and functions."""
     from main import app
