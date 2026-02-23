@@ -3,39 +3,7 @@ import type { BrepObject, SheetSettings, PlacementItem } from "../types";
 import { autoNesting } from "../api";
 import SheetTabs from "./SheetTabs";
 import { DEFAULT_SHEET_ID, DEFAULT_CLEARANCE_MM } from "../constants";
-
-/** Rotate a 2D point (x,y) by `angle` degrees around (cx,cy). */
-function rotatePoint(
-  x: number, y: number, angle: number, cx: number, cy: number,
-): [number, number] {
-  if (angle === 0) return [x, y];
-  const rad = (angle * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  const dx = x - cx;
-  const dy = y - cy;
-  return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos];
-}
-
-/** Get the axis-aligned bounding rect of a rotated BB. */
-function rotatedAABB(
-  bbX: number, bbY: number, angle: number,
-): { minX: number; minY: number; maxX: number; maxY: number } {
-  const cx = bbX / 2;
-  const cy = bbY / 2;
-  const corners = [
-    rotatePoint(0, 0, angle, cx, cy),
-    rotatePoint(bbX, 0, angle, cx, cy),
-    rotatePoint(bbX, bbY, angle, cx, cy),
-    rotatePoint(0, bbY, angle, cx, cy),
-  ];
-  return {
-    minX: Math.min(...corners.map((c) => c[0])),
-    minY: Math.min(...corners.map((c) => c[1])),
-    maxX: Math.max(...corners.map((c) => c[0])),
-    maxY: Math.max(...corners.map((c) => c[1])),
-  };
-}
+import { rotatePoint, rotatedAABB } from "../utils/coordinates";
 
 interface Props {
   objects: BrepObject[];

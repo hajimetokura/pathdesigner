@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-from build123d import Axis, GeomType, Plane, ShapeList, Solid, import_step
+from build123d import Axis, GeomType, Solid, import_step
 
+from nodes.geometry_utils import intersect_solid_at_z, sample_wire_coords
 from schemas import (
     BoundingBox,
     BrepObject,
@@ -116,15 +117,16 @@ def _extract_outline(solid: Solid, bb) -> list[list[float]]:
     Falls back to empty list on failure (non-critical for import).
     """
     try:
-        wires = _intersect_wires(solid, bb.min.Z)
-        if not wires:
-            wires = _intersect_wires(solid, bb.min.Z + 0.001)
-        if not wires:
+        typed_wires = intersect_solid_at_z(solid, bb.min.Z)
+        if not typed_wires:
+            typed_wires = intersect_solid_at_z(solid, bb.min.Z + 0.001)
+        if not typed_wires:
             return []
 
         # Use the longest wire (outer boundary)
+        wires = [w for w, _ in typed_wires]
         longest = max(wires, key=lambda w: w.length)
-        coords = _sample_wire_coords(longest)
+        coords = sample_wire_coords(longest)
 
         # Translate to BB-min-relative coordinates
         ox, oy = bb.min.X, bb.min.Y
@@ -133,39 +135,3 @@ def _extract_outline(solid: Solid, bb) -> list[list[float]]:
         return []
 
 
-def _intersect_wires(solid: Solid, z: float) -> list:
-    """Intersect solid with XY plane at z and return wires."""
-    plane = Plane.XY.offset(z)
-    result = solid.intersect(plane)
-    if result is None:
-        return []
-    if isinstance(result, ShapeList):
-        items = list(result)
-    else:
-        items = [result]
-    wires = []
-    for item in items:
-        if hasattr(item, "outer_wire"):
-            wires.append(item.outer_wire())
-            wires.extend(item.inner_wires())
-        elif hasattr(item, "edges"):
-            wires.append(item)
-    return wires
-
-
-def _sample_wire_coords(wire, num_points: int = 100) -> list[tuple[float, float]]:
-    """Sample evenly-spaced points along a wire."""
-    edges = wire.edges()
-    coords: list[tuple[float, float]] = []
-    for edge in edges:
-        length = edge.length
-        if length < 0.001:
-            continue
-        n = max(2, int(num_points * length / wire.length))
-        for i in range(n):
-            t = i / n
-            pt = edge.position_at(t)
-            coords.append((round(pt.X, 6), round(pt.Y, 6)))
-    if coords and coords[0] != coords[-1]:
-        coords.append(coords[0])
-    return coords

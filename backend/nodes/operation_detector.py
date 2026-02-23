@@ -6,56 +6,16 @@ from pathlib import Path
 from build123d import GeomType, Plane, ShapeList, Solid, import_step
 
 from nodes.contour_extract import extract_contours
+from nodes.geometry_utils import sample_wire_coords
 from schemas import (
     Contour,
     DetectedOperation,
-    FeedRate,
     MachiningSettings,
     OffsetApplied,
     OperationDetectResult,
     OperationGeometry,
-    TabSettings,
     Tool,
-)
-
-# Default suggested settings per operation type
-_DEFAULT_CONTOUR_SETTINGS = dict(
-    operation_type="contour",
-    tool=Tool(diameter=6.35, type="endmill", flutes=2),
-    feed_rate=FeedRate(xy=75, z=25),
-    jog_speed=200,
-    spindle_speed=18000,
-    depth_per_pass=6.0,
-    total_depth=18.0,
-    direction="climb",
-    offset_side="outside",
-    tabs=TabSettings(enabled=True, height=8, width=5, count=4),
-)
-
-_DEFAULT_POCKET_SETTINGS = dict(
-    operation_type="pocket",
-    tool=Tool(diameter=6.35, type="endmill", flutes=2),
-    feed_rate=FeedRate(xy=60, z=20),
-    jog_speed=200,
-    spindle_speed=18000,
-    depth_per_pass=3.0,
-    total_depth=6.0,
-    direction="climb",
-    offset_side="none",
-    tabs=TabSettings(enabled=False, height=0, width=0, count=0),
-)
-
-_DEFAULT_DRILL_SETTINGS = dict(
-    operation_type="drill",
-    tool=Tool(diameter=6.35, type="endmill", flutes=2),
-    feed_rate=FeedRate(xy=75, z=15),
-    jog_speed=200,
-    spindle_speed=18000,
-    depth_per_pass=6.0,
-    total_depth=10.0,
-    direction="climb",
-    offset_side="none",
-    tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+    default_settings_for,
 )
 
 
@@ -107,11 +67,8 @@ def detect_operations(
                     coords=[[cx, cy]],
                     closed=False,
                 )
-                suggested = MachiningSettings(
-                    **{
-                        **_DEFAULT_DRILL_SETTINGS,
-                        "total_depth": feature["depth"],
-                    }
+                suggested = default_settings_for("drill").model_copy(
+                    update={"total_depth": feature["depth"]}
                 )
                 if tool_diameter != 6.35:
                     suggested = suggested.model_copy(
@@ -143,11 +100,8 @@ def detect_operations(
                 if pocket_contour is None:
                     continue
 
-                suggested = MachiningSettings(
-                    **{
-                        **_DEFAULT_POCKET_SETTINGS,
-                        "total_depth": feature["depth"],
-                    }
+                suggested = default_settings_for("pocket").model_copy(
+                    update={"total_depth": feature["depth"]}
                 )
                 if tool_diameter != 6.35:
                     suggested = suggested.model_copy(
@@ -173,10 +127,11 @@ def detect_operations(
             object_id=object_id,
             tool_diameter=tool_diameter,
             offset_side=offset_side,
+            solid=solid,
         )
         op_counter += 1
-        suggested = MachiningSettings(
-            **{**_DEFAULT_CONTOUR_SETTINGS, "total_depth": thickness}
+        suggested = default_settings_for("contour").model_copy(
+            update={"total_depth": thickness}
         )
         if tool_diameter != 6.35:
             suggested = suggested.model_copy(
@@ -381,12 +336,12 @@ def _slice_to_shapely(solid: Solid, z: float, bb):
     faces = [result] if isinstance(result, B3dFace) else list(result)
     polys = []
     for face in faces:
-        outer_coords = _wire_to_coords(face.outer_wire(), bb)
+        outer_coords = sample_wire_coords(face.outer_wire(), mode="resolution", resolution=2.0, precision=4)
         if len(outer_coords) < 3:
             continue
         holes = []
         for iw in face.inner_wires():
-            hole_coords = _wire_to_coords(iw, bb)
+            hole_coords = sample_wire_coords(iw, mode="resolution", resolution=2.0, precision=4)
             if len(hole_coords) >= 3:
                 holes.append(hole_coords)
         poly = Polygon(outer_coords, holes)
@@ -397,16 +352,6 @@ def _slice_to_shapely(solid: Solid, z: float, bb):
         return None
     return unary_union(polys)
 
-
-def _wire_to_coords(wire, bb) -> list[tuple[float, float]]:
-    """Sample points from a build123d Wire in world coordinates."""
-    coords = []
-    for edge in wire.edges():
-        n = max(2, int(edge.length / 2))  # ~2mm resolution
-        for i in range(n):
-            p = edge.position_at(i / n)
-            coords.append((round(p.X, 4), round(p.Y, 4)))
-    return coords
 
 
 

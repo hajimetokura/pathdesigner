@@ -3,9 +3,10 @@
 import math
 from pathlib import Path
 
-from build123d import Plane, ShapeList, Solid, import_step
+from build123d import Solid, import_step
 from shapely.geometry import Polygon
 
+from nodes.geometry_utils import intersect_solid_at_z, sample_wire_coords
 from schemas import Contour, ContourExtractResult, OffsetApplied
 
 # Tolerance for Z=0 section retry
@@ -17,23 +18,28 @@ def extract_contours(
     object_id: str,
     tool_diameter: float = 6.35,
     offset_side: str = "outside",
+    solid: Solid | None = None,
 ) -> ContourExtractResult:
-    """Extract 2D contours from a STEP file by sectioning at Z=0."""
-    compound = import_step(str(step_path))
-    solids = compound.solids()
-    if not solids:
-        raise ValueError("STEP file contains no solids")
+    """Extract 2D contours from a STEP file by sectioning at Z=0.
 
-    # Map object_id (e.g. "obj_002") to solid index
-    try:
-        idx = int(object_id.split("_")[1]) - 1
-    except (IndexError, ValueError):
-        raise ValueError(f"Invalid object_id format: {object_id!r}")
-    if idx < 0 or idx >= len(solids):
-        raise ValueError(
-            f"object_id {object_id!r} out of range (file has {len(solids)} solids)"
-        )
-    solid = solids[idx]
+    If *solid* is provided, it is used directly and the STEP file is not re-imported.
+    """
+    if solid is None:
+        compound = import_step(str(step_path))
+        solids = compound.solids()
+        if not solids:
+            raise ValueError("STEP file contains no solids")
+
+        # Map object_id (e.g. "obj_002") to solid index
+        try:
+            idx = int(object_id.split("_")[1]) - 1
+        except (IndexError, ValueError):
+            raise ValueError(f"Invalid object_id format: {object_id!r}")
+        if idx < 0 or idx >= len(solids):
+            raise ValueError(
+                f"object_id {object_id!r} out of range (file has {len(solids)} solids)"
+            )
+        solid = solids[idx]
     bb = solid.bounding_box()
 
     # Section at bottom face (Z = bb.min.Z)
@@ -96,39 +102,15 @@ def extract_contours(
 
 def _section_at_z(solid: Solid, z: float) -> list:
     """Section a solid at given Z height using intersect. Retries with small offset if empty."""
-    wires = _intersect_wires(solid, z)
+    wires = intersect_solid_at_z(solid, z)
 
     if not wires:
         # Retry with small offset (tolerance issue at exact boundary)
-        wires = _intersect_wires(solid, z + SECTION_Z_RETRY_OFFSET)
+        wires = intersect_solid_at_z(solid, z + SECTION_Z_RETRY_OFFSET)
 
     if not wires:
         raise ValueError(f"No cross-section found at Z={z}")
 
-    return wires
-
-
-def _intersect_wires(solid: Solid, z: float) -> list[tuple]:
-    """Intersect solid with XY plane at z and return (wire, contour_type) tuples."""
-    plane = Plane.XY.offset(z)
-    result = solid.intersect(plane)
-    if result is None:
-        return []
-    # Result can be Face, Wire, or ShapeList
-    if isinstance(result, ShapeList):
-        items = list(result)
-    else:
-        items = [result]
-    wires = []
-    for item in items:
-        if hasattr(item, "outer_wire"):
-            # It's a Face — outer_wire is exterior, inner_wires are interior (holes)
-            wires.append((item.outer_wire(), "exterior"))
-            for iw in item.inner_wires():
-                wires.append((iw, "interior"))
-        elif hasattr(item, "edges"):
-            # It's a Wire — assume exterior
-            wires.append((item, "exterior"))
     return wires
 
 
@@ -140,31 +122,11 @@ def _wires_to_polygons(typed_wires: list[tuple]) -> list[tuple[Polygon, str]]:
         if not edges:
             continue
         # Use the wire's edge sampling for smoother curves
-        coords = _sample_wire_coords(wire)
+        coords = sample_wire_coords(wire)
         poly = Polygon(coords)
         if poly.is_valid and not poly.is_empty:
             polygons.append((poly, contour_type))
     return polygons
-
-
-def _sample_wire_coords(wire, num_points: int = 100) -> list[tuple[float, float]]:
-    """Sample evenly-spaced points along a wire for accurate representation."""
-    edges = wire.edges()
-    coords = []
-    for edge in edges:
-        # Sample points along each edge
-        length = edge.length
-        if length < 0.001:
-            continue
-        n = max(2, int(num_points * length / wire.length))
-        for i in range(n):
-            t = i / n
-            pt = edge.position_at(t)
-            coords.append((round(pt.X, 6), round(pt.Y, 6)))
-    # Close the polygon
-    if coords and coords[0] != coords[-1]:
-        coords.append(coords[0])
-    return coords
 
 
 

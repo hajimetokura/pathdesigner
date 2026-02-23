@@ -59,6 +59,15 @@ class ContourExtractRequest(BaseModel):
 
 
 class Contour(BaseModel):
+    """A 2D contour extracted from a BREP solid cross-section.
+
+    type values:
+      - "exterior": Outer boundary of the object (cut-out profile).
+      - "interior": Inner hole or cutout within the object.
+      - "pocket":   Closed region for pocket (area-clearing) machining.
+      - "drill_center": Single-point marker for a drill hole center.
+    """
+
     id: str
     type: Literal["exterior", "interior", "pocket", "drill_center"]
     coords: list[list[float]]  # [[x, y], ...]
@@ -117,6 +126,31 @@ class TabSettings(BaseModel):
 
 
 class MachiningSettings(BaseModel):
+    """CNC machining parameters for a single operation.
+
+    Field applicability by operation_type:
+
+    +-----------------+---------+--------+-------+---------+
+    | Field           | contour | pocket | drill | engrave |
+    +-----------------+---------+--------+-------+---------+
+    | tool            |    x    |   x    |   x   |    x    |
+    | feed_rate       |    x    |   x    |   x   |    x    |
+    | jog_speed       |    x    |   x    |   x   |    x    |
+    | spindle_speed   |    x    |   x    |   x   |    x    |
+    | depth_per_pass  |    x    |   x    |   -   |    x    |
+    | total_depth     |    x    |   x    |   x   |    x    |
+    | direction       |    x    |   x    |   -   |    x    |
+    | offset_side     |    x    |   -    |   -   |    -    |
+    | tabs            |    x    |   -    |   -   |    -    |
+    | pocket_pattern  |    -    |   x    |   -   |    -    |
+    | pocket_stepover |    -    |   x    |   -   |    -    |
+    | depth_per_peck  |    -    |   -    |   x   |    -    |
+    +-----------------+---------+--------+-------+---------+
+
+    Fields marked '-' are ignored for that operation type but still
+    present with default values for serialization simplicity.
+    """
+
     operation_type: Literal["contour", "pocket", "drill", "engrave"]
     tool: Tool
     feed_rate: FeedRate
@@ -132,6 +166,56 @@ class MachiningSettings(BaseModel):
     pocket_stepover: float = 0.5  # 0-1 ratio of tool diameter
     # Drill-specific
     depth_per_peck: float = 6.0  # mm
+
+
+_DEFAULT_TOOL = Tool(diameter=6.35, type="endmill", flutes=2)
+_DEFAULT_TABS_OFF = TabSettings(enabled=False, height=0, width=0, count=0)
+
+_DEFAULT_SETTINGS: dict[str, dict] = {
+    "contour": dict(
+        operation_type="contour",
+        tool=_DEFAULT_TOOL,
+        feed_rate=FeedRate(xy=75, z=25),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=6.0,
+        total_depth=18.0,
+        direction="climb",
+        offset_side="outside",
+        tabs=TabSettings(enabled=True, height=8, width=5, count=4),
+    ),
+    "pocket": dict(
+        operation_type="pocket",
+        tool=_DEFAULT_TOOL,
+        feed_rate=FeedRate(xy=60, z=20),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=3.0,
+        total_depth=6.0,
+        direction="climb",
+        offset_side="none",
+        tabs=_DEFAULT_TABS_OFF,
+    ),
+    "drill": dict(
+        operation_type="drill",
+        tool=_DEFAULT_TOOL,
+        feed_rate=FeedRate(xy=75, z=15),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=6.0,
+        total_depth=10.0,
+        direction="climb",
+        offset_side="none",
+        tabs=_DEFAULT_TABS_OFF,
+    ),
+}
+
+
+def default_settings_for(operation_type: str) -> MachiningSettings:
+    """Return default MachiningSettings for a given operation type."""
+    if operation_type not in _DEFAULT_SETTINGS:
+        raise ValueError(f"Unknown operation type: {operation_type!r}")
+    return MachiningSettings(**_DEFAULT_SETTINGS[operation_type])
 
 
 class PresetItem(BaseModel):

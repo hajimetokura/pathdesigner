@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ToolpathGenResult, PlacementItem } from "../types";
+import { outlineToSheet } from "../utils/coordinates";
 
 interface Props {
   toolpathResult: ToolpathGenResult;
@@ -16,33 +17,22 @@ export default function ToolpathPreviewPanel({
   boundingBoxes,
   outlines,
 }: Props) {
-  // Transform outline coords (BB-min-local) to sheet-space
-  // Outlines are relative to BB min (0,0), so: rotate around (bb.x/2, bb.y/2), then add placement offset
-  // Must match PlacementNode thumbnail drawing logic
-  const outlineToSheet = useCallback(
+  // Transform outline coords (BB-min-local) to sheet-space using shared util
+  const outlineToSheetCb = useCallback(
     (
       coords: [number, number][],
       objectId: string,
       placement: PlacementItem | undefined,
     ): [number, number][] => {
-      const placeX = placement?.x_offset ?? 0;
-      const placeY = placement?.y_offset ?? 0;
-      const rotation = placement?.rotation ?? 0;
       const bb = boundingBoxes?.[objectId];
-      const rcx = bb ? bb.x / 2 : 0;
-      const rcy = bb ? bb.y / 2 : 0;
-
-      if (rotation !== 0) {
-        const rad = (rotation * Math.PI) / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-        return coords.map(([lx, ly]) => {
-          const dx = lx - rcx;
-          const dy = ly - rcy;
-          return [rcx + dx * cos - dy * sin + placeX, rcy + dx * sin + dy * cos + placeY];
-        });
-      }
-      return coords.map(([lx, ly]) => [lx + placeX, ly + placeY]);
+      return outlineToSheet(
+        coords,
+        placement?.rotation ?? 0,
+        bb ? bb.x / 2 : 0,
+        bb ? bb.y / 2 : 0,
+        placement?.x_offset ?? 0,
+        placement?.y_offset ?? 0,
+      );
     },
     [boundingBoxes],
   );
@@ -74,7 +64,7 @@ export default function ToolpathPreviewPanel({
         for (const [objId, coords] of Object.entries(outlines)) {
           const pl = placementMap.get(objId);
           if (!pl) continue;
-          const sheetCoords = outlineToSheet(coords, objId, pl);
+          const sheetCoords = outlineToSheetCb(coords, objId, pl);
           for (const pt of sheetCoords) allPoints.push(pt);
         }
       }
@@ -103,7 +93,7 @@ export default function ToolpathPreviewPanel({
       const offsetY = (h - rangeY * scale) / 2;
       return { scale, offsetX, offsetY, minX, minY };
     },
-    [toolpathResult, outlines, placements, activeSheetId, outlineToSheet]
+    [toolpathResult, outlines, placements, activeSheetId, outlineToSheetCb]
   );
 
   const draw = useCallback(
@@ -186,7 +176,7 @@ export default function ToolpathPreviewPanel({
         for (const [objId, coords] of Object.entries(outlines)) {
           const pl = placementMap.get(objId);
           if (!pl || coords.length < 2) continue;
-          const sheetCoords = outlineToSheet(coords, objId, pl);
+          const sheetCoords = outlineToSheetCb(coords, objId, pl);
           ctx.beginPath();
           const [cx0, cy0] = toCanvas(sheetCoords[0][0], sheetCoords[0][1]);
           ctx.moveTo(cx0, cy0);
@@ -268,7 +258,7 @@ export default function ToolpathPreviewPanel({
         ctx.restore();
       }
     },
-    [toolpathResult, outlines, placements, activeSheetId, zoom, panX, panY, computeBase, outlineToSheet]
+    [toolpathResult, outlines, placements, activeSheetId, zoom, panX, panY, computeBase, outlineToSheetCb]
   );
 
   useEffect(() => {

@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+from build123d import import_step
+
+from nodes.contour_extract import extract_contours
 from nodes.operation_detector import detect_operations
 from schemas import OperationDetectResult
 
@@ -40,6 +43,19 @@ def test_detect_operations_multiple_objects(simple_box_step: Path):
 
     assert len(result.operations) == 1
     assert result.operations[0].operation_id.startswith("op_")
+
+
+def test_extract_contours_with_preloaded_solid(simple_box_step: Path):
+    """extract_contours should accept a preloaded Solid to skip re-importing STEP."""
+    compound = import_step(str(simple_box_step))
+    solid = compound.solids()[0]
+    result = extract_contours(
+        step_path=simple_box_step,
+        object_id="obj_001",
+        solid=solid,
+    )
+    assert len(result.contours) >= 1
+    assert result.thickness == 10.0
 
 
 def test_detect_operations_no_offset(simple_box_step: Path):

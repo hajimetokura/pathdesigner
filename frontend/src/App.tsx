@@ -15,16 +15,7 @@ import {
 } from "@xyflow/react";
 import { getLayoutedElements } from "./utils/layout";
 import "@xyflow/react/dist/style.css";
-import BrepImportNode from "./nodes/BrepImportNode";
-import SheetNode from "./nodes/SheetNode";
-import PlacementNode from "./nodes/PlacementNode";
-import OperationNode from "./nodes/OperationNode";
-import PostProcessorNode from "./nodes/PostProcessorNode";
-import ToolpathGenNode from "./nodes/ToolpathGenNode";
-import CncCodeNode from "./nodes/CncCodeNode";
-import ToolpathPreviewNode from "./nodes/ToolpathPreviewNode";
-import DamNode from "./nodes/DamNode";
-import DebugNode from "./nodes/DebugNode";
+import { nodeTypes } from "./nodeRegistry";
 import Sidebar from "./Sidebar";
 import SidePanel, { type PanelTab } from "./components/SidePanel";
 import { PanelTabsContext } from "./contexts/PanelTabsContext";
@@ -53,18 +44,6 @@ const initialEdges = [
 
 let nodeCounter = 100;
 
-const nodeTypes = {
-  brepImport: BrepImportNode,
-  sheet: SheetNode,
-  placement: PlacementNode,
-  operation: OperationNode,
-  postProcessor: PostProcessorNode,
-  toolpathGen: ToolpathGenNode,
-  cncCode: CncCodeNode,
-  toolpathPreview: ToolpathPreviewNode,
-  dam: DamNode,
-  debug: DebugNode,
-};
 
 function Flow() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
