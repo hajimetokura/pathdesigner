@@ -2,7 +2,7 @@
 
 import pytest
 from schemas import (
-    StockMaterial, StockSettings,
+    SheetMaterial, SheetSettings,
     Contour, OffsetApplied, MachiningSettings,
     Tool, FeedRate, TabSettings,
     OperationGeometry, DetectedOperation, OperationDetectResult,
@@ -13,7 +13,7 @@ from schemas import (
 
 
 def test_stock_material_defaults():
-    mat = StockMaterial(material_id="mtl_1")
+    mat = SheetMaterial(material_id="mtl_1")
     assert mat.width == 600
     assert mat.depth == 400
     assert mat.thickness == 18
@@ -23,29 +23,29 @@ def test_stock_material_defaults():
 
 
 def test_stock_settings_single_material():
-    settings = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=24)]
+    settings = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=24)]
     )
     assert len(settings.materials) == 1
     assert settings.materials[0].thickness == 24
 
 
 def test_stock_settings_multiple_materials():
-    settings = StockSettings(
+    settings = SheetSettings(
         materials=[
-            StockMaterial(material_id="mtl_1", thickness=15),
-            StockMaterial(material_id="mtl_2", thickness=24),
+            SheetMaterial(material_id="mtl_1", thickness=15),
+            SheetMaterial(material_id="mtl_2", thickness=24),
         ]
     )
     assert len(settings.materials) == 2
 
 
 def test_stock_settings_serialization():
-    settings = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", label="合板 18mm")]
+    settings = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", label="合板 18mm")]
     )
     data = settings.model_dump()
-    restored = StockSettings(**data)
+    restored = SheetSettings(**data)
     assert restored.materials[0].label == "合板 18mm"
 
 
@@ -123,20 +123,20 @@ def test_toolpath_gen_request_new_format():
     req = ToolpathGenRequest(
         operations=[],
         detected_operations=OperationDetectResult(operations=[]),
-        stock=StockSettings(materials=[StockMaterial(material_id="mtl_1")]),
+        sheet=SheetSettings(materials=[SheetMaterial(material_id="mtl_1")]),
     )
     assert len(req.operations) == 0
 
 
 def test_sbp_gen_request_new_format():
-    """SbpGenRequest should accept stock instead of material in post_processor."""
+    """SbpGenRequest should accept sheet instead of material in post_processor."""
     req = SbpGenRequest(
         toolpath_result=ToolpathGenResult(toolpaths=[]),
         operations=[],
-        stock=StockSettings(materials=[StockMaterial(material_id="mtl_1")]),
+        sheet=SheetSettings(materials=[SheetMaterial(material_id="mtl_1")]),
         post_processor=PostProcessorSettings(),
     )
-    assert len(req.stock.materials) == 1
+    assert len(req.sheet.materials) == 1
 
 
 def test_api_imports():

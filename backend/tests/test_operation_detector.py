@@ -61,7 +61,7 @@ def test_detect_operations_no_offset(simple_box_step: Path):
 from nodes.toolpath_gen import generate_toolpath_from_operations
 from sbp_writer import SbpWriter
 from schemas import (
-    OperationAssignment, StockMaterial, StockSettings,
+    OperationAssignment, SheetMaterial, SheetSettings,
     PostProcessorSettings,
 )
 
@@ -80,8 +80,8 @@ def test_full_pipeline_detect_to_sbp(simple_box_step: Path):
 
     # 2. Create assignments
     op = detected.operations[0]
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
     assignments = [
         OperationAssignment(
@@ -101,7 +101,7 @@ def test_full_pipeline_detect_to_sbp(simple_box_step: Path):
     writer = SbpWriter(
         settings=post,
         machining=assignments[0].settings,
-        stock=stock,
+        sheet=stock,
     )
     sbp = writer.generate(tp_result.toolpaths)
 

@@ -23,8 +23,8 @@ from schemas import (
     PlacementItem,
     PostProcessorSettings,
     SbpZipRequest,
-    StockMaterial,
-    StockSettings,
+    SheetMaterial,
+    SheetSettings,
     TabSettings,
     Tool,
 )
@@ -47,8 +47,8 @@ def _make_settings() -> MachiningSettings:
     )
 
 
-def _make_zip_request(stock_ids: list[str]) -> dict:
-    """Build a SbpZipRequest with parts on the given stock_ids."""
+def _make_zip_request(sheet_ids: list[str]) -> dict:
+    """Build a SbpZipRequest with parts on the given sheet_ids."""
     settings = _make_settings()
     contour = Contour(
         id="c_001", type="exterior",
@@ -59,7 +59,7 @@ def _make_zip_request(stock_ids: list[str]) -> dict:
     assignments = []
     placements = []
 
-    for i, sid in enumerate(stock_ids):
+    for i, sid in enumerate(sheet_ids):
         obj_id = f"obj_{i + 1:03d}"
         op_id = f"op_{i + 1:03d}"
         operations.append(DetectedOperation(
@@ -82,7 +82,7 @@ def _make_zip_request(stock_ids: list[str]) -> dict:
         placements.append(PlacementItem(
             object_id=obj_id,
             material_id="mtl_1",
-            stock_id=sid,
+            sheet_id=sid,
             x_offset=10 + i * 120,
             y_offset=10,
         ))
@@ -90,7 +90,7 @@ def _make_zip_request(stock_ids: list[str]) -> dict:
     req = SbpZipRequest(
         operations=assignments,
         detected_operations=OperationDetectResult(operations=operations),
-        stock=StockSettings(materials=[StockMaterial(material_id="mtl_1")]),
+        sheet=SheetSettings(materials=[SheetMaterial(material_id="mtl_1")]),
         placements=placements,
         post_processor=PostProcessorSettings(),
     )
@@ -129,4 +129,4 @@ def test_generate_sbp_zip_content_disposition():
     """Response should have correct Content-Disposition header."""
     body = _make_zip_request(["stock_1"])
     resp = client.post("/api/generate-sbp-zip", json=body)
-    assert "pathdesigner_stocks.zip" in resp.headers.get("content-disposition", "")
+    assert "pathdesigner_sheets.zip" in resp.headers.get("content-disposition", "")

@@ -23,8 +23,8 @@ from schemas import (
     TabSettings,
     OperationAssignment,
     OperationDetectResult,
-    StockMaterial,
-    StockSettings,
+    SheetMaterial,
+    SheetSettings,
 )
 
 
@@ -89,18 +89,18 @@ def test_toolpath_gen_result_with_stock_dimensions():
     """ToolpathGenResult should include optional stock dimensions."""
     result = ToolpathGenResult(
         toolpaths=[],
-        stock_width=600.0,
-        stock_depth=400.0,
+        sheet_width=600.0,
+        sheet_depth=400.0,
     )
-    assert result.stock_width == 600.0
-    assert result.stock_depth == 400.0
+    assert result.sheet_width == 600.0
+    assert result.sheet_depth == 400.0
 
 
 def test_toolpath_gen_result_without_stock_dimensions():
     """ToolpathGenResult stock dimensions should default to None."""
     result = ToolpathGenResult(toolpaths=[])
-    assert result.stock_width is None
-    assert result.stock_depth is None
+    assert result.sheet_width is None
+    assert result.sheet_depth is None
 
 
 def test_output_result():

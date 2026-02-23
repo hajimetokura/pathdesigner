@@ -148,7 +148,7 @@ from nodes.toolpath_gen import generate_toolpath_from_operations
 from schemas import (
     BoundingBox,
     OperationAssignment, OperationGeometry, DetectedOperation, OperationDetectResult,
-    PlacementItem, StockMaterial, StockSettings,
+    PlacementItem, SheetMaterial, SheetSettings,
 )
 
 
@@ -203,8 +203,8 @@ def test_generate_from_operations_single():
             order=1,
         )
     ]
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
 
     result = generate_toolpath_from_operations(assignments, detected, stock)
@@ -245,8 +245,8 @@ def test_generate_from_operations_disabled():
             order=1,
         )
     ]
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
 
     result = generate_toolpath_from_operations(assignments, detected, stock)
@@ -286,8 +286,8 @@ def test_interior_contours_processed():
             order=1,
         )
     ]
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
 
     result = generate_toolpath_from_operations(assignments, detected, stock)
@@ -329,8 +329,8 @@ def test_interior_before_exterior_order():
             order=1,
         )
     ]
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
 
     result = generate_toolpath_from_operations(assignments, detected, stock)
@@ -372,8 +372,8 @@ def test_rotation_90_transforms_coords():
             order=1,
         )
     ]
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
     placements = [
         PlacementItem(object_id="obj_001", material_id="mtl_1", x_offset=0, y_offset=0, rotation=90)
@@ -437,8 +437,8 @@ def test_rotation_with_world_space_coords():
             order=1,
         )
     ]
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
     # origin = bb.min = (150, 75), placement at (10, 10)
     object_origins = {"obj_001": [150.0, 75.0]}
@@ -500,8 +500,8 @@ def test_generate_toolpath_includes_settings():
             order=1,
         )
     ]
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=18.0)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=18.0)]
     )
 
     result = generate_toolpath_from_operations(assignments, detected, stock)
@@ -540,8 +540,8 @@ def test_rotation_0_no_change():
             order=1,
         )
     ]
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=12)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=12)]
     )
     placements = [
         PlacementItem(object_id="obj_001", material_id="mtl_1", x_offset=10, y_offset=20, rotation=0)
@@ -594,8 +594,8 @@ def test_toolpath_ordering_by_placement():
         OperationAssignment(operation_id="op_B", material_id="mtl_1", settings=settings, order=2),
         OperationAssignment(operation_id="op_C", material_id="mtl_1", settings=settings, order=1),
     ]
-    stock = StockSettings(
-        materials=[StockMaterial(material_id="mtl_1", thickness=18.0)]
+    stock = SheetSettings(
+        materials=[SheetMaterial(material_id="mtl_1", thickness=18.0)]
     )
 
     result = generate_toolpath_from_operations(assignments, detected, stock, placements)
