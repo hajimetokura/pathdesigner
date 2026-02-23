@@ -85,3 +85,103 @@ async def test_generate_strips_markdown_fences():
     code = await client.generate("box")
     assert "```" not in code
     assert "result = Box(10, 10, 10)" in code
+
+
+from nodes.ai_cad import CodeExecutionError
+
+
+@pytest.mark.asyncio
+async def test_generate_and_execute_success_first_try():
+    """generate_and_execute returns on first successful execution."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "result = Box(100, 50, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat = MagicMock()
+    mock_client.chat.completions = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    code, objects, step_bytes = await client.generate_and_execute("Make a box")
+
+    assert "Box(100, 50, 10)" in code
+    assert len(objects) >= 1
+    assert step_bytes is not None
+    # LLM should only be called once (no retry needed)
+    assert mock_client.chat.completions.create.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_generate_and_execute_retries_on_failure():
+    """generate_and_execute retries when execution fails, then succeeds."""
+    bad_response = MagicMock()
+    bad_response.choices = [MagicMock()]
+    bad_response.choices[0].message.content = "x = Box(10, 10, 10)"  # missing result
+
+    good_response = MagicMock()
+    good_response.choices = [MagicMock()]
+    good_response.choices[0].message.content = "result = Box(10, 10, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat = MagicMock()
+    mock_client.chat.completions = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(
+        side_effect=[bad_response, good_response]
+    )
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    code, objects, step_bytes = await client.generate_and_execute("Make a box")
+
+    assert "result = Box(10, 10, 10)" in code
+    assert len(objects) >= 1
+    # LLM called twice: initial + 1 retry
+    assert mock_client.chat.completions.create.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_generate_and_execute_exhausts_retries():
+    """generate_and_execute raises after exhausting retries."""
+    bad_response = MagicMock()
+    bad_response.choices = [MagicMock()]
+    bad_response.choices[0].message.content = "x = 42"  # always bad
+
+    mock_client = MagicMock()
+    mock_client.chat = MagicMock()
+    mock_client.chat.completions = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=bad_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+    client.max_retries = 2
+
+    with pytest.raises(CodeExecutionError):
+        await client.generate_and_execute("Make a box")
+
+    # initial + 2 retries = 3 calls
+    assert mock_client.chat.completions.create.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_generate_and_execute_zero_retries():
+    """With max_retries=0, no retry is attempted."""
+    bad_response = MagicMock()
+    bad_response.choices = [MagicMock()]
+    bad_response.choices[0].message.content = "x = 42"
+
+    mock_client = MagicMock()
+    mock_client.chat = MagicMock()
+    mock_client.chat.completions = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=bad_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    with pytest.raises(CodeExecutionError):
+        await client.generate_and_execute("Make a box", max_retries=0)
+
+    assert mock_client.chat.completions.create.call_count == 1
