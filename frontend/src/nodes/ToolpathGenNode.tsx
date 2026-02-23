@@ -10,6 +10,7 @@ import type {
   PlacementItem,
 } from "../types";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { StockBadge } from "../components/StockBadge";
 
@@ -24,7 +25,7 @@ interface OperationsUpstream {
   upstreamActiveStockId: string;
 }
 
-export default function ToolpathGenNode({ id }: NodeProps) {
+export default function ToolpathGenNode({ id, selected }: NodeProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [toolpathResult, setToolpathResult] = useState<ToolpathGenResult | null>(null);
   const [error, setError] = useState("");
@@ -148,10 +149,8 @@ export default function ToolpathGenNode({ id }: NodeProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operations, postProc, operations?.upstreamActiveStockId]);
 
-  const dynamicBorder = status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : "#ddd";
-
   return (
-    <div style={{ ...nodeStyle, borderColor: dynamicBorder }}>
+    <NodeShell category="cam" selected={selected} statusBorder={status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : undefined}>
       <LabeledHandle
         type="target"
         position={Position.Top}
@@ -239,20 +238,11 @@ export default function ToolpathGenNode({ id }: NodeProps) {
         index={1}
         total={2}
       />
-    </div>
+    </NodeShell>
   );
 }
 
 /* --- Styles --- */
-
-const nodeStyle: React.CSSProperties = {
-  background: "white",
-  border: "1px solid #ddd",
-  borderRadius: 8,
-  padding: "20px 12px",
-  width: 200,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-};
 
 const headerStyle: React.CSSProperties = {
   fontWeight: 700,
