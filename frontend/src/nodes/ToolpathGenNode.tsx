@@ -203,19 +203,21 @@ export default function ToolpathGenNode({ id }: NodeProps) {
             {toolpathResult.toolpaths.length} toolpath
             {toolpathResult.toolpaths.length > 1 ? "s" : ""}
           </div>
-          {toolpathResult.toolpaths.map((tp) => (
-            <div key={tp.operation_id} style={detailStyle}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "#333" }}>
-                {tp.operation_id}
+          <div style={scrollableListStyle}>
+            {toolpathResult.toolpaths.map((tp) => (
+              <div key={tp.operation_id} style={detailStyle}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#333" }}>
+                  {tp.operation_id}
+                </div>
+                <div style={{ fontSize: 11, color: "#555" }}>
+                  {tp.passes.length} passes
+                </div>
+                <div style={{ fontSize: 10, color: "#777" }}>
+                  Z: {tp.passes.map((p) => p.z_depth.toFixed(1)).join(" \u2192 ")}
+                </div>
               </div>
-              <div style={{ fontSize: 11, color: "#555" }}>
-                {tp.passes.length} passes
-              </div>
-              <div style={{ fontSize: 10, color: "#777" }}>
-                Z: {tp.passes.map((p) => p.z_depth.toFixed(1)).join(" \u2192 ")}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
@@ -262,6 +264,12 @@ const headerStyle: React.CSSProperties = {
 const resultStyle: React.CSSProperties = {
   marginTop: 8,
   fontSize: 12,
+};
+
+const scrollableListStyle: React.CSSProperties = {
+  maxHeight: 150,
+  overflowY: "auto",
+  scrollbarWidth: "thin",
 };
 
 const detailStyle: React.CSSProperties = {

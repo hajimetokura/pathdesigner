@@ -129,9 +129,11 @@ export default function BrepImportNode({ id, data }: NodeProps) {
           <div style={{ fontWeight: 600, marginBottom: 4 }}>
             {result.object_count} object{result.object_count > 1 ? "s" : ""}
           </div>
-          {result.objects.map((obj) => (
-            <ObjectSummary key={obj.object_id} obj={obj} />
-          ))}
+          <div style={scrollableListStyle}>
+            {result.objects.map((obj) => (
+              <ObjectSummary key={obj.object_id} obj={obj} />
+            ))}
+          </div>
           {meshes.length > 0 && (
             <button onClick={handleView3D} style={viewBtnStyle}>
               View 3D
@@ -194,6 +196,12 @@ const dropZoneStyle: React.CSSProperties = {
 const resultStyle: React.CSSProperties = {
   marginTop: 8,
   fontSize: 12,
+};
+
+const scrollableListStyle: React.CSSProperties = {
+  maxHeight: 150,
+  overflowY: "auto",
+  scrollbarWidth: "thin",
 };
 
 const objStyle: React.CSSProperties = {

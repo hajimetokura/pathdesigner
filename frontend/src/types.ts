@@ -150,6 +150,15 @@ export interface OperationAssignment {
   enabled: boolean;
   settings: MachiningSettings;
   order: number;
+  group_id?: string;
+}
+
+export interface SettingsGroup {
+  group_id: string;
+  label: string;
+  operation_type: string;
+  settings: MachiningSettings;
+  object_ids: string[];
 }
 
 export interface OperationEditResult {

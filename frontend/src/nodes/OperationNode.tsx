@@ -29,6 +29,7 @@ export default function OperationNode({ id, data }: NodeProps) {
   const [detected, setDetected] = useState<OperationDetectResult | null>(null);
   const [assignments, setAssignments] = useState<OperationAssignment[]>([]);
   const [error, setError] = useState("");
+  const [groupLabels, setGroupLabels] = useState<Record<string, string>>({});
   const { setNodes } = useReactFlow();
   const lastFileIdRef = useRef<string | null>(null);
 
@@ -104,6 +105,7 @@ export default function OperationNode({ id, data }: NodeProps) {
           enabled: op.enabled,
           settings: op.suggested_settings,
           order: i + 1,
+          group_id: `default_${op.operation_type}`,
         }));
         setAssignments(newAssignments);
         syncToNodeData(result, newAssignments, upstreamStock, upstreamPlacements, objects);
@@ -152,6 +154,11 @@ export default function OperationNode({ id, data }: NodeProps) {
     [detected, upstream, syncToNodeData]
   );
 
+  const handleGroupLabelsChange = useCallback(
+    (labels: Record<string, string>) => setGroupLabels(labels),
+    []
+  );
+
   const filteredOps = useMemo(() =>
     detected ? detected.operations.filter((op) => activeObjectIds.has(op.object_id)) : [],
     [detected, activeObjectIds]
@@ -180,10 +187,12 @@ export default function OperationNode({ id, data }: NodeProps) {
           placements={allPlacements}
           stockIds={stockIds}
           activeStockId={activeStockId}
+          groupLabels={groupLabels}
+          onGroupLabelsChange={handleGroupLabelsChange}
         />
       ),
     });
-  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab, allPlacements, stockIds, activeStockId]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, openTab, allPlacements, stockIds, activeStockId, groupLabels, handleGroupLabelsChange]);
 
   // Update tab content when assignments change (only if tab is already open)
   useEffect(() => {
@@ -201,11 +210,13 @@ export default function OperationNode({ id, data }: NodeProps) {
             placements={allPlacements}
             stockIds={stockIds}
             activeStockId={activeStockId}
+            groupLabels={groupLabels}
+            onGroupLabelsChange={handleGroupLabelsChange}
           />
         ),
       });
     }
-  }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab, allPlacements, stockIds, activeStockId]);
+  }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab, allPlacements, stockIds, activeStockId, groupLabels, handleGroupLabelsChange]);
 
   const dynamicBorder = status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : "#ddd";
 
@@ -258,30 +269,32 @@ export default function OperationNode({ id, data }: NodeProps) {
             Edit Settings
           </button>
 
-          {filteredOps.map((op) => {
-            const assignment = assignments.find(
-              (a) => a.operation_id === op.operation_id
-            );
-            const enabled = assignment?.enabled ?? true;
-            return (
-              <div
-                key={op.operation_id}
-                style={{
-                  ...opRowStyle,
-                  opacity: enabled ? 1 : 0.5,
-                }}
-                onClick={() => handleToggleOp(op.operation_id)}
-              >
-                <span style={{ fontSize: 11 }}>
-                  {enabled ? "\u2713" : "\u2717"}{" "}
-                  {op.object_id}: {op.operation_type}
-                </span>
-                <span style={{ fontSize: 10, color: "#888" }}>
-                  z={op.geometry.depth.toFixed(1)}
-                </span>
-              </div>
-            );
-          })}
+          <div style={scrollableListStyle}>
+            {filteredOps.map((op) => {
+              const assignment = assignments.find(
+                (a) => a.operation_id === op.operation_id
+              );
+              const enabled = assignment?.enabled ?? true;
+              return (
+                <div
+                  key={op.operation_id}
+                  style={{
+                    ...opRowStyle,
+                    opacity: enabled ? 1 : 0.5,
+                  }}
+                  onClick={() => handleToggleOp(op.operation_id)}
+                >
+                  <span style={{ fontSize: 11 }}>
+                    {enabled ? "\u2713" : "\u2717"}{" "}
+                    {op.object_id}: {op.operation_type}
+                  </span>
+                  <span style={{ fontSize: 10, color: "#888" }}>
+                    z={op.geometry.depth.toFixed(1)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -330,6 +343,12 @@ const editButtonStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
   marginBottom: 4,
+};
+
+const scrollableListStyle: React.CSSProperties = {
+  maxHeight: 150,
+  overflowY: "auto",
+  scrollbarWidth: "thin",
 };
 
 const opRowStyle: React.CSSProperties = {
