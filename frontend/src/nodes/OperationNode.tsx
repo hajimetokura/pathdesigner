@@ -104,6 +104,7 @@ export default function OperationNode({ id, data }: NodeProps) {
           enabled: op.enabled,
           settings: op.suggested_settings,
           order: i + 1,
+          group_id: `default_${op.operation_type}`,
         }));
         setAssignments(newAssignments);
         syncToNodeData(result, newAssignments, upstreamStock, upstreamPlacements, objects);
@@ -258,30 +259,32 @@ export default function OperationNode({ id, data }: NodeProps) {
             Edit Settings
           </button>
 
-          {filteredOps.map((op) => {
-            const assignment = assignments.find(
-              (a) => a.operation_id === op.operation_id
-            );
-            const enabled = assignment?.enabled ?? true;
-            return (
-              <div
-                key={op.operation_id}
-                style={{
-                  ...opRowStyle,
-                  opacity: enabled ? 1 : 0.5,
-                }}
-                onClick={() => handleToggleOp(op.operation_id)}
-              >
-                <span style={{ fontSize: 11 }}>
-                  {enabled ? "\u2713" : "\u2717"}{" "}
-                  {op.object_id}: {op.operation_type}
-                </span>
-                <span style={{ fontSize: 10, color: "#888" }}>
-                  z={op.geometry.depth.toFixed(1)}
-                </span>
-              </div>
-            );
-          })}
+          <div style={scrollableListStyle}>
+            {filteredOps.map((op) => {
+              const assignment = assignments.find(
+                (a) => a.operation_id === op.operation_id
+              );
+              const enabled = assignment?.enabled ?? true;
+              return (
+                <div
+                  key={op.operation_id}
+                  style={{
+                    ...opRowStyle,
+                    opacity: enabled ? 1 : 0.5,
+                  }}
+                  onClick={() => handleToggleOp(op.operation_id)}
+                >
+                  <span style={{ fontSize: 11 }}>
+                    {enabled ? "\u2713" : "\u2717"}{" "}
+                    {op.object_id}: {op.operation_type}
+                  </span>
+                  <span style={{ fontSize: 10, color: "#888" }}>
+                    z={op.geometry.depth.toFixed(1)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -330,6 +333,12 @@ const editButtonStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
   marginBottom: 4,
+};
+
+const scrollableListStyle: React.CSSProperties = {
+  maxHeight: 150,
+  overflowY: "auto",
+  scrollbarWidth: "thin",
 };
 
 const opRowStyle: React.CSSProperties = {
