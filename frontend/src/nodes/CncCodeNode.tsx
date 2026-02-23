@@ -14,6 +14,7 @@ import LabeledHandle from "./LabeledHandle";
 import CncCodePanel from "../components/CncCodePanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { generateSbpZip } from "../api";
+import StockTabs from "../components/StockTabs";
 
 interface UpstreamZipData {
   allStockIds: string[];
@@ -46,6 +47,13 @@ export default function CncCodeNode({ id, data }: NodeProps) {
     return { allStockIds, allPlacements, allAssignments, detectedOperations, objectOrigins: objectOrigins ?? {}, stockSettings, postProcessorSettings };
   }, []);
   const zipData = useUpstreamData(id, `${id}-in`, extractZipData);
+
+  // Subscribe to stock info for read-only indicator
+  const extractStockInfo = useCallback((d: Record<string, unknown>) => ({
+    activeStockId: (d.activeStockId as string) || "stock_1",
+    allStockIds: (d.allStockIds as string[]) || [],
+  }), []);
+  const stockInfo = useUpstreamData(id, `${id}-in`, extractStockInfo);
 
   const lineCount = outputResult ? outputResult.code.split("\n").length : 0;
   const hasMultipleStocks = zipData && zipData.allStockIds.length > 1;
@@ -127,6 +135,15 @@ export default function CncCodeNode({ id, data }: NodeProps) {
       />
 
       <div style={headerStyle}>CNC Code</div>
+
+      {stockInfo && stockInfo.allStockIds.length > 1 && (
+        <StockTabs
+          stockIds={stockInfo.allStockIds}
+          activeStockId={stockInfo.activeStockId}
+          readOnly
+          size="small"
+        />
+      )}
 
       {outputResult ? (
         <div style={resultStyle}>
