@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 
-export default function DamNode({ id }: NodeProps) {
+export default function DamNode({ id, selected }: NodeProps) {
   const { setNodes } = useReactFlow();
   const [hasUpdate, setHasUpdate] = useState(false);
   const releasedRef = useRef<string | null>(null);
@@ -37,7 +38,7 @@ export default function DamNode({ id }: NodeProps) {
   }, [id, upstreamData, setNodes]);
 
   return (
-    <div style={{ ...nodeStyle, borderColor: hasUpdate ? "#ffc107" : "#ddd" }}>
+    <NodeShell category="utility" selected={selected} width={140} statusBorder={hasUpdate ? "#ffc107" : undefined}>
       <LabeledHandle
         type="target"
         position={Position.Top}
@@ -79,18 +80,9 @@ export default function DamNode({ id }: NodeProps) {
         label="out"
         dataType="geometry"
       />
-    </div>
+    </NodeShell>
   );
 }
-
-const nodeStyle: React.CSSProperties = {
-  background: "white",
-  border: "2px solid #ddd",
-  borderRadius: 8,
-  padding: "20px 12px",
-  width: 140,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-};
 
 const headerStyle: React.CSSProperties = {
   fontWeight: 700,

@@ -3,6 +3,7 @@ import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import type { PostProcessorSettings } from "../types";
 import type { PanelTab } from "../components/SidePanel";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 import PostProcessorPanel from "../components/PostProcessorPanel";
 
 const DEFAULT_SETTINGS: PostProcessorSettings = {
@@ -16,7 +17,7 @@ const DEFAULT_SETTINGS: PostProcessorSettings = {
   warmup_pause: 2,
 };
 
-export default function PostProcessorNode({ id, data }: NodeProps) {
+export default function PostProcessorNode({ id, data, selected }: NodeProps) {
   const { setNodes } = useReactFlow();
   const [settings, setSettings] = useState<PostProcessorSettings>(DEFAULT_SETTINGS);
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
@@ -46,7 +47,7 @@ export default function PostProcessorNode({ id, data }: NodeProps) {
   }, [id, settings, openTab]);
 
   return (
-    <div style={nodeStyle}>
+    <NodeShell category="cam" selected={selected}>
       <div style={headerStyle}>
         <span>Post Processor</span>
         <button style={detailBtn} onClick={handleOpenPanel}>Details</button>
@@ -71,20 +72,11 @@ export default function PostProcessorNode({ id, data }: NodeProps) {
         label="settings"
         dataType="settings"
       />
-    </div>
+    </NodeShell>
   );
 }
 
 /* --- Styles --- */
-
-const nodeStyle: React.CSSProperties = {
-  background: "white",
-  border: "1px solid #ddd",
-  borderRadius: 8,
-  padding: "20px 12px",
-  width: 200,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-};
 
 const headerStyle: React.CSSProperties = {
   display: "flex",

@@ -7,11 +7,12 @@ import type {
 } from "../types";
 import { validatePlacement } from "../api";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 import type { PanelTab } from "../components/SidePanel";
 import PlacementPanel from "../components/PlacementPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 
-export default function PlacementNode({ id, data }: NodeProps) {
+export default function PlacementNode({ id, data, selected }: NodeProps) {
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
   const updateTab = (data as Record<string, unknown>).updateTab as ((tab: PanelTab) => void) | undefined;
   const [placements, setPlacements] = useState<PlacementItem[]>([]);
@@ -253,7 +254,7 @@ export default function PlacementNode({ id, data }: NodeProps) {
   }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, updateTab, activeStockId, handleActiveStockChange]);
 
   return (
-    <div style={nodeStyle}>
+    <NodeShell category="cam" selected={selected}>
       <LabeledHandle type="target" position={Position.Top} id={`${id}-brep`} label="brep" dataType="geometry" index={0} total={2} />
       <LabeledHandle type="target" position={Position.Top} id={`${id}-stock`} label="stock" dataType="settings" index={1} total={2} />
 
@@ -282,11 +283,10 @@ export default function PlacementNode({ id, data }: NodeProps) {
       )}
 
       <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="placement" dataType="geometry" />
-    </div>
+    </NodeShell>
   );
 }
 
-const nodeStyle: React.CSSProperties = { background: "white", border: "1px solid #ddd", borderRadius: 8, padding: "20px 12px", width: 200, boxShadow: "0 2px 6px rgba(0,0,0,0.08)" };
 const headerStyle: React.CSSProperties = { fontWeight: 700, fontSize: 13, marginBottom: 8, color: "#333" };
 const canvasStyle: React.CSSProperties = { width: "100%", border: "1px solid #eee", borderRadius: 4, cursor: "pointer", background: "#fafafa" };
 const hintStyle: React.CSSProperties = { fontSize: 10, color: "#aaa", textAlign: "center", marginTop: 2 };

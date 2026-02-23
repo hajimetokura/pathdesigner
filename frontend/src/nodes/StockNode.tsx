@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import type { StockMaterial, StockSettings } from "../types";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 
 const DEFAULT_MAT: StockMaterial = {
   material_id: "stock_1",
@@ -13,7 +14,7 @@ const DEFAULT_MAT: StockMaterial = {
   y_position: 0,
 };
 
-export default function StockNode({ id }: NodeProps) {
+export default function StockNode({ id, selected }: NodeProps) {
   const { setNodes } = useReactFlow();
   const [mat, setMat] = useState<StockMaterial>(DEFAULT_MAT);
 
@@ -35,7 +36,7 @@ export default function StockNode({ id }: NodeProps) {
   );
 
   return (
-    <div style={nodeStyle}>
+    <NodeShell category="cam" selected={selected}>
       <div style={headerStyle}>Stock</div>
 
       <TextField label="Label" value={mat.label} onChange={(v) => update("label", v)} />
@@ -52,7 +53,7 @@ export default function StockNode({ id }: NodeProps) {
         label="stock"
         dataType="settings"
       />
-    </div>
+    </NodeShell>
   );
 }
 
@@ -104,15 +105,6 @@ function TextField({
 }
 
 /* --- Styles --- */
-
-const nodeStyle: React.CSSProperties = {
-  background: "white",
-  border: "1px solid #ddd",
-  borderRadius: 8,
-  padding: "20px 12px",
-  width: 200,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-};
 
 const headerStyle: React.CSSProperties = {
   fontWeight: 700,

@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef } from "react";
 import { Position, type NodeProps } from "@xyflow/react";
 import type { ToolpathGenResult, StockSettings } from "../types";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 import type { PanelTab } from "../components/SidePanel";
 import ToolpathPreviewPanel from "../components/ToolpathPreviewPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { StockBadge } from "../components/StockBadge";
 
-export default function ToolpathPreviewNode({ id, data }: NodeProps) {
+export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
 
@@ -137,7 +138,7 @@ export default function ToolpathPreviewNode({ id, data }: NodeProps) {
   }, [id, toolpathResult, openTab]);
 
   return (
-    <div style={nodeStyle}>
+    <NodeShell category="cam" selected={selected}>
       <LabeledHandle
         type="target"
         position={Position.Top}
@@ -169,18 +170,9 @@ export default function ToolpathPreviewNode({ id, data }: NodeProps) {
       ) : (
         <div style={emptyStyle}>No data</div>
       )}
-    </div>
+    </NodeShell>
   );
 }
-
-const nodeStyle: React.CSSProperties = {
-  background: "white",
-  border: "1px solid #ddd",
-  borderRadius: 8,
-  padding: "20px 12px",
-  width: 200,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-};
 
 const headerStyle: React.CSSProperties = {
   fontWeight: 700,

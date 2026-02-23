@@ -6,8 +6,9 @@ import {
   useStore,
 } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 
-export default function DebugNode({ id }: NodeProps) {
+export default function DebugNode({ id, selected }: NodeProps) {
   const { setNodes } = useReactFlow();
   const [copied, setCopied] = useState(false);
   const lastJsonRef = useRef<string | null>(null);
@@ -67,7 +68,7 @@ export default function DebugNode({ id }: NodeProps) {
   }, [upstreamDataStr]);
 
   return (
-    <div style={nodeStyle}>
+    <NodeShell category="utility" selected={selected} variant="dark">
       <LabeledHandle type="target" position={Position.Top} id={`${id}-in`} label="in" dataType="generic" />
 
       <div style={headerRow}>
@@ -88,19 +89,9 @@ export default function DebugNode({ id }: NodeProps) {
       )}
 
       <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="out" dataType="generic" />
-    </div>
+    </NodeShell>
   );
 }
-
-const nodeStyle: React.CSSProperties = {
-  background: "#1e1e1e",
-  border: "1px solid #444",
-  borderRadius: 8,
-  padding: "20px 12px",
-  minWidth: 220,
-  maxWidth: 360,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-};
 
 const headerRow: React.CSSProperties = {
   display: "flex",

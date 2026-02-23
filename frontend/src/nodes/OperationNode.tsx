@@ -9,6 +9,7 @@ import type {
   PlacementItem,
 } from "../types";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 import type { PanelTab } from "../components/SidePanel";
 import OperationDetailPanel from "../components/OperationDetailPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
@@ -22,7 +23,7 @@ interface UpstreamData {
   activeStockId: string;
 }
 
-export default function OperationNode({ id, data }: NodeProps) {
+export default function OperationNode({ id, data, selected }: NodeProps) {
   const openTab = (data as Record<string, unknown>).openTab as ((tab: PanelTab) => void) | undefined;
   const updateTab = (data as Record<string, unknown>).updateTab as ((tab: PanelTab) => void) | undefined;
   const [status, setStatus] = useState<Status>("idle");
@@ -218,10 +219,8 @@ export default function OperationNode({ id, data }: NodeProps) {
     }
   }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab, allPlacements, stockIds, activeStockId, groupLabels, handleGroupLabelsChange]);
 
-  const dynamicBorder = status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : "#ddd";
-
   return (
-    <div style={{ ...nodeStyle, borderColor: dynamicBorder }}>
+    <NodeShell category="cam" selected={selected} statusBorder={status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : undefined}>
       <LabeledHandle
         type="target"
         position={Position.Top}
@@ -305,20 +304,11 @@ export default function OperationNode({ id, data }: NodeProps) {
         label="operations"
         dataType="geometry"
       />
-    </div>
+    </NodeShell>
   );
 }
 
 /* --- Styles --- */
-
-const nodeStyle: React.CSSProperties = {
-  background: "white",
-  border: "1px solid #ddd",
-  borderRadius: 8,
-  padding: "20px 12px",
-  width: 200,
-  boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-};
 
 const headerStyle: React.CSSProperties = {
   fontWeight: 700,
