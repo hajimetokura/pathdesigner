@@ -5,7 +5,7 @@ import math
 from shapely.geometry import Polygon
 
 from nodes.drill_toolpath import generate_drill_toolpath
-from nodes.geometry_utils import rotate_coords
+from nodes.geometry_utils import transform_coords
 from nodes.pocket_toolpath import generate_pocket_contour_parallel, generate_pocket_raster
 from schemas import (
     BoundingBox,
@@ -148,11 +148,7 @@ def generate_toolpath_from_operations(
             cx = sum(c[0] for c in contour.coords) / len(contour.coords)
             cy = sum(c[1] for c in contour.coords) / len(contour.coords)
             # Apply rotation then offset
-            if rotation != 0:
-                center_coords = rotate_coords([[cx, cy]], rotation, rot_cx, rot_cy)
-                center = [center_coords[0][0] + dx, center_coords[0][1] + dy]
-            else:
-                center = [cx + dx, cy + dy]
+            center = transform_coords([[cx, cy]], rotation, rot_cx, rot_cy, dx, dy)[0]
             drill_passes = generate_drill_toolpath(
                 center=center,
                 total_depth=total_depth,
@@ -173,11 +169,7 @@ def generate_toolpath_from_operations(
             if not contour or len(contour.coords) < 3:
                 continue
             # Apply rotation then offset to build the pocket polygon
-            if rotation != 0:
-                rotated = rotate_coords(contour.coords, rotation, rot_cx, rot_cy)
-                pocket_coords = [[c[0] + dx, c[1] + dy] for c in rotated]
-            else:
-                pocket_coords = [[c[0] + dx, c[1] + dy] for c in contour.coords]
+            pocket_coords = transform_coords(contour.coords, rotation, rot_cx, rot_cy, dx, dy)
             polygon = Polygon(pocket_coords)
             if polygon.is_empty or not polygon.is_valid:
                 continue
@@ -223,11 +215,7 @@ def generate_toolpath_from_operations(
 
         for contour in sorted_contours:
             # Apply rotation (around BB center) then placement offset
-            if rotation != 0 and len(contour.coords) >= 3:
-                rotated = rotate_coords(contour.coords, rotation, rot_cx, rot_cy)
-                offset_coords = [[c[0] + dx, c[1] + dy] for c in rotated]
-            else:
-                offset_coords = [[c[0] + dx, c[1] + dy] for c in contour.coords]
+            offset_coords = transform_coords(contour.coords, rotation, rot_cx, rot_cy, dx, dy)
 
             passes = _compute_passes(
                 coords=offset_coords,

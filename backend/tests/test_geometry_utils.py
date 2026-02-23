@@ -2,7 +2,12 @@
 
 import pytest
 
-from nodes.geometry_utils import COORD_PRECISION, intersect_solid_at_z, sample_wire_coords
+from nodes.geometry_utils import (
+    COORD_PRECISION,
+    intersect_solid_at_z,
+    sample_wire_coords,
+    transform_coords,
+)
 
 
 class TestSampleWireCoords:
@@ -101,3 +106,28 @@ class TestIntersectSolidAtZ:
         # Exact boundary may or may not intersect, but should not raise
         typed_wires = intersect_solid_at_z(box, bb.min.Z)
         assert isinstance(typed_wires, list)
+
+
+class TestTransformCoords:
+    """Tests for transform_coords (rotate + translate)."""
+
+    def test_no_rotation(self):
+        """With rotation=0, only translation is applied."""
+        coords = [[10.0, 20.0], [30.0, 40.0]]
+        result = transform_coords(coords, rotation=0, rot_cx=0, rot_cy=0, dx=5, dy=-3)
+        assert result == [[15.0, 17.0], [35.0, 37.0]]
+
+    def test_rotation_90(self):
+        """90-degree rotation around origin then translate."""
+        coords = [[10.0, 0.0], [10.0, 0.0]]
+        result = transform_coords(coords, rotation=90, rot_cx=0, rot_cy=0, dx=0, dy=0)
+        # (10, 0) rotated 90° CCW around (0,0) → (0, 10)
+        for c in result:
+            assert abs(c[0] - 0.0) < 0.01
+            assert abs(c[1] - 10.0) < 0.01
+
+    def test_single_point(self):
+        """Works with a single point (drill center)."""
+        coords = [[5.0, 5.0]]
+        result = transform_coords(coords, rotation=0, rot_cx=0, rot_cy=0, dx=10, dy=20)
+        assert result == [[15.0, 25.0]]

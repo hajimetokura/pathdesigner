@@ -100,3 +100,38 @@ def rotate_coords(
     poly = Polygon(coords)
     rotated = shapely_rotate(poly, angle, origin=(cx, cy), use_radians=False)
     return [[round(c[0], 4), round(c[1], 4)] for c in rotated.exterior.coords]
+
+
+def transform_coords(
+    coords: list[list[float]],
+    rotation: float,
+    rot_cx: float,
+    rot_cy: float,
+    dx: float,
+    dy: float,
+) -> list[list[float]]:
+    """Rotate coords around (rot_cx, rot_cy), then translate by (dx, dy).
+
+    Handles any number of points (including single-point drill centers).
+    Uses Shapely for rotation when len(coords) >= 3, otherwise manual math.
+    """
+    if rotation != 0:
+        if len(coords) >= 3:
+            rotated = rotate_coords(coords, rotation, rot_cx, rot_cy)
+        else:
+            import math
+
+            rad = math.radians(rotation)
+            cos_a, sin_a = math.cos(rad), math.sin(rad)
+            rotated = []
+            for c in coords:
+                rx = c[0] - rot_cx
+                ry = c[1] - rot_cy
+                rotated.append([
+                    round(cos_a * rx - sin_a * ry + rot_cx, 4),
+                    round(sin_a * rx + cos_a * ry + rot_cy, 4),
+                ])
+    else:
+        rotated = coords
+
+    return [[c[0] + dx, c[1] + dy] for c in rotated]
