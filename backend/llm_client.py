@@ -29,8 +29,8 @@ AVAILABLE_MODELS: dict[str, dict] = {
     },
 }
 
-_SYSTEM_PROMPT = """\
-You are a build123d expert generating Python code for CNC sheet parts.
+_BASE_PROMPT = """\
+You are a build123d expert generating Python code for CNC-machinable parts.
 
 RULES:
 - Assign final shape to variable `result` (Solid, Part, or Compound)
@@ -40,6 +40,9 @@ RULES:
 - Use Builder API (BuildPart) as default — it handles patterns, fillets, and holes cleanly
 - Use Algebra API only for trivially simple shapes (e.g. single box, one boolean)
 - Output ONLY code, no explanations
+"""
+
+_GENERAL_CHEATSHEET = """\
 
 ═══ build123d CHEATSHEET ═══
 
@@ -47,6 +50,8 @@ RULES:
   Box(length, width, height)
   Cylinder(radius, height)
   Cone(bottom_radius, top_radius, height)
+  Sphere(radius)
+  Torus(major_radius, minor_radius)
 
 2D SKETCH SHAPES (use inside BuildSketch):
   Rectangle(width, height)
@@ -56,13 +61,26 @@ RULES:
   RegularPolygon(radius, side_count)
   Polygon(*pts)              # Polygon((0,0), (10,0), (10,5), (0,5))
   SlotOverall(width, height) # stadium/oblong slot
+  Text("string", font_size)  # text shape (auto-Face in BuildSketch)
+
+1D LINES (use inside BuildSketch > BuildLine, then call make_face()):
+  Line(pt1, pt2)
+  Polyline(*pts)             # connected line segments
   Spline(*pts)               # smooth curve through points
+  CenterArc(center, radius, start_angle, arc_size)
+  RadiusArc(pt1, pt2, radius)
 
 OPERATIONS:
-  extrude(to_extrude, amount)     # sketch → solid
-  fillet(objects, radius)          # ONLY inside BuildPart
-  chamfer(objects, length)         # ONLY inside BuildPart
+  extrude(amount=d)              # sketch → solid (inside BuildPart)
+  extrude(sk.sketch, amount=d)   # sketch → solid (Algebra)
+  revolve(axis=Axis.Z)           # rotate profile around axis
+  loft()                         # connect multiple sections
+  sweep()                        # sweep sketch along path
+  fillet(edges, radius)          # round edges (BuildPart only)
+  chamfer(edges, length)         # bevel edges (BuildPart only)
+  offset(amount=-t, openings=f)  # shell (hollow out)
   mirror(about=Plane.YZ)
+  make_face()                    # BuildLine edges → Face
 
 BOOLEAN (Algebra API):
   plate - hole      # subtract
@@ -78,6 +96,20 @@ PATTERNS (inside BuildPart/BuildSketch):
   Locations((x1,y1), (x2,y2), ...)
   GridLocations(x_spacing, y_spacing, x_count, y_count)
   PolarLocations(radius, count)
+
+PLANES:
+  Plane.XY                  # default (Z normal)
+  Plane.XZ                  # for revolve profiles
+  Plane.XY.offset(20)       # parallel plane at Z=20
+  path.line ^ 0             # plane at path start (for sweep)
+
+SELECTORS:
+  bp.faces().sort_by(Axis.Z)[-1]           # top face
+  bp.faces().sort_by(Axis.Z)[0]            # bottom face
+  bp.edges().group_by(Axis.Z)[-1]          # top edge group (list)
+  bp.edges().filter_by(Axis.Z)             # vertical edges
+  bp.edges().filter_by(GeomType.CIRCLE)    # circular edges
+  bp.faces().filter_by(GeomType.CYLINDER)  # cylindrical faces
 
 BUILDER API:
   with BuildPart() as bp:
@@ -103,6 +135,14 @@ BUILDER API:
 
 5. For holes in Algebra API, use Cylinder subtract:
    plate = Box(100, 50, 10) - Pos(20, 0, 0) * Cylinder(5, 10)
+
+6. BuildLine MUST form closed loop — start point must equal end point
+   Last Line(...) must connect back to first point
+
+7. sort_by()[-1] returns ONE element; group_by()[-1] returns a LIST
+   For fillet: fillet(bp.edges().group_by(Axis.Z)[-1], radius=2)
+
+8. Builder mode result: bp.part (NOT bp or part)
 
 ═══ PATTERNS ═══
 
@@ -147,6 +187,22 @@ with BuildPart() as bp:
 result = bp.part
 """
 
+_PROFILES: dict[str, dict] = {
+    "general": {
+        "name": "汎用",
+        "description": "幅広い形状に対応",
+        "cheatsheet": _GENERAL_CHEATSHEET,
+    },
+}
+
+
+def _build_system_prompt(profile: str = "general") -> str:
+    """Build system prompt from base + profile-specific cheatsheet."""
+    p = _PROFILES.get(profile)
+    if p is None:
+        p = _PROFILES["general"]
+    return _BASE_PROMPT + p["cheatsheet"]
+
 _CODE_FENCE_RE = re.compile(r"```(?:python)?\s*\n?(.*?)\n?\s*```", re.DOTALL)
 
 
@@ -180,7 +236,7 @@ class LLMClient:
         Returns the raw Python code string (no fences).
         """
         use_model = model or self.default_model
-        messages: list[dict] = [{"role": "system", "content": _SYSTEM_PROMPT}]
+        messages: list[dict] = [{"role": "system", "content": _build_system_prompt()}]
 
         # Build user message (text or multimodal)
         if image_base64 and _model_supports_vision(use_model):
@@ -214,7 +270,7 @@ class LLMClient:
         System prompt is prepended automatically.
         """
         use_model = model or self.default_model
-        full_messages = [{"role": "system", "content": _SYSTEM_PROMPT}] + messages
+        full_messages = [{"role": "system", "content": _build_system_prompt()}] + messages
 
         response = await self._client.chat.completions.create(
             model=use_model,

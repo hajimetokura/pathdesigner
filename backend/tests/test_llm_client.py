@@ -13,6 +13,23 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from llm_client import LLMClient, AVAILABLE_MODELS
 
 
+def test_build_system_prompt_default():
+    """_build_system_prompt returns base + general cheatsheet."""
+    from llm_client import _build_system_prompt, _BASE_PROMPT, _PROFILES
+    prompt = _build_system_prompt()
+    assert prompt.startswith(_BASE_PROMPT)
+    assert "CHEATSHEET" in prompt
+    assert _PROFILES["general"]["cheatsheet"] in prompt
+
+
+def test_build_system_prompt_unknown_falls_back():
+    """Unknown profile falls back to general."""
+    from llm_client import _build_system_prompt
+    prompt = _build_system_prompt("nonexistent")
+    general = _build_system_prompt("general")
+    assert prompt == general
+
+
 def test_available_models_has_entries():
     assert len(AVAILABLE_MODELS) >= 3
 
