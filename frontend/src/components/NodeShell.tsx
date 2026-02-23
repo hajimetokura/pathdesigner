@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 export type NodeCategory = "cam" | "cad" | "utility";
 
 const CATEGORY_COLORS: Record<NodeCategory, string> = {
-  cam: "#5b8def",
-  cad: "#8b6cc1",
-  utility: "#888888",
+  cad: "#ff9800",     // オレンジ
+  cam: "#00bcd4",     // 水色
+  utility: "#888888",  // 灰色
 };
 
 interface NodeShellProps {
