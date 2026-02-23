@@ -22,7 +22,7 @@ from schemas import (
     ToolpathGenRequest, ToolpathGenResult,
     SbpGenRequest, OutputResult,
     OperationDetectResult,
-    StockSettings, StockMaterial, BoundingBox,
+    SheetSettings, SheetMaterial, BoundingBox,
     MeshDataRequest, MeshDataResult, ObjectMesh,
     PlacementItem, ValidatePlacementRequest, ValidatePlacementResponse,
     AutoNestingRequest, AutoNestingResponse,
@@ -186,7 +186,7 @@ def generate_toolpath_endpoint(req: ToolpathGenRequest):
     """Generate toolpath passes from operation assignments."""
     try:
         result = generate_toolpath_from_operations(
-            req.operations, req.detected_operations, req.stock,
+            req.operations, req.detected_operations, req.sheet,
             req.placements, req.object_origins, req.bounding_boxes
         )
     except Exception as e:
@@ -201,7 +201,7 @@ def generate_sbp_endpoint(req: SbpGenRequest):
         machining = req.operations[0].settings if req.operations else None
         if not machining:
             raise ValueError("No operations provided")
-        writer = SbpWriter(req.post_processor, machining, req.stock)
+        writer = SbpWriter(req.post_processor, machining, req.sheet)
         sbp_code = writer.generate(req.toolpath_result.toolpaths)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"SBP generation failed: {e}")
@@ -230,28 +230,28 @@ def auto_nesting_endpoint(req: AutoNestingRequest):
     from nodes.nesting import auto_nesting
 
     placements = auto_nesting(
-        req.objects, req.stock, req.tool_diameter, req.clearance,
+        req.objects, req.sheet, req.tool_diameter, req.clearance,
     )
-    stock_ids = set(p.stock_id for p in placements)
+    sheet_ids = set(p.sheet_id for p in placements)
     # Warn about parts that don't fit
     warnings = []
     for p in placements:
         obj = next((o for o in req.objects if o.object_id == p.object_id), None)
         if obj and p.x_offset == 0 and p.y_offset == 0 and p.rotation == 0:
             bb = obj.bounding_box
-            tmpl = req.stock.materials[0] if req.stock.materials else None
+            tmpl = req.sheet.materials[0] if req.sheet.materials else None
             if tmpl and (bb.x > tmpl.width or bb.y > tmpl.depth):
                 warnings.append(f"{p.object_id}: ストックに収まりません")
     return AutoNestingResponse(
         placements=placements,
-        stock_count=len(stock_ids),
+        sheet_count=len(sheet_ids),
         warnings=warnings,
     )
 
 
 def _validate_placement(
     placement: PlacementItem,
-    stock: StockMaterial,
+    stock: SheetMaterial,
     bb: BoundingBox,
 ) -> list[str]:
     """Check if a placed object fits within stock bounds."""
@@ -280,7 +280,7 @@ def validate_placement_endpoint(req: ValidatePlacementRequest):
     from shapely.affinity import translate
     from nodes.geometry_utils import rotate_polygon
 
-    mat_lookup = {m.material_id: m for m in req.stock.materials}
+    mat_lookup = {m.material_id: m for m in req.sheet.materials}
     all_warnings: list[str] = []
 
     # 1. Bounds check per part
@@ -317,10 +317,10 @@ def validate_placement_endpoint(req: ValidatePlacementRequest):
             poly = translate(poly, p.x_offset, p.y_offset)
             placement_polys.append((p, poly))
 
-        # Group by stock_id and check collisions within each group
+        # Group by sheet_id and check collisions within each group
         from itertools import groupby
-        sorted_by_stock = sorted(placement_polys, key=lambda x: x[0].stock_id)
-        for _stock_id, group in groupby(sorted_by_stock, key=lambda x: x[0].stock_id):
+        sorted_by_stock = sorted(placement_polys, key=lambda x: x[0].sheet_id)
+        for _sheet_id, group in groupby(sorted_by_stock, key=lambda x: x[0].sheet_id):
             items = list(group)
             for i in range(len(items)):
                 for j in range(i + 1, len(items)):
@@ -338,16 +338,16 @@ def validate_placement_endpoint(req: ValidatePlacementRequest):
 @app.post("/api/generate-sbp-zip")
 def generate_sbp_zip_endpoint(req: SbpZipRequest):
     """Generate SBP files for all stocks and return as ZIP."""
-    # Group placements by stock_id
-    stock_groups: dict[str, list[PlacementItem]] = {}
+    # Group placements by sheet_id
+    sheet_groups: dict[str, list[PlacementItem]] = {}
     for p in req.placements:
-        stock_groups.setdefault(p.stock_id, []).append(p)
+        sheet_groups.setdefault(p.sheet_id, []).append(p)
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for stock_id in sorted(stock_groups.keys()):
-            stock_placements = stock_groups[stock_id]
-            stock_object_ids = {p.object_id for p in stock_placements}
+        for sheet_id in sorted(sheet_groups.keys()):
+            sheet_placements = sheet_groups[sheet_id]
+            sheet_object_ids = {p.object_id for p in sheet_placements}
 
             # Filter assignments for this stock
             op_to_obj = {
@@ -356,27 +356,27 @@ def generate_sbp_zip_endpoint(req: SbpZipRequest):
             }
             filtered_ops = [
                 a for a in req.operations
-                if op_to_obj.get(a.operation_id) in stock_object_ids
+                if op_to_obj.get(a.operation_id) in sheet_object_ids
             ]
             if not filtered_ops:
                 continue
 
             # Generate toolpath for this stock
             tp_result = generate_toolpath_from_operations(
-                filtered_ops, req.detected_operations, req.stock,
-                stock_placements, req.object_origins, req.bounding_boxes,
+                filtered_ops, req.detected_operations, req.sheet,
+                sheet_placements, req.object_origins, req.bounding_boxes,
             )
 
             # Generate SBP
             machining = filtered_ops[0].settings
-            writer = SbpWriter(req.post_processor, machining, req.stock)
+            writer = SbpWriter(req.post_processor, machining, req.sheet)
             sbp_code = writer.generate(tp_result.toolpaths)
 
-            zf.writestr(f"{stock_id}.sbp", sbp_code)
+            zf.writestr(f"{sheet_id}.sbp", sbp_code)
 
     buf.seek(0)
     return StreamingResponse(
         buf,
         media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=pathdesigner_stocks.zip"},
+        headers={"Content-Disposition": "attachment; filename=pathdesigner_sheets.zip"},
     )

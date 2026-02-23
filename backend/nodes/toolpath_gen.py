@@ -10,7 +10,7 @@ from schemas import (
     OperationAssignment,
     OperationDetectResult,
     PlacementItem,
-    StockSettings,
+    SheetSettings,
     TabSegment,
     Toolpath,
     ToolpathGenResult,
@@ -55,24 +55,24 @@ def generate_toolpath(
 def generate_toolpath_from_operations(
     assignments: list[OperationAssignment],
     detected: OperationDetectResult,
-    stock: StockSettings,
+    sheet: SheetSettings,
     placements: list[PlacementItem] | None = None,
     object_origins: dict[str, list[float]] | None = None,
     bounding_boxes: dict[str, BoundingBox] | None = None,
 ) -> ToolpathGenResult:
     """Generate toolpaths from operation assignments.
 
-    For contour operations, uses the assigned stock material's thickness
-    as the cutting depth (to cut through the entire stock).
+    For contour operations, uses the assigned sheet material's thickness
+    as the cutting depth (to cut through the entire sheet).
 
-    Coordinate transform: model_space → stock_space
+    Coordinate transform: model_space → sheet_space
       1. Rotate around contour geometric center (if rotation != 0)
-      2. Translate: stock_coord = (model_coord - origin) + placement_offset
+      2. Translate: sheet_coord = (model_coord - origin) + placement_offset
     """
     # Build lookup: operation_id → DetectedOperation
     op_lookup = {op.operation_id: op for op in detected.operations}
-    # Build lookup: material_id → StockMaterial
-    mat_lookup = {m.material_id: m for m in stock.materials}
+    # Build lookup: material_id → SheetMaterial
+    mat_lookup = {m.material_id: m for m in sheet.materials}
     # Build lookup: object_id → PlacementItem
     plc_lookup = {p.object_id: p for p in (placements or [])}
     # Build lookup: object_id → (origin_x, origin_y)
@@ -106,7 +106,7 @@ def generate_toolpath_from_operations(
         if not material:
             continue
 
-        # Compute coordinate transform: model → stock space
+        # Compute coordinate transform: model → sheet space
         placement = plc_lookup.get(detected_op.object_id)
         origin = ori_lookup.get(detected_op.object_id, [0.0, 0.0])
         origin_x, origin_y = origin[0], origin[1]
@@ -122,7 +122,7 @@ def generate_toolpath_from_operations(
         rot_cx = (min(all_cx) + max(all_cx)) / 2 if all_cx else 0.0
         rot_cy = (min(all_cy) + max(all_cy)) / 2 if all_cy else 0.0
 
-        # For contour operations, cut through entire stock
+        # For contour operations, cut through entire sheet
         if detected_op.operation_type == "contour":
             total_depth = material.thickness
         else:
@@ -157,12 +157,12 @@ def generate_toolpath_from_operations(
                 )
             )
 
-    # Return result with stock dimensions for preview
-    first_material = stock.materials[0] if stock.materials else None
+    # Return result with sheet dimensions for preview
+    first_material = sheet.materials[0] if sheet.materials else None
     return ToolpathGenResult(
         toolpaths=toolpaths,
-        stock_width=first_material.width if first_material else None,
-        stock_depth=first_material.depth if first_material else None,
+        sheet_width=first_material.width if first_material else None,
+        sheet_depth=first_material.depth if first_material else None,
     )
 
 
