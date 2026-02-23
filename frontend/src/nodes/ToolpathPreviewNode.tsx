@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef } from "react";
 import { Position, type NodeProps } from "@xyflow/react";
-import type { ToolpathGenResult, StockSettings } from "../types";
+import type { ToolpathGenResult, SheetSettings } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import type { PanelTab } from "../components/SidePanel";
 import ToolpathPreviewPanel from "../components/ToolpathPreviewPanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
-import { StockBadge } from "../components/StockBadge";
+import { SheetBadge } from "../components/SheetBadge";
 
 export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -15,9 +15,9 @@ export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
   // Subscribe to upstream ToolpathGenNode data
   const extractUpstream = useCallback((d: Record<string, unknown>) => ({
     toolpathResult: d.toolpathResult as ToolpathGenResult | undefined,
-    stockSettings: d.stockSettings as StockSettings | undefined,
-    activeStockId: (d.activeStockId as string) || "stock_1",
-    allStockIds: (d.allStockIds as string[]) || [],
+    sheetSettings: d.sheetSettings as SheetSettings | undefined,
+    activeSheetId: (d.activeSheetId as string) || "sheet_1",
+    allSheetIds: (d.allSheetIds as string[]) || [],
   }), []);
   const upstream = useUpstreamData(id, `${id}-in`, extractUpstream);
   const toolpathResult = upstream?.toolpathResult;
@@ -41,9 +41,9 @@ export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
         }
       }
       // Include origin and stock bounds in view
-      if (result.stock_width && result.stock_depth) {
+      if (result.sheet_width && result.sheet_depth) {
         allPoints.push([0, 0]);
-        allPoints.push([result.stock_width, result.stock_depth]);
+        allPoints.push([result.sheet_width, result.sheet_depth]);
       } else {
         allPoints.push([0, 0]);
       }
@@ -80,9 +80,9 @@ export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
       const zRange = maxZ - minZ || 1;
 
       // Stock bounds (thumbnail)
-      if (result.stock_width && result.stock_depth) {
+      if (result.sheet_width && result.sheet_depth) {
         const [sx0, sy0] = toCanvas(0, 0);
-        const [sx1, sy1] = toCanvas(result.stock_width, result.stock_depth);
+        const [sx1, sy1] = toCanvas(result.sheet_width, result.sheet_depth);
         ctx.strokeStyle = "#ddd";
         ctx.lineWidth = 0.5;
         ctx.setLineDash([3, 2]);
@@ -149,10 +149,10 @@ export default function ToolpathPreviewNode({ id, data, selected }: NodeProps) {
 
       <div style={headerStyle}>Toolpath Preview</div>
 
-      {upstream && upstream.allStockIds.length > 1 && (
-        <StockBadge
-          activeStockId={upstream.activeStockId}
-          totalStocks={upstream.allStockIds.length}
+      {upstream && upstream.allSheetIds.length > 1 && (
+        <SheetBadge
+          activeSheetId={upstream.activeSheetId}
+          totalSheets={upstream.allSheetIds.length}
         />
       )}
 

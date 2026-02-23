@@ -79,7 +79,7 @@ class ContourExtractResult(BaseModel):
 # --- Node 2b: Stock Settings ---
 
 
-class StockMaterial(BaseModel):
+class SheetMaterial(BaseModel):
     material_id: str
     label: str = ""
     width: float = 600        # mm (X)
@@ -89,8 +89,8 @@ class StockMaterial(BaseModel):
     y_position: float = 0
 
 
-class StockSettings(BaseModel):
-    materials: list[StockMaterial]
+class SheetSettings(BaseModel):
+    materials: list[SheetMaterial]
 
 
 # --- Node 3: Machining Settings ---
@@ -220,7 +220,7 @@ class Toolpath(BaseModel):
 class ToolpathGenRequest(BaseModel):
     operations: list[OperationAssignment]
     detected_operations: OperationDetectResult
-    stock: StockSettings
+    sheet: SheetSettings
     placements: list[PlacementItem] = []
     object_origins: dict[str, list[float]] = {}  # object_id → [origin_x, origin_y]
     bounding_boxes: dict[str, BoundingBox] = {}  # object_id → bounding_box
@@ -228,14 +228,14 @@ class ToolpathGenRequest(BaseModel):
 
 class ToolpathGenResult(BaseModel):
     toolpaths: list[Toolpath]
-    stock_width: float | None = None   # mm (X axis)
-    stock_depth: float | None = None   # mm (Y axis)
+    sheet_width: float | None = None   # mm (X axis)
+    sheet_depth: float | None = None   # mm (Y axis)
 
 
 class SbpGenRequest(BaseModel):
     toolpath_result: ToolpathGenResult
     operations: list[OperationAssignment]
-    stock: StockSettings
+    sheet: SheetSettings
     post_processor: PostProcessorSettings
 
 
@@ -268,7 +268,7 @@ class MeshDataResult(BaseModel):
 class PlacementItem(BaseModel):
     object_id: str
     material_id: str
-    stock_id: str = "stock_1"  # physical sheet identifier
+    sheet_id: str = "sheet_1"  # physical sheet identifier
     x_offset: float = 0       # mm, position on stock
     y_offset: float = 0
     rotation: int = 0          # degrees, 0/45/90/135/180/225/270/315
@@ -283,13 +283,13 @@ class PlacementItem(BaseModel):
 
 class PlacementResult(BaseModel):
     placements: list[PlacementItem]
-    stock: StockSettings
+    sheet: SheetSettings
     objects: list[BrepObject]
 
 
 class ValidatePlacementRequest(BaseModel):
     placements: list[PlacementItem]
-    stock: StockSettings
+    sheet: SheetSettings
     bounding_boxes: dict[str, BoundingBox]  # object_id -> bounding_box
     outlines: dict[str, list[list[float]]] = {}  # object_id -> [[x,y], ...]
     tool_diameter: float = 6.35
@@ -305,14 +305,14 @@ class ValidatePlacementResponse(BaseModel):
 
 class AutoNestingRequest(BaseModel):
     objects: list[BrepObject]
-    stock: StockSettings
+    sheet: SheetSettings
     tool_diameter: float = 6.35
     clearance: float = 5.0
 
 
 class AutoNestingResponse(BaseModel):
     placements: list[PlacementItem]
-    stock_count: int
+    sheet_count: int
     warnings: list[str] = []
 
 
@@ -322,7 +322,7 @@ class AutoNestingResponse(BaseModel):
 class SbpZipRequest(BaseModel):
     operations: list[OperationAssignment]
     detected_operations: OperationDetectResult
-    stock: StockSettings
+    sheet: SheetSettings
     placements: list[PlacementItem]
     object_origins: dict[str, list[float]] = {}
     bounding_boxes: dict[str, BoundingBox] = {}

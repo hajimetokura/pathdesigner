@@ -3,23 +3,23 @@ import type {
   OperationDetectResult,
   OperationAssignment,
   DetectedOperation,
-  StockSettings,
+  SheetSettings,
   MachiningSettings,
   PlacementItem,
   PresetItem,
   SettingsGroup,
 } from "../types";
-import { StockBadge } from "./StockBadge";
+import { SheetBadge } from "./SheetBadge";
 import { fetchPresets } from "../api";
 
 interface Props {
   detectedOperations: OperationDetectResult;
   assignments: OperationAssignment[];
-  stockSettings: StockSettings | null;
+  sheetSettings: SheetSettings | null;
   onAssignmentsChange: (assignments: OperationAssignment[]) => void;
   placements: PlacementItem[];
-  stockIds: string[];
-  activeStockId: string;
+  sheetIds: string[];
+  activeSheetId: string;
   groupLabels: Record<string, string>;
   onGroupLabelsChange: (labels: Record<string, string>) => void;
 }
@@ -107,11 +107,11 @@ const getGroupBg = (index: number, isDefault: boolean): string =>
 export default function OperationDetailPanel({
   detectedOperations,
   assignments,
-  stockSettings,
+  sheetSettings,
   onAssignmentsChange,
   placements,
-  stockIds,
-  activeStockId,
+  sheetIds,
+  activeSheetId,
   groupLabels,
   onGroupLabelsChange,
 }: Props) {
@@ -129,7 +129,7 @@ export default function OperationDetailPanel({
   const [savingPresetGroupId, setSavingPresetGroupId] = useState<string | null>(null);
   const [newPresetName, setNewPresetName] = useState("");
 
-  const materials = stockSettings?.materials ?? [];
+  const materials = sheetSettings?.materials ?? [];
 
   // Load built-in presets on mount
   useEffect(() => {
@@ -137,8 +137,8 @@ export default function OperationDetailPanel({
   }, []);
 
   const activeObjectIds = useMemo(() => {
-    return new Set(placements.filter((p) => p.stock_id === activeStockId).map((p) => p.object_id));
-  }, [placements, activeStockId]);
+    return new Set(placements.filter((p) => p.sheet_id === activeSheetId).map((p) => p.object_id));
+  }, [placements, activeSheetId]);
 
   const derivedGroups = useMemo(() => {
     return deriveGroups(assignments, detectedOperations.operations, activeObjectIds, groupLabels);
@@ -345,8 +345,8 @@ export default function OperationDetailPanel({
   return (
     <div style={panelStyle}>
       <div style={panelBodyStyle}>
-        {stockIds.length > 1 && (
-          <StockBadge activeStockId={activeStockId} totalStocks={stockIds.length} />
+        {sheetIds.length > 1 && (
+          <SheetBadge activeSheetId={activeSheetId} totalSheets={sheetIds.length} />
         )}
 
         {groups.map((group, groupIndex) => {
@@ -672,7 +672,7 @@ export default function OperationDetailPanel({
                         </span>
                         {thicknessWarning && (
                           <span style={{ color: "#e65100", marginLeft: 4 }}>
-                            ⚠ stock too thin
+                            ⚠ sheet too thin
                           </span>
                         )}
                       </span>

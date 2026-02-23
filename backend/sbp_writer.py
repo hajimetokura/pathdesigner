@@ -3,7 +3,7 @@
 from schemas import (
     MachiningSettings,
     PostProcessorSettings,
-    StockSettings,
+    SheetSettings,
     Toolpath,
     ToolpathPass,
 )
@@ -16,11 +16,11 @@ class SbpWriter:
         self,
         settings: PostProcessorSettings,
         machining: MachiningSettings,
-        stock: StockSettings | None = None,
+        sheet: SheetSettings | None = None,
     ):
         self.s = settings
         self.m = machining
-        self.stock = stock
+        self.sheet = sheet
 
     def generate(self, toolpaths: list[Toolpath]) -> str:
         """Generate complete SBP file content.
@@ -74,8 +74,8 @@ class SbpWriter:
 
     def _material_metadata(self) -> list[str]:
         lines: list[str] = []
-        if self.stock:
-            for mat in self.stock.materials:
+        if self.sheet:
+            for mat in self.sheet.materials:
                 lines.extend([
                     f"'MATERIAL_ID:{mat.material_id}",
                     f"'MATERIAL_WIDTH:{mat.width:g}",

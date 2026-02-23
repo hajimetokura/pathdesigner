@@ -10,7 +10,7 @@ interface LayoutOptions {
 // Handle render index (left=0, right=1) from each node component's JSX order.
 // Update this when adding new multi-handle nodes.
 const HANDLE_INDEX: Record<string, number> = {
-  brep: 0, stock: 1,               // PlacementNode inputs
+  brep: 0, sheet: 1,               // PlacementNode inputs
   operations: 0, postprocessor: 1,  // ToolpathGenNode inputs
   toolpath: 0, output: 1,          // ToolpathGenNode outputs
 };

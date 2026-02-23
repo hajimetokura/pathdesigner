@@ -87,7 +87,7 @@ export default function BrepImportNode({ id, data, selected }: NodeProps) {
 
 
   return (
-    <NodeShell category="cam" selected={selected}>
+    <NodeShell category="cad" selected={selected}>
       <div style={headerStyle}>BREP Import</div>
 
       <div

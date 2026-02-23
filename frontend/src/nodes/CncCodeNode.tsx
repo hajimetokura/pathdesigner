@@ -4,7 +4,7 @@ import type {
   OutputResult,
   OperationAssignment,
   OperationDetectResult,
-  StockSettings,
+  SheetSettings,
   PostProcessorSettings,
   PlacementItem,
   BoundingBox,
@@ -15,15 +15,15 @@ import NodeShell from "../components/NodeShell";
 import CncCodePanel from "../components/CncCodePanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { generateSbpZip } from "../api";
-import { StockBadge } from "../components/StockBadge";
+import { SheetBadge } from "../components/SheetBadge";
 
 interface UpstreamZipData {
-  allStockIds: string[];
+  allSheetIds: string[];
   allPlacements: PlacementItem[];
   allAssignments: OperationAssignment[];
   detectedOperations: OperationDetectResult;
   objectOrigins: Record<string, [number, number]>;
-  stockSettings: StockSettings;
+  sheetSettings: SheetSettings;
   postProcessorSettings: PostProcessorSettings;
 }
 
@@ -37,27 +37,27 @@ export default function CncCodeNode({ id, data, selected }: NodeProps) {
 
   // Subscribe to upstream data needed for ZIP download
   const extractZipData = useCallback((d: Record<string, unknown>): UpstreamZipData | undefined => {
-    const allStockIds = d.allStockIds as string[] | undefined;
+    const allSheetIds = d.allSheetIds as string[] | undefined;
     const allPlacements = d.allPlacements as PlacementItem[] | undefined;
     const allAssignments = d.allAssignments as OperationAssignment[] | undefined;
     const detectedOperations = d.detectedOperations as OperationDetectResult | undefined;
     const objectOrigins = d.objectOrigins as Record<string, [number, number]> | undefined;
-    const stockSettings = d.stockSettings as StockSettings | undefined;
+    const sheetSettings = d.sheetSettings as SheetSettings | undefined;
     const postProcessorSettings = d.postProcessorSettings as PostProcessorSettings | undefined;
-    if (!allStockIds || !allPlacements || !allAssignments || !detectedOperations || !stockSettings || !postProcessorSettings) return undefined;
-    return { allStockIds, allPlacements, allAssignments, detectedOperations, objectOrigins: objectOrigins ?? {}, stockSettings, postProcessorSettings };
+    if (!allSheetIds || !allPlacements || !allAssignments || !detectedOperations || !sheetSettings || !postProcessorSettings) return undefined;
+    return { allSheetIds, allPlacements, allAssignments, detectedOperations, objectOrigins: objectOrigins ?? {}, sheetSettings, postProcessorSettings };
   }, []);
   const zipData = useUpstreamData(id, `${id}-in`, extractZipData);
 
   // Subscribe to stock info for read-only indicator
-  const extractStockInfo = useCallback((d: Record<string, unknown>) => ({
-    activeStockId: (d.activeStockId as string) || "stock_1",
-    allStockIds: (d.allStockIds as string[]) || [],
+  const extractSheetInfo = useCallback((d: Record<string, unknown>) => ({
+    activeSheetId: (d.activeSheetId as string) || "sheet_1",
+    allSheetIds: (d.allSheetIds as string[]) || [],
   }), []);
-  const stockInfo = useUpstreamData(id, `${id}-in`, extractStockInfo);
+  const sheetInfo = useUpstreamData(id, `${id}-in`, extractSheetInfo);
 
   const lineCount = outputResult ? outputResult.code.split("\n").length : 0;
-  const hasMultipleStocks = zipData && zipData.allStockIds.length > 1;
+  const hasMultipleSheets = zipData && zipData.allSheetIds.length > 1;
 
   const handleExport = useCallback(() => {
     if (!outputResult) return;
@@ -95,7 +95,7 @@ export default function CncCodeNode({ id, data, selected }: NodeProps) {
       const blob = await generateSbpZip(
         zipData.allAssignments,
         zipData.detectedOperations,
-        zipData.stockSettings,
+        zipData.sheetSettings,
         zipData.allPlacements,
         zipData.objectOrigins,
         boundingBoxes,
@@ -104,7 +104,7 @@ export default function CncCodeNode({ id, data, selected }: NodeProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "pathdesigner_stocks.zip";
+      a.download = "pathdesigner_sheets.zip";
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -137,10 +137,10 @@ export default function CncCodeNode({ id, data, selected }: NodeProps) {
 
       <div style={headerStyle}>CNC Code</div>
 
-      {stockInfo && stockInfo.allStockIds.length > 1 && (
-        <StockBadge
-          activeStockId={stockInfo.activeStockId}
-          totalStocks={stockInfo.allStockIds.length}
+      {sheetInfo && sheetInfo.allSheetIds.length > 1 && (
+        <SheetBadge
+          activeSheetId={sheetInfo.activeSheetId}
+          totalSheets={sheetInfo.allSheetIds.length}
         />
       )}
 
@@ -152,9 +152,9 @@ export default function CncCodeNode({ id, data, selected }: NodeProps) {
           <button onClick={handleExport} style={exportBtnStyle}>
             Export
           </button>
-          {hasMultipleStocks && (
+          {hasMultipleSheets && (
             <button onClick={handleDownloadZip} disabled={zipLoading} style={zipBtnStyle}>
-              {zipLoading ? "Generating..." : `Download All (${zipData.allStockIds.length} stocks) ZIP`}
+              {zipLoading ? "Generating..." : `Download All (${zipData.allSheetIds.length} sheets) ZIP`}
             </button>
           )}
           <button onClick={handleViewCode} style={viewBtnStyle}>

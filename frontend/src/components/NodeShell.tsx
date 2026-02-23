@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 export type NodeCategory = "cam" | "cad" | "utility";
 
 const CATEGORY_COLORS: Record<NodeCategory, string> = {
-  cam: "#5b8def",
-  cad: "#8b6cc1",
-  utility: "#888888",
+  cad: "#ff9800",     // オレンジ
+  cam: "#00bcd4",     // 水色
+  utility: "#888888",  // 灰色
 };
 
 interface NodeShellProps {
@@ -30,8 +30,13 @@ export default function NodeShell({
 
   const borderColor = statusBorder || (isDark ? "#444" : "#ddd");
 
+  const baseBg = isDark ? "#1e1e1e" : "white";
+  const selectedBg = selected
+    ? `color-mix(in srgb, ${categoryColor} 15%, ${baseBg})`
+    : baseBg;
+
   const style: React.CSSProperties = {
-    background: isDark ? "#1e1e1e" : "white",
+    background: selectedBg,
     borderTop: `1px solid ${borderColor}`,
     borderRight: `1px solid ${borderColor}`,
     borderBottom: `1px solid ${borderColor}`,
@@ -41,11 +46,9 @@ export default function NodeShell({
     width: isDark ? undefined : width,
     minWidth: isDark ? 220 : undefined,
     maxWidth: isDark ? 360 : undefined,
-    boxShadow: selected
-      ? `0 0 0 2px #4a90d9`
-      : isDark
-        ? "0 2px 6px rgba(0,0,0,0.15)"
-        : "0 2px 6px rgba(0,0,0,0.08)",
+    boxShadow: isDark
+      ? "0 2px 6px rgba(0,0,0,0.15)"
+      : "0 2px 6px rgba(0,0,0,0.08)",
   };
 
   return <div style={style}>{children}</div>;

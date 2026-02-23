@@ -1,12 +1,12 @@
-interface StockBadgeProps {
-  activeStockId: string;
-  totalStocks: number;
+interface SheetBadgeProps {
+  activeSheetId: string;
+  totalSheets: number;
 }
 
-export function StockBadge({ activeStockId, totalStocks }: StockBadgeProps) {
-  if (totalStocks <= 1) return null;
+export function SheetBadge({ activeSheetId, totalSheets }: SheetBadgeProps) {
+  if (totalSheets <= 1) return null;
 
-  const sheetNum = activeStockId.replace("stock_", "");
+  const sheetNum = activeSheetId.replace("sheet_", "");
 
   return (
     <div

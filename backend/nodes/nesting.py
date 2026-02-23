@@ -6,24 +6,24 @@ from shapely.affinity import rotate as shapely_rotate
 from shapely.affinity import translate as shapely_translate
 from shapely.geometry import Polygon, box
 
-from schemas import BrepObject, PlacementItem, StockSettings
+from schemas import BrepObject, PlacementItem, SheetSettings
 
 
 def auto_nesting(
     objects: list[BrepObject],
-    stock: StockSettings,
+    sheet: SheetSettings,
     tool_diameter: float = 6.35,
     clearance: float = 5.0,
 ) -> list[PlacementItem]:
     """Distribute parts across stock sheets using BLF algorithm.
 
     Returns a list of PlacementItem with stock_id assigned.
-    Parts that don't fit get stock_id="stock_1" with offset (0,0) as fallback.
+    Parts that don't fit get sheet_id="sheet_1" with offset (0,0) as fallback.
     """
-    if not objects or not stock.materials:
+    if not objects or not sheet.materials:
         return []
 
-    template = stock.materials[0]
+    template = sheet.materials[0]
     margin = tool_diameter / 2 + clearance
 
     # Sort by area descending (larger parts first)
@@ -42,7 +42,7 @@ def auto_nesting(
         base_poly = _object_polygon(obj, margin)
 
         # Try existing stocks first, then a new one
-        stock_ids = list(stocks.keys()) + [f"stock_{len(stocks) + 1}"]
+        stock_ids = list(stocks.keys()) + [f"sheet_{len(stocks) + 1}"]
 
         for sid in stock_ids:
             stock_poly = box(0, 0, template.width, template.depth)
@@ -60,7 +60,7 @@ def auto_nesting(
                 placements.append(PlacementItem(
                     object_id=obj.object_id,
                     material_id=template.material_id,
-                    stock_id=sid,
+                    sheet_id=sid,
                     x_offset=x,
                     y_offset=y,
                     rotation=angle,
@@ -73,7 +73,7 @@ def auto_nesting(
             placements.append(PlacementItem(
                 object_id=obj.object_id,
                 material_id=template.material_id,
-                stock_id="stock_1",
+                sheet_id="sheet_1",
                 x_offset=0,
                 y_offset=0,
                 rotation=0,

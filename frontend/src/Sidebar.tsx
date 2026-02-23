@@ -1,15 +1,41 @@
-const nodeItems = [
-  { type: "brepImport", label: "BREP Import", color: "#4a90d9" },
-  { type: "stock", label: "Stock", color: "#ff9800" },
-  { type: "placement", label: "Placement", color: "#26a69a" },
-  { type: "operation", label: "Operation", color: "#7b61ff" },
-  { type: "postProcessor", label: "Post Processor", color: "#66bb6a" },
-  { type: "toolpathGen", label: "Toolpath Gen", color: "#ef5350" },
-  { type: "cncCode", label: "CNC Code", color: "#66bb6a" },
-  { type: "toolpathPreview", label: "Toolpath Preview", color: "#00bcd4" },
-  { type: "dam", label: "Dam", color: "#ffc107" },
-  { type: "debug", label: "Debug", color: "#4fc3f7" },
-] as const;
+import type { NodeCategory } from "./components/NodeShell";
+
+const CATEGORY_COLORS: Record<NodeCategory, string> = {
+  cad: "#ff9800",
+  cam: "#00bcd4",
+  utility: "#888888",
+};
+
+const nodeGroups: { category: NodeCategory; label: string; items: { type: string; label: string }[] }[] = [
+  {
+    category: "cad",
+    label: "CAD",
+    items: [
+      { type: "brepImport", label: "BREP Import" },
+    ],
+  },
+  {
+    category: "cam",
+    label: "CAM",
+    items: [
+      { type: "sheet", label: "Sheet" },
+      { type: "placement", label: "Placement" },
+      { type: "operation", label: "Operation" },
+      { type: "postProcessor", label: "Post Processor" },
+      { type: "toolpathGen", label: "Toolpath Gen" },
+      { type: "cncCode", label: "CNC Code" },
+      { type: "toolpathPreview", label: "Toolpath Preview" },
+    ],
+  },
+  {
+    category: "utility",
+    label: "Utility",
+    items: [
+      { type: "dam", label: "Dam" },
+      { type: "debug", label: "Debug" },
+    ],
+  },
+];
 
 export default function Sidebar() {
   const onDragStart = (
@@ -22,15 +48,21 @@ export default function Sidebar() {
 
   return (
     <aside style={sidebarStyle}>
-      <div style={titleStyle}>Nodes</div>
-      {nodeItems.map((item) => (
-        <div
-          key={item.type}
-          draggable
-          onDragStart={(e) => onDragStart(e, item.type)}
-          style={{ ...itemStyle, borderLeftColor: item.color }}
-        >
-          {item.label}
+      {nodeGroups.map((group) => (
+        <div key={group.category}>
+          <div style={{ ...groupTitleStyle, color: CATEGORY_COLORS[group.category] }}>
+            {group.label}
+          </div>
+          {group.items.map((item) => (
+            <div
+              key={item.type}
+              draggable
+              onDragStart={(e) => onDragStart(e, item.type)}
+              style={{ ...itemStyle, borderLeftColor: CATEGORY_COLORS[group.category] }}
+            >
+              {item.label}
+            </div>
+          ))}
         </div>
       ))}
     </aside>
@@ -48,13 +80,12 @@ const sidebarStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const titleStyle: React.CSSProperties = {
+const groupTitleStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
-  color: "#888",
   textTransform: "uppercase",
   letterSpacing: 1,
-  padding: "0 4px 4px",
+  padding: "8px 4px 4px",
 };
 
 const itemStyle: React.CSSProperties = {
@@ -66,4 +97,5 @@ const itemStyle: React.CSSProperties = {
   fontSize: 12,
   cursor: "grab",
   userSelect: "none",
+  marginTop: 4,
 };

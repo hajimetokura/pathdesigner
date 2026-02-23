@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import type {
   BrepImportResult,
-  StockSettings,
+  SheetSettings,
   PlacementItem,
 } from "../types";
 import { validatePlacement } from "../api";
@@ -17,19 +17,19 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
   const updateTab = (data as Record<string, unknown>).updateTab as ((tab: PanelTab) => void) | undefined;
   const [placements, setPlacements] = useState<PlacementItem[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [activeStockId, setActiveStockId] = useState("stock_1");
+  const [activeSheetId, setActiveStockId] = useState("sheet_1");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { setNodes } = useReactFlow();
 
   // Subscribe to upstream nodes' data (re-renders when they change)
   const extractBrep = useCallback((d: Record<string, unknown>) => d.brepResult as BrepImportResult | undefined, []);
-  const extractStock = useCallback((d: Record<string, unknown>) => d.stockSettings as StockSettings | undefined, []);
+  const extractSheet = useCallback((d: Record<string, unknown>) => d.sheetSettings as SheetSettings | undefined, []);
   const brepResult = useUpstreamData(id, `${id}-brep`, extractBrep);
-  const stockSettings = useUpstreamData(id, `${id}-stock`, extractStock);
+  const sheetSettings = useUpstreamData(id, `${id}-sheet`, extractSheet);
 
   const syncToNodeData = useCallback(
-    (p: PlacementItem[], brep: BrepImportResult, stock: StockSettings, stockId?: string) => {
-      const sid = stockId ?? activeStockId;
+    (p: PlacementItem[], brep: BrepImportResult, stock: SheetSettings, stockId?: string) => {
+      const sid = stockId ?? activeSheetId;
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
@@ -39,58 +39,58 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
                   ...n.data,
                   placementResult: { placements: p, stock, objects: brep.objects },
                   fileId: brep.file_id,
-                  activeStockId: sid,
+                  activeSheetId: sid,
                 },
               }
             : n
         )
       );
     },
-    [id, setNodes, activeStockId]
+    [id, setNodes, activeSheetId]
   );
 
   // Auto-create placements when BREP data arrives
   useEffect(() => {
-    if (!brepResult || !stockSettings) return;
+    if (!brepResult || !sheetSettings) return;
     if (placements.length > 0) return; // already initialized
 
-    const defaultMtl = stockSettings.materials[0]?.material_id ?? "mtl_1";
+    const defaultMtl = sheetSettings.materials[0]?.material_id ?? "mtl_1";
     const initial: PlacementItem[] = brepResult.objects.map((obj, i) => ({
       object_id: obj.object_id,
       material_id: defaultMtl,
-      stock_id: "stock_1",
+      sheet_id: "sheet_1",
       x_offset: 10 + i * 20,
       y_offset: 10 + i * 20,
       rotation: 0,
     }));
     setPlacements(initial);
-    syncToNodeData(initial, brepResult, stockSettings);
+    syncToNodeData(initial, brepResult, sheetSettings);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brepResult, stockSettings]);
+  }, [brepResult, sheetSettings]);
 
   // Re-sync downstream when stock settings change (after initial setup)
   useEffect(() => {
-    if (brepResult && stockSettings && placements.length > 0) {
-      syncToNodeData(placements, brepResult, stockSettings);
+    if (brepResult && sheetSettings && placements.length > 0) {
+      syncToNodeData(placements, brepResult, sheetSettings);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockSettings]);
+  }, [sheetSettings]);
 
-  const handleActiveStockChange = useCallback(
+  const handleActiveSheetChange = useCallback(
     (stockId: string) => {
       setActiveStockId(stockId);
-      if (brepResult && stockSettings) {
-        syncToNodeData(placements, brepResult, stockSettings, stockId);
+      if (brepResult && sheetSettings) {
+        syncToNodeData(placements, brepResult, sheetSettings, stockId);
       }
     },
-    [brepResult, stockSettings, placements, syncToNodeData]
+    [brepResult, sheetSettings, placements, syncToNodeData]
   );
 
   const handlePlacementsChange = useCallback(
     async (updated: PlacementItem[]) => {
       setPlacements(updated);
-      if (brepResult && stockSettings) {
-        syncToNodeData(updated, brepResult, stockSettings);
+      if (brepResult && sheetSettings) {
+        syncToNodeData(updated, brepResult, sheetSettings);
 
         // Validate (with outlines for collision detection)
         const bbs: Record<string, { x: number; y: number; z: number }> = {};
@@ -102,27 +102,27 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
           }
         }
         try {
-          const result = await validatePlacement(updated, stockSettings, bbs, outlines);
+          const result = await validatePlacement(updated, sheetSettings, bbs, outlines);
           setWarnings(result.warnings);
         } catch {
           // validation failure is non-critical
         }
       }
     },
-    [brepResult, stockSettings, syncToNodeData]
+    [brepResult, sheetSettings, syncToNodeData]
   );
 
   // Thumbnail draw
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !stockSettings || !brepResult) return;
+    if (!canvas || !sheetSettings || !brepResult) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const w = canvas.width;
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    const stock = stockSettings.materials[0];
+    const stock = sheetSettings.materials[0];
     if (!stock) return;
 
     const sc = Math.min((w - 20) / stock.width, (h - 20) / stock.depth);
@@ -137,8 +137,8 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
     ctx.strokeRect(ox, h - oy - stock.depth * sc, stock.width * sc, stock.depth * sc);
 
     // Filter placements by active stock
-    const activePlacements = placements.filter((p) => p.stock_id === activeStockId);
-    const stockIds = [...new Set(placements.map((p) => p.stock_id))].sort();
+    const activePlacements = placements.filter((p) => p.sheet_id === activeSheetId);
+    const stockIds = [...new Set(placements.map((p) => p.sheet_id))].sort();
 
     // Parts (only active stock)
     const colors = ["#4a90d9", "#7b61ff", "#43a047", "#ef5350"];
@@ -197,7 +197,7 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
 
     // Stock indicator (top-right)
     if (stockIds.length > 1) {
-      const stockIndex = stockIds.indexOf(activeStockId) + 1;
+      const stockIndex = stockIds.indexOf(activeSheetId) + 1;
       const label = `${stockIndex}/${stockIds.length}`;
       ctx.fillStyle = "#666";
       ctx.font = "bold 10px sans-serif";
@@ -205,11 +205,11 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
       ctx.fillText(label, w - 6, 12);
       ctx.textAlign = "left";
     }
-  }, [placements, brepResult, stockSettings, activeStockId]);
+  }, [placements, brepResult, sheetSettings, activeSheetId]);
 
   useEffect(() => { draw(); }, [draw]);
 
-  const hasData = brepResult && stockSettings;
+  const hasData = brepResult && sheetSettings;
 
   const handleOpenPanel = useCallback(() => {
     if (!hasData || !openTab) return;
@@ -220,16 +220,16 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
       content: (
         <PlacementPanel
           objects={brepResult.objects}
-          stockSettings={stockSettings}
+          sheetSettings={sheetSettings}
           placements={placements}
           onPlacementsChange={handlePlacementsChange}
           warnings={warnings}
-          activeStockId={activeStockId}
-          onActiveStockChange={handleActiveStockChange}
+          activeSheetId={activeSheetId}
+          onActiveSheetChange={handleActiveSheetChange}
         />
       ),
     });
-  }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, openTab, activeStockId, handleActiveStockChange]);
+  }, [id, hasData, brepResult, sheetSettings, placements, warnings, handlePlacementsChange, openTab, activeSheetId, handleActiveSheetChange]);
 
   // Update tab content when placements/warnings change (only if tab is already open)
   useEffect(() => {
@@ -241,22 +241,22 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
         content: (
           <PlacementPanel
             objects={brepResult.objects}
-            stockSettings={stockSettings}
+            sheetSettings={sheetSettings}
             placements={placements}
             onPlacementsChange={handlePlacementsChange}
             warnings={warnings}
-            activeStockId={activeStockId}
-            onActiveStockChange={handleActiveStockChange}
+            activeSheetId={activeSheetId}
+            onActiveSheetChange={handleActiveSheetChange}
           />
         ),
       });
     }
-  }, [id, hasData, brepResult, stockSettings, placements, warnings, handlePlacementsChange, updateTab, activeStockId, handleActiveStockChange]);
+  }, [id, hasData, brepResult, sheetSettings, placements, warnings, handlePlacementsChange, updateTab, activeSheetId, handleActiveSheetChange]);
 
   return (
     <NodeShell category="cam" selected={selected}>
       <LabeledHandle type="target" position={Position.Top} id={`${id}-brep`} label="brep" dataType="geometry" index={0} total={2} />
-      <LabeledHandle type="target" position={Position.Top} id={`${id}-stock`} label="stock" dataType="settings" index={1} total={2} />
+      <LabeledHandle type="target" position={Position.Top} id={`${id}-sheet`} label="sheet" dataType="settings" index={1} total={2} />
 
       <div style={headerStyle}>Placement</div>
 
@@ -270,7 +270,7 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
             onClick={handleOpenPanel}
           />
           <div style={hintStyle}>
-            {placements.filter((p) => p.stock_id === activeStockId).length} part{placements.filter((p) => p.stock_id === activeStockId).length > 1 ? "s" : ""} — Click to edit
+            {placements.filter((p) => p.sheet_id === activeSheetId).length} part{placements.filter((p) => p.sheet_id === activeSheetId).length > 1 ? "s" : ""} — Click to edit
           </div>
           {warnings.length > 0 && (
             <div style={{ color: "#e65100", fontSize: 10, padding: "4px 0" }}>
@@ -279,7 +279,7 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
           )}
         </>
       ) : (
-        <div style={emptyStyle}>Connect BREP + Stock</div>
+        <div style={emptyStyle}>Connect BREP + Sheet</div>
       )}
 
       <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="placement" dataType="geometry" />
