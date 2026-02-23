@@ -14,7 +14,7 @@ import LabeledHandle from "./LabeledHandle";
 import CncCodePanel from "../components/CncCodePanel";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { generateSbpZip } from "../api";
-import StockTabs from "../components/StockTabs";
+import { StockBadge } from "../components/StockBadge";
 
 interface UpstreamZipData {
   allStockIds: string[];
@@ -137,11 +137,9 @@ export default function CncCodeNode({ id, data }: NodeProps) {
       <div style={headerStyle}>CNC Code</div>
 
       {stockInfo && stockInfo.allStockIds.length > 1 && (
-        <StockTabs
-          stockIds={stockInfo.allStockIds}
+        <StockBadge
           activeStockId={stockInfo.activeStockId}
-          readOnly
-          size="small"
+          totalStocks={stockInfo.allStockIds.length}
         />
       )}
 
