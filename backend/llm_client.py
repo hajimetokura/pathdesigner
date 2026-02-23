@@ -193,6 +193,11 @@ _PROFILES: dict[str, dict] = {
         "description": "幅広い形状に対応",
         "cheatsheet": _GENERAL_CHEATSHEET,
     },
+    "furniture": {
+        "name": "家具・板材",
+        "description": "板材CNC加工パーツ",
+        "cheatsheet": "\n═══ FURNITURE / SHEET MATERIAL PROFILE ═══\n(placeholder)\n",
+    },
 }
 
 
@@ -230,13 +235,14 @@ class LLMClient:
         prompt: str,
         image_base64: str | None = None,
         model: str | None = None,
+        profile: str = "general",
     ) -> str:
         """Generate build123d code from a text prompt (+ optional image).
 
         Returns the raw Python code string (no fences).
         """
         use_model = model or self.default_model
-        messages: list[dict] = [{"role": "system", "content": _build_system_prompt()}]
+        messages: list[dict] = [{"role": "system", "content": _build_system_prompt(profile)}]
 
         # Build user message (text or multimodal)
         if image_base64 and _model_supports_vision(use_model):
@@ -263,6 +269,7 @@ class LLMClient:
         self,
         messages: list[dict],
         model: str | None = None,
+        profile: str = "general",
     ) -> str:
         """Generate code with full conversation history.
 
@@ -270,7 +277,7 @@ class LLMClient:
         System prompt is prepended automatically.
         """
         use_model = model or self.default_model
-        full_messages = [{"role": "system", "content": _build_system_prompt()}] + messages
+        full_messages = [{"role": "system", "content": _build_system_prompt(profile)}] + messages
 
         response = await self._client.chat.completions.create(
             model=use_model,
@@ -288,6 +295,7 @@ class LLMClient:
         image_base64: str | None = None,
         model: str | None = None,
         max_retries: int | None = None,
+        profile: str = "general",
     ) -> tuple[str, list[BrepObject], bytes | None]:
         """Generate code, execute it, retry on failure.
 
@@ -298,9 +306,9 @@ class LLMClient:
 
         # Initial generation
         if messages:
-            code = await self.generate_with_history(messages, model)
+            code = await self.generate_with_history(messages, model, profile=profile)
         else:
-            code = await self.generate(prompt, image_base64, model)
+            code = await self.generate(prompt, image_base64, model, profile=profile)
 
         # Try execute + retry loop
         last_error: CodeExecutionError | None = None
@@ -326,7 +334,7 @@ class LLMClient:
                         f"Fix the code and output only the corrected version."
                     ),
                 })
-                code = await self.generate_with_history(retry_messages, model)
+                code = await self.generate_with_history(retry_messages, model, profile=profile)
                 retry_messages.append({"role": "assistant", "content": code})
 
         raise last_error  # type: ignore[misc]

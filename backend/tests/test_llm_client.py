@@ -202,3 +202,25 @@ async def test_generate_and_execute_zero_retries():
         await client.generate_and_execute("Make a box", max_retries=0)
 
     assert mock_client.chat.completions.create.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_generate_uses_profile():
+    """generate() uses the specified profile's cheatsheet."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "result = Box(10, 10, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat = MagicMock()
+    mock_client.chat.completions = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    await client.generate("Make a box", profile="furniture")
+
+    call_kwargs = mock_client.chat.completions.create.call_args[1]
+    system_msg = call_kwargs["messages"][0]["content"]
+    assert "FURNITURE" in system_msg
