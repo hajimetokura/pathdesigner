@@ -1,4 +1,5 @@
 import type { NodeCategory } from "./components/NodeShell";
+import { getSidebarGroups } from "./nodeRegistry";
 
 const CATEGORY_COLORS: Record<NodeCategory, string> = {
   cad: "#ff9800",
@@ -6,36 +7,7 @@ const CATEGORY_COLORS: Record<NodeCategory, string> = {
   utility: "#888888",
 };
 
-const nodeGroups: { category: NodeCategory; label: string; items: { type: string; label: string }[] }[] = [
-  {
-    category: "cad",
-    label: "CAD",
-    items: [
-      { type: "brepImport", label: "BREP Import" },
-    ],
-  },
-  {
-    category: "cam",
-    label: "CAM",
-    items: [
-      { type: "sheet", label: "Sheet" },
-      { type: "placement", label: "Placement" },
-      { type: "operation", label: "Operation" },
-      { type: "postProcessor", label: "Post Processor" },
-      { type: "toolpathGen", label: "Toolpath Gen" },
-      { type: "cncCode", label: "CNC Code" },
-      { type: "toolpathPreview", label: "Toolpath Preview" },
-    ],
-  },
-  {
-    category: "utility",
-    label: "Utility",
-    items: [
-      { type: "dam", label: "Dam" },
-      { type: "debug", label: "Debug" },
-    ],
-  },
-];
+const nodeGroups = getSidebarGroups();
 
 export default function Sidebar() {
   const onDragStart = (
