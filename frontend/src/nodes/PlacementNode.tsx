@@ -25,7 +25,7 @@ export default function PlacementNode({ id, data, selected }: NodeProps) {
   const extractBrep = useCallback((d: Record<string, unknown>) => d.brepResult as BrepImportResult | undefined, []);
   const extractSheet = useCallback((d: Record<string, unknown>) => d.sheetSettings as SheetSettings | undefined, []);
   const brepResult = useUpstreamData(id, `${id}-brep`, extractBrep);
-  const sheetSettings = useUpstreamData(id, `${id}-stock`, extractSheet);
+  const sheetSettings = useUpstreamData(id, `${id}-sheet`, extractSheet);
 
   const syncToNodeData = useCallback(
     (p: PlacementItem[], brep: BrepImportResult, stock: SheetSettings, stockId?: string) => {
