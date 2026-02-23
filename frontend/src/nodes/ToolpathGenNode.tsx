@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
-import { generateToolpath, generateSbp } from "../api";
+import { generateToolpath, generateSbp, validatePlacement } from "../api";
 import type {
   OperationDetectResult,
   OperationAssignment,
@@ -14,7 +14,7 @@ import NodeShell from "../components/NodeShell";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { SheetBadge } from "../components/SheetBadge";
 
-type Status = "idle" | "loading" | "success" | "error";
+type Status = "idle" | "loading" | "success" | "error" | "blocked";
 
 interface OperationsUpstream {
   detectedOperations: OperationDetectResult;
@@ -62,100 +62,130 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
   const extractPostProc = useCallback((d: Record<string, unknown>) => d.postProcessorSettings as PostProcessorSettings | undefined, []);
   const postProc = useUpstreamData(id, `${id}-postprocessor`, extractPostProc);
 
-  // Auto-generate when upstream data changes
+  // Debounced auto-generate when upstream data changes
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelledRef = useRef(false);
+
   useEffect(() => {
     if (!operations || !postProc) return;
 
-    const { detectedOperations, assignments, sheetSettings, placements, objectOrigins, boundingBoxes, outlines } = operations;
+    const { assignments, placements, sheetSettings } = operations;
 
     // Build a generation key from all upstream inputs to avoid redundant calls
     const genKey = JSON.stringify({ assignments, placements, sheetSettings, postProc, activeSheetId });
     if (lastGenKeyRef.current === genKey && toolpathResult) return;
-    lastGenKeyRef.current = genKey;
 
-    // Filter placements and assignments by active sheet
-    const filteredPlacements = placements.filter(
-      (p: PlacementItem) => p.sheet_id === activeSheetId
-    );
-    const activeObjectIds = new Set(filteredPlacements.map((p: PlacementItem) => p.object_id));
-    const opToObj = new Map(detectedOperations.operations.map((op) => [op.operation_id, op.object_id]));
-    const filteredAssignments = assignments.filter((a: OperationAssignment) => {
-      const objId = opToObj.get(a.operation_id);
-      return objId ? activeObjectIds.has(objId) : false;
-    });
+    // Cancel any in-flight request
+    cancelledRef.current = true;
 
-    // Validate sheet thickness (only for active sheet's assignments)
-    const matLookup = new Map(sheetSettings.materials.map((m) => [m.material_id, m]));
-    const opLookup = new Map(detectedOperations.operations.map((op) => [op.operation_id, op]));
-    const thinOps: string[] = [];
-    for (const a of filteredAssignments) {
-      if (!a.enabled) continue;
-      const mat = matLookup.get(a.material_id);
-      const op = opLookup.get(a.operation_id);
-      if (mat && op && mat.thickness < op.geometry.depth) {
-        thinOps.push(`${op.object_id}: sheet ${mat.thickness}mm < depth ${op.geometry.depth}mm`);
-      }
-    }
-    if (thinOps.length > 0) {
-      setError(`Sheet too thin: ${thinOps.join(", ")}`);
-      setStatus("error");
-      return;
-    }
+    // Clear previous debounce timer
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    let cancelled = false;
+    // Show loading immediately so user knows generation is pending
     setStatus("loading");
     setError("");
 
-    (async () => {
-      try {
-        const tpResult = await generateToolpath(
-          filteredAssignments, detectedOperations, sheetSettings, filteredPlacements, objectOrigins, boundingBoxes
-        );
-        if (cancelled) return;
-        setToolpathResult(tpResult);
+    // Debounce: wait 500ms after last change before generating
+    debounceRef.current = setTimeout(() => {
+      lastGenKeyRef.current = genKey;
+      cancelledRef.current = false;
 
-        const sbp = await generateSbp(tpResult, filteredAssignments, sheetSettings, postProc);
-        if (cancelled) return;
-        setStatus("success");
+      const { detectedOperations, objectOrigins, boundingBoxes, outlines } = operations;
 
-        // Store results in own node.data only (downstream reads via useStore)
-        const allSheetIds = [...new Set(placements.map((p: PlacementItem) => p.sheet_id))].sort();
-        setNodes((nds) =>
-          nds.map((n) =>
-            n.id === id
-              ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    toolpathResult: tpResult,
-                    outputResult: sbp,
-                    sheetSettings,
-                    activeSheetId,
-                    allSheetIds,
-                    allPlacements: placements,
-                    allAssignments: assignments,
-                    detectedOperations,
-                    objectOrigins,
-                    outlines,
-                    postProcessorSettings: postProc,
-                  },
-                }
-              : n
-          )
-        );
-      } catch (e) {
-        if (cancelled) return;
-        setError(e instanceof Error ? e.message : "Generation failed");
-        setStatus("error");
+      // Filter placements and assignments by active sheet
+      const filteredPlacements = placements.filter(
+        (p: PlacementItem) => p.sheet_id === activeSheetId
+      );
+      const activeObjectIds = new Set(filteredPlacements.map((p: PlacementItem) => p.object_id));
+      const opToObj = new Map(detectedOperations.operations.map((op) => [op.operation_id, op.object_id]));
+      const filteredAssignments = assignments.filter((a: OperationAssignment) => {
+        const objId = opToObj.get(a.operation_id);
+        return objId ? activeObjectIds.has(objId) : false;
+      });
+
+      // Validate sheet thickness (only for active sheet's assignments)
+      const matLookup = new Map(sheetSettings.materials.map((m) => [m.material_id, m]));
+      const opLookup = new Map(detectedOperations.operations.map((op) => [op.operation_id, op]));
+      const thinOps: string[] = [];
+      for (const a of filteredAssignments) {
+        if (!a.enabled) continue;
+        const mat = matLookup.get(a.material_id);
+        const op = opLookup.get(a.operation_id);
+        if (mat && op && mat.thickness < op.geometry.depth) {
+          thinOps.push(`${op.object_id}: sheet ${mat.thickness}mm < depth ${op.geometry.depth}mm`);
+        }
       }
-    })();
+      if (thinOps.length > 0) {
+        setError(`Sheet too thin: ${thinOps.join(", ")}`);
+        setStatus("blocked");
+        return;
+      }
 
-    return () => { cancelled = true; };
+      (async () => {
+        try {
+          // Gate: validate placement (outline-based bounds + collision via backend)
+          const validation = await validatePlacement(
+            filteredPlacements, sheetSettings, boundingBoxes, outlines,
+          );
+          if (cancelledRef.current) return;
+          if (validation.warnings.length > 0) {
+            setError(validation.warnings.join("\n"));
+            setStatus("blocked");
+            return;
+          }
+
+          const tpResult = await generateToolpath(
+            filteredAssignments, detectedOperations, sheetSettings, filteredPlacements, objectOrigins, boundingBoxes
+          );
+          if (cancelledRef.current) return;
+          setToolpathResult(tpResult);
+
+          const sbp = await generateSbp(tpResult, filteredAssignments, sheetSettings, postProc);
+          if (cancelledRef.current) return;
+          setStatus("success");
+
+          // Store results in own node.data only (downstream reads via useStore)
+          const allSheetIds = [...new Set(placements.map((p: PlacementItem) => p.sheet_id))].sort();
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.id === id
+                ? {
+                    ...n,
+                    data: {
+                      ...n.data,
+                      toolpathResult: tpResult,
+                      outputResult: sbp,
+                      sheetSettings,
+                      activeSheetId,
+                      allSheetIds,
+                      allPlacements: placements,
+                      allAssignments: assignments,
+                      detectedOperations,
+                      objectOrigins,
+                      outlines,
+                      postProcessorSettings: postProc,
+                    },
+                  }
+                : n
+            )
+          );
+        } catch (e) {
+          if (cancelledRef.current) return;
+          setError(e instanceof Error ? e.message : "Generation failed");
+          setStatus("error");
+        }
+      })();
+    }, 500);
+
+    return () => {
+      cancelledRef.current = true;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operations, postProc, operations?.upstreamActiveSheetId]);
 
   return (
-    <NodeShell category="cam" selected={selected} statusBorder={status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : undefined}>
+    <NodeShell category="cam" selected={selected} statusBorder={status === "blocked" ? "#ff9800" : status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : undefined}>
       <LabeledHandle
         type="target"
         position={Position.Top}
@@ -188,6 +218,15 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
         <div style={spinnerContainerStyle}>
           <div style={spinnerStyle} />
           <span style={{ fontSize: 11, color: "#888" }}>Generating...</span>
+        </div>
+      )}
+
+      {status === "blocked" && (
+        <div style={blockedStyle}>
+          <span style={{ fontWeight: 600 }}>Placement問題あり</span>
+          {error.split("\n").map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
         </div>
       )}
 
@@ -272,6 +311,15 @@ const detailStyle: React.CSSProperties = {
   borderRadius: 4,
   padding: "6px 8px",
   marginTop: 4,
+};
+
+const blockedStyle: React.CSSProperties = {
+  color: "#e65100",
+  fontSize: 11,
+  padding: "6px 8px",
+  background: "#fff3e0",
+  borderRadius: 4,
+  lineHeight: 1.5,
 };
 
 const spinnerContainerStyle: React.CSSProperties = {
