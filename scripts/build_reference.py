@@ -70,33 +70,37 @@ EXAMPLES_FILES = [
 
 
 class HTMLToMarkdown(html.parser.HTMLParser):
-    """Simple HTML to Markdown converter preserving code blocks and headers."""
+    """HTML to Markdown converter for Sphinx/ReadTheDocs epub output.
+
+    Handles Pygments-highlighted code blocks where code is in
+    <div class="highlight-python"><div class="highlight"><pre><span>...</span></pre></div></div>
+    (no <code> wrapper — just <pre> with <span> children).
+    """
 
     def __init__(self):
         super().__init__()
         self.output: list[str] = []
         self._tag_stack: list[str] = []
-        self._in_code = False
         self._in_pre = False
-        self._code_lang = ""
+        self._pending_lang = ""  # language detected from highlight-xxx div
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self._tag_stack.append(tag)
         attr_dict = dict(attrs)
         classes = (attr_dict.get("class") or "").split()
 
-        if tag == "pre":
+        if tag == "div":
+            # Detect language from Sphinx highlight wrapper: <div class="highlight-python ...">
+            for c in classes:
+                if c.startswith("highlight-") and c != "highlight":
+                    self._pending_lang = c.split("-", 1)[1]
+                    break
+        elif tag == "pre":
             self._in_pre = True
+            lang = self._pending_lang or "python"
+            self.output.append(f"\n```{lang}\n")
         elif tag == "code":
-            if self._in_pre:
-                self._in_code = True
-                # Detect language from class
-                for c in classes:
-                    if c.startswith("language-") or c.startswith("highlight-"):
-                        self._code_lang = c.split("-", 1)[1]
-                        break
-                self.output.append(f"\n```{self._code_lang}\n")
-            else:
+            if not self._in_pre:
                 self.output.append("`")
         elif tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             level = int(tag[1])
@@ -122,12 +126,10 @@ class HTMLToMarkdown(html.parser.HTMLParser):
 
         if tag == "pre":
             self._in_pre = False
+            self._pending_lang = ""
+            self.output.append("\n```\n")
         elif tag == "code":
-            if self._in_code:
-                self._in_code = False
-                self.output.append("\n```\n")
-                self._code_lang = ""
-            else:
+            if not self._in_pre:
                 self.output.append("`")
         elif tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             self.output.append("\n")
@@ -139,7 +141,7 @@ class HTMLToMarkdown(html.parser.HTMLParser):
             self.output.append("*")
 
     def handle_data(self, data: str) -> None:
-        if self._in_code:
+        if self._in_pre:
             self.output.append(data)
         else:
             # Collapse whitespace for non-code text
