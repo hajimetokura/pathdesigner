@@ -486,7 +486,7 @@ async def test_generate_code_calls_coder_model():
 
     assert "Box" in code
     call_kwargs = mock_client.chat.completions.create.call_args[1]
-    assert call_kwargs["model"] == "qwen/qwen3-coder"
+    assert call_kwargs["model"] == "qwen/qwen3-coder-next"
 
 
 @pytest.mark.asyncio
@@ -506,7 +506,7 @@ async def test_self_review_calls_coder_model():
 
     assert "Box" in reviewed
     call_kwargs = mock_client.chat.completions.create.call_args[1]
-    assert call_kwargs["model"] == "qwen/qwen3-coder"
+    assert call_kwargs["model"] == "qwen/qwen3-coder-next"
     # System message should contain review instructions
     system_msg = call_kwargs["messages"][0]["content"]
     assert "build123d" in system_msg.lower() or "review" in str(call_kwargs["messages"]).lower()

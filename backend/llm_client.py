@@ -17,7 +17,7 @@ from schemas import BrepObject
 
 PIPELINE_MODELS = {
     "designer": "google/gemini-2.5-flash-lite",
-    "coder": "qwen/qwen3-coder",
+    "coder": "qwen/qwen3-coder-next",
 }
 
 AVAILABLE_MODELS: dict[str, dict] = {
