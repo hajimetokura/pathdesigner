@@ -25,3 +25,7 @@ frontend/dist/
 
 # Uploaded files
 backend/uploads/
+
+# Generated reference files (regenerate with: python scripts/build_reference.py)
+backend/data/build123d_api_reference.md
+backend/data/build123d_examples.md
