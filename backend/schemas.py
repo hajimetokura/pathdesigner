@@ -475,3 +475,28 @@ class ProfileInfo(BaseModel):
     id: str
     name: str
     description: str
+
+
+class ChatMessage(BaseModel):
+    """A single message in a refinement conversation."""
+    role: Literal["user", "assistant"]
+    content: str
+
+
+class AiCadRefineRequest(BaseModel):
+    """Request to refine AI-generated code via chat."""
+    generation_id: str
+    message: str
+    history: list[ChatMessage] = []
+    current_code: str
+    profile: str = "general"
+
+
+class AiCadRefineResult(BaseModel):
+    """Result from a refinement turn."""
+    code: str
+    objects: list[BrepObject]
+    object_count: int
+    file_id: str
+    generation_id: str
+    ai_message: str

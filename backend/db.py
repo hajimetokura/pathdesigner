@@ -38,6 +38,13 @@ class GenerationDB:
         self._conn = await aiosqlite.connect(self._db_path)
         self._conn.row_factory = aiosqlite.Row
         await self._conn.executescript(_SCHEMA)
+        # Migrate: add conversation_history if missing
+        cursor = await self._conn.execute("PRAGMA table_info(generations)")
+        cols = {row[1] for row in await cursor.fetchall()}
+        if "conversation_history" not in cols:
+            await self._conn.execute(
+                "ALTER TABLE generations ADD COLUMN conversation_history TEXT"
+            )
         await self._conn.commit()
 
     async def close(self):
