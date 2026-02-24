@@ -512,6 +512,93 @@ async def test_self_review_calls_coder_model():
     assert "build123d" in system_msg.lower() or "review" in str(call_kwargs["messages"]).lower()
 
 
+@pytest.mark.asyncio
+async def test_generate_pipeline_success():
+    """generate_pipeline runs all stages and returns result."""
+    design_response = MagicMock()
+    design_response.choices = [MagicMock()]
+    design_response.choices[0].message.content = "DESIGN: single box"
+
+    code_response = MagicMock()
+    code_response.choices = [MagicMock()]
+    code_response.choices[0].message.content = "result = Box(100, 50, 10)"
+
+    review_response = MagicMock()
+    review_response.choices = [MagicMock()]
+    review_response.choices[0].message.content = "result = Box(100, 50, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(
+        side_effect=[design_response, code_response, review_response]
+    )
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    stages = []
+    async def on_stage(stage: str):
+        stages.append(stage)
+
+    code, objects, step_bytes = await client.generate_pipeline(
+        "Make a box 100x50x10mm",
+        on_stage=on_stage,
+    )
+
+    assert "Box(100, 50, 10)" in code
+    assert len(objects) >= 1
+    assert step_bytes is not None
+    assert stages == ["designing", "coding", "reviewing", "executing"]
+    assert mock_client.chat.completions.create.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_generate_pipeline_retries_with_gemini():
+    """On execution error, pipeline re-queries Gemini then Qwen."""
+    design_response = MagicMock()
+    design_response.choices = [MagicMock()]
+    design_response.choices[0].message.content = "DESIGN: box"
+
+    bad_code_response = MagicMock()
+    bad_code_response.choices = [MagicMock()]
+    bad_code_response.choices[0].message.content = "x = Box(100, 50, 10)"  # missing result
+
+    review_response = MagicMock()
+    review_response.choices = [MagicMock()]
+    review_response.choices[0].message.content = "x = Box(100, 50, 10)"  # still bad
+
+    retry_design_response = MagicMock()
+    retry_design_response.choices = [MagicMock()]
+    retry_design_response.choices[0].message.content = "DESIGN: assign to result"
+
+    good_code_response = MagicMock()
+    good_code_response.choices = [MagicMock()]
+    good_code_response.choices[0].message.content = "result = Box(100, 50, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(
+        side_effect=[
+            design_response, bad_code_response, review_response,  # initial
+            retry_design_response, good_code_response,  # retry
+        ]
+    )
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    stages = []
+    async def on_stage(stage: str):
+        stages.append(stage)
+
+    code, objects, step_bytes = await client.generate_pipeline(
+        "Make a box",
+        on_stage=on_stage,
+    )
+
+    assert "result = Box(100, 50, 10)" in code
+    assert "retrying" in stages
+    assert mock_client.chat.completions.create.call_count == 5
+
+
 def test_list_profiles_info():
     """list_profiles_info() returns all available profiles."""
     client = LLMClient(api_key="test-key")

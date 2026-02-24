@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from openai import AsyncOpenAI
@@ -482,6 +483,60 @@ class LLMClient:
         )
         raw = response.choices[0].message.content or ""
         return _strip_code_fences(raw)
+
+    async def generate_pipeline(
+        self,
+        prompt: str,
+        *,
+        image_base64: str | None = None,
+        profile: str = "general",
+        on_stage: Callable[[str], Awaitable[None]] | None = None,
+    ) -> tuple[str, list[BrepObject], bytes | None]:
+        """Run 2-stage pipeline: Gemini design → Qwen code → review → execute → retry."""
+
+        async def _notify(stage: str):
+            if on_stage:
+                await on_stage(stage)
+
+        # Stage 1: Design with Gemini
+        await _notify("designing")
+        design = await self._design_with_context(prompt, profile=profile)
+
+        # Stage 2: Generate code with Qwen
+        await _notify("coding")
+        code = await self._generate_code(prompt, design, profile=profile)
+
+        # Stage 2.5: Self-review
+        await _notify("reviewing")
+        code = await self._self_review(prompt, code, profile=profile)
+
+        # Execute
+        await _notify("executing")
+        first_error: CodeExecutionError | None = None
+        try:
+            objects, step_bytes = execute_build123d_code(code)
+            return code, objects, step_bytes
+        except CodeExecutionError as e:
+            first_error = e
+
+        # Retry: re-query Gemini with error info, then Qwen
+        await _notify("retrying")
+        retry_design = await self._design_with_context(
+            f"{prompt}\n\n前回のコードでエラーが発生しました:\n{first_error}\n\n"
+            f"失敗したコード:\n```python\n{code}\n```\n\n"
+            "エラーを修正するために必要なAPIと正しい使い方を提示してください。",
+            profile=profile,
+        )
+
+        retry_code = await self._generate_code(
+            f"{prompt}\n\n前回エラー: {first_error}",
+            retry_design,
+            profile=profile,
+        )
+
+        await _notify("executing")
+        objects, step_bytes = execute_build123d_code(retry_code)
+        return retry_code, objects, step_bytes
 
     def list_profiles_info(self) -> list[dict]:
         """Return available prompt profiles with metadata."""
