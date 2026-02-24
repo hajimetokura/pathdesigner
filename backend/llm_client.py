@@ -35,7 +35,7 @@ AVAILABLE_MODELS: dict[str, dict] = {
     "qwen/qwen3-coder-next": {
         "name": "Qwen3 Coder Next",
         "supports_vision": False,
-        "large_context": False,
+        "large_context": True,
     },
 }
 
@@ -361,7 +361,8 @@ class LLMClient:
         Returns modified Python code string.
         """
         coder_model = PIPELINE_MODELS["coder"]
-        system = _build_system_prompt(profile, include_reference=False)
+        use_reference = _model_has_large_context(coder_model)
+        system = _build_system_prompt(profile, include_reference=use_reference)
 
         messages = list(history)
         messages.append({
@@ -496,7 +497,8 @@ class LLMClient:
     ) -> str:
         """Stage 2.5: Self-review generated code before execution."""
         coder_model = PIPELINE_MODELS["coder"]
-        system = _build_system_prompt(profile, include_reference=False)
+        use_reference = _model_has_large_context(coder_model)
+        system = _build_system_prompt(profile, include_reference=use_reference)
 
         review_content = (
             "以下のコードをレビューしてください:\n"
