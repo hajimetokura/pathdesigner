@@ -18,7 +18,7 @@ def test_build_system_prompt_default():
     from llm_client import _build_system_prompt, _BASE_PROMPT, _PROFILES
     prompt = _build_system_prompt()
     assert prompt.startswith(_BASE_PROMPT)
-    assert "CHEATSHEET" in prompt
+    assert "QUICK REFERENCE" in prompt
     assert _PROFILES["general"]["cheatsheet"] in prompt
 
 
@@ -219,26 +219,27 @@ async def test_generate_uses_profile():
     client = LLMClient(api_key="test-key")
     client._client = mock_client
 
-    await client.generate("Make a box", profile="furniture")
+    await client.generate("Make a box", profile="2d")
 
     call_kwargs = mock_client.chat.completions.create.call_args[1]
     system_msg = call_kwargs["messages"][0]["content"]
-    assert "FURNITURE" in system_msg
+    assert "2D" in system_msg
 
 
-def test_furniture_profile_has_patterns():
-    """Furniture profile includes relevant keywords and patterns."""
+def test_2d_profile_has_patterns():
+    """2D profile includes text, sheet material, and outline keywords."""
     from llm_client import _build_system_prompt
-    prompt = _build_system_prompt("furniture")
-    assert "FURNITURE" in prompt
-    assert "thickness" in prompt
-    assert "Hole" in prompt
+    prompt = _build_system_prompt("2d")
+    assert "2D" in prompt
+    assert "Text" in prompt
+    assert "make_face" in prompt
     assert "Align.MIN" in prompt
-    assert "dowel" in prompt.lower() or "ダボ" in prompt
+    assert "thickness" in prompt
+    assert "SUBTRACT" in prompt
 
 
-def test_furniture_pattern_shelf_executes():
-    """Furniture pattern example (shelf with dowel holes) actually runs."""
+def test_2d_pattern_shelf_executes():
+    """2D pattern example (shelf with dowel holes) actually runs."""
     from nodes.ai_cad import execute_build123d_code
     code = """\
 thickness = 18
@@ -256,18 +257,8 @@ result = bp.part
     assert step_bytes is not None
 
 
-def test_flat_profile_has_patterns():
-    """Flat profile includes text, pocket, and outline keywords."""
-    from llm_client import _build_system_prompt
-    prompt = _build_system_prompt("flat")
-    assert "FLAT" in prompt or "ENGRAVING" in prompt
-    assert "Text" in prompt
-    assert "make_face" in prompt
-    assert "SUBTRACT" in prompt
-
-
-def test_flat_pattern_nameplate_executes():
-    """Flat pattern example (nameplate with text engraving) actually runs."""
+def test_2d_pattern_nameplate_executes():
+    """2D pattern example (nameplate with text engraving) actually runs."""
     from nodes.ai_cad import execute_build123d_code
     code = """\
 thickness = 6
@@ -280,32 +271,6 @@ with BuildPart() as bp:
     with BuildSketch(top):
         Text("HELLO", font_size=16)
     extrude(amount=-engrave_depth, mode=Mode.SUBTRACT)
-result = bp.part
-"""
-    objects, step_bytes = execute_build123d_code(code)
-    assert len(objects) >= 1
-
-
-def test_3d_profile_has_patterns():
-    """3D profile includes revolve, loft, sweep, shell keywords."""
-    from llm_client import _build_system_prompt
-    prompt = _build_system_prompt("3d")
-    assert "3D" in prompt
-    assert "revolve" in prompt
-    assert "loft" in prompt
-    assert "sweep" in prompt
-    assert "offset" in prompt or "shell" in prompt.lower()
-
-
-def test_3d_pattern_tray_executes():
-    """3D pattern example (tray with shell) actually runs."""
-    from nodes.ai_cad import execute_build123d_code
-    code = """\
-with BuildPart() as bp:
-    Box(150, 100, 40)
-    fillet(bp.edges().filter_by(Axis.Z), radius=10)
-    top = bp.faces().sort_by(Axis.Z)[-1]
-    offset(amount=-3, openings=top)
 result = bp.part
 """
     objects, step_bytes = execute_build123d_code(code)
@@ -378,7 +343,7 @@ def test_build_system_prompt_without_reference():
     assert "CODE EXAMPLES" not in prompt
     assert "API REFERENCE" not in prompt
     # But cheatsheet should still be there
-    assert "CHEATSHEET" in prompt
+    assert "QUICK REFERENCE" in prompt
 
 
 def test_available_models_have_large_context():
@@ -483,14 +448,32 @@ async def test_generate_excludes_reference_for_small_context_model(tmp_path):
         _REFERENCE_CACHE.clear()
 
 
+@pytest.mark.asyncio
+async def test_design_with_context_calls_designer_model():
+    """_design_with_context calls Gemini with full reference."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "DESIGN: box from 6 panels\nAPPROACH: Builder API"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    result = await client._design_with_context("300x300x300の箱を板で組んで", profile="general")
+
+    assert "DESIGN" in result or "box" in result.lower()
+    call_kwargs = mock_client.chat.completions.create.call_args[1]
+    assert call_kwargs["model"] == "google/gemini-2.5-flash-lite"
+
+
 def test_list_profiles_info():
     """list_profiles_info() returns all available profiles."""
     client = LLMClient(api_key="test-key")
     profiles = client.list_profiles_info()
-    assert len(profiles) == 4
+    assert len(profiles) == 2
     ids = [p["id"] for p in profiles]
     assert "general" in ids
-    assert "furniture" in ids
-    assert "flat" in ids
-    assert "3d" in ids
+    assert "2d" in ids
     assert all("name" in p and "description" in p for p in profiles)
