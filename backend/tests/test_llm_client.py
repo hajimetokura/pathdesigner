@@ -381,6 +381,25 @@ def test_build_system_prompt_without_reference():
     assert "CHEATSHEET" in prompt
 
 
+def test_available_models_have_large_context():
+    """Each model has large_context flag."""
+    for mid, info in AVAILABLE_MODELS.items():
+        assert "large_context" in info, f"{mid} missing large_context"
+
+
+def test_flash_lite_is_large_context():
+    """Gemini Flash Lite has large_context=True."""
+    assert AVAILABLE_MODELS["google/gemini-2.5-flash-lite"]["large_context"] is True
+
+
+def test_list_models_includes_large_context():
+    """list_models() output includes large_context field."""
+    client = LLMClient(api_key="test-key")
+    models = client.list_models()
+    for m in models:
+        assert "large_context" in m
+
+
 def test_list_profiles_info():
     """list_profiles_info() returns all available profiles."""
     client = LLMClient(api_key="test-key")

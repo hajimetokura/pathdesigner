@@ -19,14 +19,17 @@ AVAILABLE_MODELS: dict[str, dict] = {
     "google/gemini-2.5-flash-lite": {
         "name": "Gemini 2.5 Flash Lite",
         "supports_vision": True,
+        "large_context": True,
     },
     "deepseek/deepseek-r1": {
         "name": "DeepSeek R1",
         "supports_vision": False,
+        "large_context": False,
     },
     "qwen/qwen3-coder-next": {
         "name": "Qwen3 Coder Next",
         "supports_vision": False,
+        "large_context": False,
     },
 }
 
@@ -628,6 +631,7 @@ class LLMClient:
                 "name": info["name"],
                 "is_default": mid == self.default_model,
                 "supports_vision": info["supports_vision"],
+                "large_context": info.get("large_context", False),
             }
             for mid, info in AVAILABLE_MODELS.items()
         ]
