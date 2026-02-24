@@ -3,13 +3,12 @@ import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import {
-  generateAiCad,
+  generateAiCadStream,
   executeAiCadCode,
-  fetchAiCadModels,
   fetchAiCadProfiles,
   fetchMeshData,
 } from "../api";
-import type { AiCadResult, ModelInfo, ProfileInfo, ObjectMesh } from "../types";
+import type { AiCadResult, ProfileInfo, ObjectMesh } from "../types";
 import BrepImportPanel from "../components/BrepImportPanel";
 import AiCadPanel from "../components/AiCadPanel";
 import { usePanelTabs } from "../contexts/PanelTabsContext";
@@ -22,22 +21,14 @@ export default function AiCadNode({ id, selected }: NodeProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<AiCadResult | null>(null);
   const [error, setError] = useState("");
-  const [models, setModels] = useState<ModelInfo[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [stage, setStage] = useState("");
   const [profiles, setProfiles] = useState<ProfileInfo[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<string>("general");
   const [meshes, setMeshes] = useState<ObjectMesh[]>([]);
   const { setNodes } = useReactFlow();
 
-  // Load available models and profiles on mount
+  // Load available profiles on mount
   useEffect(() => {
-    fetchAiCadModels()
-      .then((ms) => {
-        setModels(ms);
-        const def = ms.find((m) => m.is_default);
-        if (def) setSelectedModel(def.id);
-      })
-      .catch(() => {});
     fetchAiCadProfiles()
       .then((ps) => setProfiles(ps))
       .catch(() => {});
@@ -47,15 +38,16 @@ export default function AiCadNode({ id, selected }: NodeProps) {
     if (!prompt.trim()) return;
     setStatus("generating");
     setError("");
+    setStage("");
     try {
-      const data = await generateAiCad(
+      const data = await generateAiCadStream(
         prompt,
-        undefined,
-        selectedModel || undefined,
         selectedProfile || undefined,
+        (evt) => setStage(evt.message),
       );
       setResult(data);
       setStatus("success");
+      setStage("");
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id ? { ...n, data: { ...n.data, brepResult: data } } : n,
@@ -70,8 +62,9 @@ export default function AiCadNode({ id, selected }: NodeProps) {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Generation failed");
       setStatus("error");
+      setStage("");
     }
-  }, [id, prompt, selectedModel, selectedProfile, setNodes]);
+  }, [id, prompt, selectedProfile, setNodes]);
 
   const handleCodeRerun = useCallback(
     async (code: string) => {
@@ -151,20 +144,6 @@ export default function AiCadNode({ id, selected }: NodeProps) {
         </select>
       )}
 
-      {models.length > 1 && (
-        <select
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          style={selectStyle}
-        >
-          {models.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
-      )}
-
       <button
         onClick={handleGenerate}
         disabled={status === "generating" || !prompt.trim()}
@@ -175,6 +154,12 @@ export default function AiCadNode({ id, selected }: NodeProps) {
       >
         {status === "generating" ? "Generating..." : "Generate"}
       </button>
+
+      {status === "generating" && stage && (
+        <div style={{ fontSize: 11, color: "#666", padding: "4px 0" }}>
+          {stage}
+        </div>
+      )}
 
       {status === "error" && (
         <div style={{ color: "#d32f2f", fontSize: 11, padding: "4px 0" }}>
