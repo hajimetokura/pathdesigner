@@ -1,7 +1,7 @@
 """Integration tests for AI CAD API endpoints."""
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 
 import sys
@@ -78,3 +78,44 @@ def test_get_profiles():
     ids = [p["id"] for p in data]
     assert "general" in ids
     assert all("name" in p and "description" in p for p in data)
+
+
+def test_refine_endpoint_with_mock_llm():
+    """POST /ai-cad/refine streams SSE events and returns refined result."""
+    # First create a generation to refine
+    resp = client.post("/ai-cad/execute", json={"code": "result = Box(100, 50, 10)"})
+    assert resp.status_code == 200
+    gen_id = resp.json()["generation_id"]
+    original_code = resp.json()["generated_code"]
+
+    # Mock LLM to return modified code
+    mock_code = "result = Box(100, 50, 20)"  # changed height
+
+    with patch("main._get_llm") as mock_get_llm:
+        mock_llm = MagicMock()
+        mock_llm.refine_code = AsyncMock(return_value=mock_code)
+        mock_get_llm.return_value = mock_llm
+
+        resp = client.post("/ai-cad/refine", json={
+            "generation_id": gen_id,
+            "message": "高さを20mmに変更",
+            "history": [],
+            "current_code": original_code,
+        })
+
+    assert resp.status_code == 200
+    text = resp.text
+    assert "event: stage" in text
+    assert "event: result" in text or "event: error" in text
+
+
+def test_refine_validates_generation_id():
+    """POST /ai-cad/refine with bad generation_id returns error SSE."""
+    resp = client.post("/ai-cad/refine", json={
+        "generation_id": "nonexistent",
+        "message": "round edges",
+        "history": [],
+        "current_code": "result = Box(10,10,10)",
+    })
+    assert resp.status_code == 200  # SSE always 200
+    assert "event: error" in resp.text

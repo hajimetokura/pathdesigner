@@ -290,3 +290,21 @@ export interface ProfileInfo {
   name: string;
   description: string;
 }
+
+/** AI CAD Chat / Refine types */
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  code?: string;            // AI response code (for collapsible display)
+  result?: AiCadRefineResult; // Execution result if available
+}
+
+export interface AiCadRefineResult {
+  code: string;
+  objects: BrepObject[];
+  object_count: number;
+  file_id: string;
+  generation_id: string;
+  ai_message: string;
+}

@@ -8,9 +8,10 @@ import {
   fetchAiCadProfiles,
   fetchMeshData,
 } from "../api";
-import type { AiCadResult, ProfileInfo, ObjectMesh } from "../types";
+import type { AiCadResult, AiCadRefineResult, ProfileInfo, ObjectMesh } from "../types";
 import BrepImportPanel from "../components/BrepImportPanel";
 import AiCadPanel from "../components/AiCadPanel";
+import AiCadChatPanel from "../components/AiCadChatPanel";
 import { usePanelTabs } from "../contexts/PanelTabsContext";
 
 type Status = "idle" | "generating" | "success" | "error";
@@ -90,6 +91,47 @@ export default function AiCadNode({ id, selected }: NodeProps) {
     },
     [id, setNodes],
   );
+
+  const handleApplyRefinement = useCallback(
+    async (refineResult: AiCadRefineResult) => {
+      const updated: AiCadResult = {
+        ...result!,
+        file_id: refineResult.file_id,
+        objects: refineResult.objects,
+        object_count: refineResult.object_count,
+        generated_code: refineResult.code,
+      };
+      setResult(updated);
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === id ? { ...n, data: { ...n.data, brepResult: updated } } : n,
+        ),
+      );
+      try {
+        const meshData = await fetchMeshData(refineResult.file_id);
+        setMeshes(meshData.objects);
+      } catch {}
+    },
+    [id, result, setNodes],
+  );
+
+  const handleRefine = useCallback(() => {
+    if (!result) return;
+    openTab({
+      id: `ai-cad-chat-${id}`,
+      label: "Chat",
+      icon: "💬",
+      content: (
+        <AiCadChatPanel
+          generationId={result.generation_id}
+          initialCode={result.generated_code}
+          initialPrompt={result.prompt_used}
+          profile={selectedProfile}
+          onApply={handleApplyRefinement}
+        />
+      ),
+    });
+  }, [id, result, selectedProfile, openTab, handleApplyRefinement]);
 
   const handleView3D = useCallback(() => {
     if (!result) return;
@@ -188,6 +230,9 @@ export default function AiCadNode({ id, selected }: NodeProps) {
             )}
             <button onClick={handleViewCode} style={viewBtnStyle}>
               View Code
+            </button>
+            <button onClick={handleRefine} style={viewBtnStyle}>
+              Refine
             </button>
           </div>
         </div>
