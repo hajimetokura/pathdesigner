@@ -348,6 +348,40 @@ class LLMClient:
         raw = response.choices[0].message.content or ""
         return _strip_code_fences(raw)
 
+    async def refine_code(
+        self,
+        current_code: str,
+        message: str,
+        history: list[dict],
+        profile: str = "general",
+    ) -> str:
+        """Refine existing code based on user's modification instruction.
+
+        Uses Qwen coder model directly (no design stage) for low latency.
+        Returns modified Python code string.
+        """
+        coder_model = PIPELINE_MODELS["coder"]
+        system = _build_system_prompt(profile, include_reference=False)
+
+        messages = list(history)
+        messages.append({
+            "role": "user",
+            "content": (
+                f"現在のコード:\n```python\n{current_code}\n```\n\n"
+                f"修正指示: {message}\n\n"
+                "修正後のコードのみを出力してください。"
+            ),
+        })
+
+        full_messages = [{"role": "system", "content": system}] + messages
+
+        response = await self._client.chat.completions.create(
+            model=coder_model,
+            messages=full_messages,  # type: ignore[arg-type]
+        )
+        raw = response.choices[0].message.content or ""
+        return _strip_code_fences(raw)
+
     async def generate_and_execute(
         self,
         prompt: str,

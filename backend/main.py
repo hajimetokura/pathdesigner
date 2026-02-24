@@ -35,6 +35,7 @@ from schemas import (
     AutoNestingRequest, AutoNestingResponse,
     SbpZipRequest,
     AiCadRequest, AiCadCodeRequest, AiCadResult,
+    AiCadRefineRequest, AiCadRefineResult, ChatMessage,
     GenerationSummary, ModelInfo, ProfileInfo,
 )
 
@@ -581,6 +582,101 @@ async def ai_cad_execute(req: AiCadCodeRequest):
         file_id=file_id, objects=objects, object_count=len(objects),
         generated_code=req.code, generation_id=gen_id,
         prompt_used="(manual code)", model_used="manual",
+    )
+
+
+@app.post("/ai-cad/refine")
+async def ai_cad_refine(req: AiCadRefineRequest):
+    """Refine AI-generated code via chat instruction (SSE stream)."""
+    db = await _get_db()
+    llm = _get_llm()
+
+    gen_row = await db.get_generation(req.generation_id)
+
+    async def event_stream():
+        if not gen_row:
+            data = json.dumps({"message": "Generation not found"})
+            yield f"event: error\ndata: {data}\n\n"
+            return
+
+        try:
+            yield f"event: stage\ndata: {json.dumps({'stage': 'refining', 'message': '修正中...'})}\n\n"
+
+            llm_history = [
+                {"role": m.role, "content": m.content}
+                for m in req.history
+            ]
+
+            code = await llm.refine_code(
+                current_code=req.current_code,
+                message=req.message,
+                history=llm_history,
+                profile=req.profile,
+            )
+
+            yield f"event: stage\ndata: {json.dumps({'stage': 'executing', 'message': '実行中...'})}\n\n"
+
+            try:
+                objects, step_bytes = execute_build123d_code(code)
+            except CodeExecutionError as exec_err:
+                yield f"event: stage\ndata: {json.dumps({'stage': 'retrying', 'message': 'リトライ中...'})}\n\n"
+
+                retry_history = llm_history + [
+                    {"role": "assistant", "content": code},
+                    {"role": "user", "content": f"エラーが発生しました:\n{exec_err}\n\n修正してください。"},
+                ]
+                code = await llm.refine_code(
+                    current_code=code,
+                    message=f"前回のエラー: {exec_err}\n修正してください。",
+                    history=retry_history,
+                    profile=req.profile,
+                )
+
+                yield f"event: stage\ndata: {json.dumps({'stage': 'executing', 'message': '実行中...'})}\n\n"
+                objects, step_bytes = execute_build123d_code(code)
+
+            file_id = f"ai-cad-{uuid.uuid4().hex[:8]}"
+            brep_result = BrepImportResult(
+                file_id=file_id, objects=objects, object_count=len(objects),
+            )
+
+            if step_bytes:
+                gen_dir = GENERATIONS_DIR / file_id
+                gen_dir.mkdir(exist_ok=True)
+                (gen_dir / "model.step").write_bytes(step_bytes)
+                (UPLOAD_DIR / f"{file_id}.step").write_bytes(step_bytes)
+
+            new_history = [m.model_dump() for m in req.history] + [
+                {"role": "user", "content": req.message},
+                {"role": "assistant", "content": code},
+            ]
+            await db.update_generation(
+                req.generation_id,
+                code=code,
+                result_json=brep_result.model_dump_json(),
+                step_path=str(GENERATIONS_DIR / file_id / "model.step") if step_bytes else None,
+                conversation_history=json.dumps(new_history),
+            )
+
+            result = AiCadRefineResult(
+                code=code,
+                objects=objects,
+                object_count=len(objects),
+                file_id=file_id,
+                generation_id=req.generation_id,
+                ai_message="修正を適用しました。",
+            )
+            yield f"event: result\ndata: {result.model_dump_json()}\n\n"
+
+        except CodeExecutionError as e:
+            yield f"event: error\ndata: {json.dumps({'message': f'コード実行エラー: {e}'})}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
