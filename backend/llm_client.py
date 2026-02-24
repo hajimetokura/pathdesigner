@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+from pathlib import Path
 
 from openai import AsyncOpenAI
 
@@ -443,12 +444,43 @@ _PROFILES: dict[str, dict] = {
 }
 
 
-def _build_system_prompt(profile: str = "general") -> str:
-    """Build system prompt from base + profile-specific cheatsheet."""
+_DATA_DIR = Path(__file__).parent / "data"
+
+_REF_PATHS: dict[str, str] = {
+    "api_reference": str(_DATA_DIR / "build123d_api_reference.md"),
+    "examples": str(_DATA_DIR / "build123d_examples.md"),
+}
+
+_REFERENCE_CACHE: dict[str, str] = {}
+
+
+def _load_reference_file(path: str) -> str:
+    """Load a reference file with caching. Returns empty string if missing."""
+    if path not in _REFERENCE_CACHE:
+        p = Path(path)
+        _REFERENCE_CACHE[path] = p.read_text() if p.exists() else ""
+    return _REFERENCE_CACHE[path]
+
+
+def _build_system_prompt(
+    profile: str = "general",
+    include_reference: bool = False,
+) -> str:
+    """Build system prompt from base + profile cheatsheet + optional full reference."""
     p = _PROFILES.get(profile)
     if p is None:
         p = _PROFILES["general"]
-    return _BASE_PROMPT + p["cheatsheet"]
+    prompt = _BASE_PROMPT + p["cheatsheet"]
+
+    if include_reference:
+        examples = _load_reference_file(_REF_PATHS["examples"])
+        if examples:
+            prompt += "\n\n═══ CODE EXAMPLES ═══\n" + examples
+        api_ref = _load_reference_file(_REF_PATHS["api_reference"])
+        if api_ref:
+            prompt += "\n\n═══ API REFERENCE ═══\n" + api_ref
+
+    return prompt
 
 _CODE_FENCE_RE = re.compile(r"```(?:python)?\s*\n?(.*?)\n?\s*```", re.DOTALL)
 

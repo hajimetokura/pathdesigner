@@ -312,6 +312,75 @@ result = bp.part
     assert len(objects) >= 1
 
 
+def test_load_reference_file_returns_content(tmp_path):
+    """_load_reference_file reads content from file."""
+    from llm_client import _load_reference_file, _REFERENCE_CACHE
+    # Clear cache
+    _REFERENCE_CACHE.clear()
+    ref_file = tmp_path / "test_ref.md"
+    ref_file.write_text("# Test Reference\nSome API content")
+    content = _load_reference_file(str(ref_file))
+    assert "Test Reference" in content
+    assert "Some API content" in content
+    _REFERENCE_CACHE.clear()
+
+
+def test_load_reference_file_caches(tmp_path):
+    """_load_reference_file caches content after first read."""
+    from llm_client import _load_reference_file, _REFERENCE_CACHE
+    _REFERENCE_CACHE.clear()
+    ref_file = tmp_path / "cached_ref.md"
+    ref_file.write_text("original content")
+    content1 = _load_reference_file(str(ref_file))
+    ref_file.write_text("modified content")
+    content2 = _load_reference_file(str(ref_file))
+    assert content1 == content2  # cached, not re-read
+    _REFERENCE_CACHE.clear()
+
+
+def test_load_reference_file_missing_returns_empty():
+    """_load_reference_file returns empty string for missing file."""
+    from llm_client import _load_reference_file, _REFERENCE_CACHE
+    _REFERENCE_CACHE.clear()
+    content = _load_reference_file("/nonexistent/path/missing.md")
+    assert content == ""
+    _REFERENCE_CACHE.clear()
+
+
+def test_build_system_prompt_with_reference(tmp_path):
+    """_build_system_prompt includes reference content when include_reference=True."""
+    from llm_client import _build_system_prompt, _REFERENCE_CACHE, _REF_PATHS
+    _REFERENCE_CACHE.clear()
+    # Create temp reference files
+    api_ref = tmp_path / "build123d_api_reference.md"
+    api_ref.write_text("# API Reference\nBox(length, width, height)")
+    examples = tmp_path / "build123d_examples.md"
+    examples.write_text("# Examples\nresult = Box(10, 10, 10)")
+    # Temporarily override reference paths
+    original_paths = _REF_PATHS.copy()
+    _REF_PATHS["api_reference"] = str(api_ref)
+    _REF_PATHS["examples"] = str(examples)
+    try:
+        prompt = _build_system_prompt("general", include_reference=True)
+        assert "API Reference" in prompt
+        assert "Examples" in prompt
+        assert "CODE EXAMPLES" in prompt
+        assert "API REFERENCE" in prompt
+    finally:
+        _REF_PATHS.update(original_paths)
+        _REFERENCE_CACHE.clear()
+
+
+def test_build_system_prompt_without_reference():
+    """_build_system_prompt excludes reference when include_reference=False."""
+    from llm_client import _build_system_prompt
+    prompt = _build_system_prompt("general", include_reference=False)
+    assert "CODE EXAMPLES" not in prompt
+    assert "API REFERENCE" not in prompt
+    # But cheatsheet should still be there
+    assert "CHEATSHEET" in prompt
+
+
 def test_list_profiles_info():
     """list_profiles_info() returns all available profiles."""
     client = LLMClient(api_key="test-key")
