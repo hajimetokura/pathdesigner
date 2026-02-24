@@ -489,6 +489,29 @@ async def test_generate_code_calls_coder_model():
     assert call_kwargs["model"] == "qwen/qwen3-coder"
 
 
+@pytest.mark.asyncio
+async def test_self_review_calls_coder_model():
+    """_self_review sends code back to Qwen3 for review."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "result = Box(100, 100, 100)"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    reviewed = await client._self_review("100mmの立方体", "result = Box(100, 100, 100)", profile="general")
+
+    assert "Box" in reviewed
+    call_kwargs = mock_client.chat.completions.create.call_args[1]
+    assert call_kwargs["model"] == "qwen/qwen3-coder"
+    # System message should contain review instructions
+    system_msg = call_kwargs["messages"][0]["content"]
+    assert "build123d" in system_msg.lower() or "review" in str(call_kwargs["messages"]).lower()
+
+
 def test_list_profiles_info():
     """list_profiles_info() returns all available profiles."""
     client = LLMClient(api_key="test-key")

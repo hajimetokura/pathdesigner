@@ -453,6 +453,36 @@ class LLMClient:
         raw = response.choices[0].message.content or ""
         return _strip_code_fences(raw)
 
+    async def _self_review(
+        self,
+        prompt: str,
+        code: str,
+        profile: str = "general",
+    ) -> str:
+        """Stage 2.5: Self-review generated code before execution."""
+        coder_model = PIPELINE_MODELS["coder"]
+        system = _build_system_prompt(profile, include_reference=False)
+
+        review_content = (
+            "以下のコードをレビューしてください:\n"
+            "- ユーザー要求と一致しているか\n"
+            "- build123d APIの使い方は正しいか\n"
+            "- バグはないか\n"
+            "問題があれば修正版のコードのみを出力。問題なければそのまま出力。\n\n"
+            f"ユーザー要求: {prompt}\n\n"
+            f"コード:\n```python\n{code}\n```"
+        )
+
+        response = await self._client.chat.completions.create(
+            model=coder_model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": review_content},
+            ],
+        )
+        raw = response.choices[0].message.content or ""
+        return _strip_code_fences(raw)
+
     def list_profiles_info(self) -> list[dict]:
         """Return available prompt profiles with metadata."""
         return [
