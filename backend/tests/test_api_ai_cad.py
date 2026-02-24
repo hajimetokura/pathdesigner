@@ -14,12 +14,14 @@ client = TestClient(app)
 
 
 def test_get_models():
-    """GET /ai-cad/models returns model list."""
+    """GET /ai-cad/models returns pipeline model configuration."""
     resp = client.get("/ai-cad/models")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) >= 3
-    assert any(m["is_default"] for m in data)
+    assert len(data) == 2
+    names = [m["name"] for m in data]
+    assert any("designer" in n for n in names)
+    assert any("coder" in n for n in names)
 
 
 def test_execute_code_simple_box():

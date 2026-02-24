@@ -430,8 +430,22 @@ def generate_sbp_zip_endpoint(req: SbpZipRequest):
 
 @app.get("/ai-cad/models", response_model=list[ModelInfo])
 def get_ai_cad_models():
-    """Return available LLM models."""
-    return _get_llm().list_models()
+    """Return pipeline model configuration."""
+    from llm_client import PIPELINE_MODELS, AVAILABLE_MODELS
+
+    result = []
+    for role, model_id in PIPELINE_MODELS.items():
+        info = AVAILABLE_MODELS.get(model_id, {})
+        result.append(
+            {
+                "id": model_id,
+                "name": f"{role}: {info.get('name', model_id)}",
+                "is_default": False,
+                "supports_vision": info.get("supports_vision", False),
+                "large_context": info.get("large_context", False),
+            }
+        )
+    return result
 
 
 @app.get("/ai-cad/profiles", response_model=list[ProfileInfo])
