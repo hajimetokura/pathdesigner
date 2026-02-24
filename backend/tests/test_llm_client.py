@@ -468,6 +468,27 @@ async def test_design_with_context_calls_designer_model():
     assert call_kwargs["model"] == "google/gemini-2.5-flash-lite"
 
 
+@pytest.mark.asyncio
+async def test_generate_code_calls_coder_model():
+    """_generate_code calls Qwen3 Coder with design context."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "result = Box(100, 50, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    design = "DESIGN: single box 100x100x100\nAPPROACH: Algebra API"
+    code = await client._generate_code("100mmの立方体", design, profile="general")
+
+    assert "Box" in code
+    call_kwargs = mock_client.chat.completions.create.call_args[1]
+    assert call_kwargs["model"] == "qwen/qwen3-coder"
+
+
 def test_list_profiles_info():
     """list_profiles_info() returns all available profiles."""
     client = LLMClient(api_key="test-key")

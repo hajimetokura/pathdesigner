@@ -427,6 +427,32 @@ class LLMClient:
         )
         return response.choices[0].message.content or ""
 
+    async def _generate_code(
+        self,
+        prompt: str,
+        design: str,
+        profile: str = "general",
+    ) -> str:
+        """Stage 2: Use Qwen3 Coder to generate build123d code from design."""
+        coder_model = PIPELINE_MODELS["coder"]
+        system = _build_system_prompt(profile, include_reference=False)
+
+        user_content = (
+            f"ユーザー要求: {prompt}\n\n"
+            f"設計:\n{design}\n\n"
+            "上記の設計に基づいてbuild123dコードを生成してください。"
+        )
+
+        response = await self._client.chat.completions.create(
+            model=coder_model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_content},
+            ],
+        )
+        raw = response.choices[0].message.content or ""
+        return _strip_code_fences(raw)
+
     def list_profiles_info(self) -> list[dict]:
         """Return available prompt profiles with metadata."""
         return [
