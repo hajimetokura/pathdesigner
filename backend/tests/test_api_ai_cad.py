@@ -94,6 +94,7 @@ def test_refine_endpoint_with_mock_llm():
     with patch("main._get_llm") as mock_get_llm:
         mock_llm = MagicMock()
         mock_llm.refine_code = AsyncMock(return_value=mock_code)
+        mock_llm._self_review = AsyncMock(return_value=mock_code)
         mock_get_llm.return_value = mock_llm
 
         resp = client.post("/ai-cad/refine", json={
@@ -106,6 +107,7 @@ def test_refine_endpoint_with_mock_llm():
     assert resp.status_code == 200
     text = resp.text
     assert "event: stage" in text
+    assert '"reviewing"' in text  # self-review stage
     assert "event: result" in text or "event: error" in text
 
 

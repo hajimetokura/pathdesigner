@@ -614,6 +614,9 @@ async def ai_cad_refine(req: AiCadRefineRequest):
                 profile=req.profile,
             )
 
+            yield f"event: stage\ndata: {json.dumps({'stage': 'reviewing', 'message': 'レビュー中...'})}\n\n"
+            code = await llm._self_review(req.message, code, profile=req.profile)
+
             yield f"event: stage\ndata: {json.dumps({'stage': 'executing', 'message': '実行中...'})}\n\n"
 
             try:
@@ -625,12 +628,16 @@ async def ai_cad_refine(req: AiCadRefineRequest):
                     {"role": "assistant", "content": code},
                     {"role": "user", "content": f"エラーが発生しました:\n{exec_err}\n\n修正してください。"},
                 ]
+                retry_msg = f"前回のエラー: {exec_err}\n修正してください。"
                 code = await llm.refine_code(
                     current_code=code,
-                    message=f"前回のエラー: {exec_err}\n修正してください。",
+                    message=retry_msg,
                     history=retry_history,
                     profile=req.profile,
                 )
+
+                yield f"event: stage\ndata: {json.dumps({'stage': 'reviewing', 'message': 'レビュー中...'})}\n\n"
+                code = await llm._self_review(retry_msg, code, profile=req.profile)
 
                 yield f"event: stage\ndata: {json.dumps({'stage': 'executing', 'message': '実行中...'})}\n\n"
                 objects, step_bytes = execute_build123d_code(code)

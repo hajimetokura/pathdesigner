@@ -369,6 +369,7 @@ def test_model_has_large_context_helper():
     """_model_has_large_context returns correct values."""
     from llm_client import _model_has_large_context
     assert _model_has_large_context("google/gemini-2.5-flash-lite") is True
+    assert _model_has_large_context("qwen/qwen3-coder-next") is True
     assert _model_has_large_context("deepseek/deepseek-r1") is False
     assert _model_has_large_context("unknown/model") is False
 
@@ -647,6 +648,78 @@ def test_ai_cad_generate_sse_streams_stages():
         assert "event: stage" in text
         assert '"designing"' in text
         assert "event: result" in text
+
+
+@pytest.mark.asyncio
+async def test_refine_code_includes_reference(tmp_path):
+    """refine_code() includes full API reference in system prompt."""
+    from llm_client import _REFERENCE_CACHE, _REF_PATHS
+    _REFERENCE_CACHE.clear()
+    api_ref = tmp_path / "build123d_api_reference.md"
+    api_ref.write_text("REFINE_API_MARKER")
+    examples = tmp_path / "build123d_examples.md"
+    examples.write_text("REFINE_EXAMPLES_MARKER")
+    original_paths = _REF_PATHS.copy()
+    _REF_PATHS["api_reference"] = str(api_ref)
+    _REF_PATHS["examples"] = str(examples)
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "result = Box(100, 50, 20)"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    try:
+        await client.refine_code(
+            current_code="result = Box(100, 50, 10)",
+            message="高さを20mmに変更",
+            history=[],
+        )
+        call_kwargs = mock_client.chat.completions.create.call_args[1]
+        system_msg = call_kwargs["messages"][0]["content"]
+        assert "REFINE_API_MARKER" in system_msg
+        assert "REFINE_EXAMPLES_MARKER" in system_msg
+    finally:
+        _REF_PATHS.update(original_paths)
+        _REFERENCE_CACHE.clear()
+
+
+@pytest.mark.asyncio
+async def test_self_review_includes_reference(tmp_path):
+    """_self_review() includes full API reference in system prompt."""
+    from llm_client import _REFERENCE_CACHE, _REF_PATHS
+    _REFERENCE_CACHE.clear()
+    api_ref = tmp_path / "build123d_api_reference.md"
+    api_ref.write_text("REVIEW_API_MARKER")
+    examples = tmp_path / "build123d_examples.md"
+    examples.write_text("REVIEW_EXAMPLES_MARKER")
+    original_paths = _REF_PATHS.copy()
+    _REF_PATHS["api_reference"] = str(api_ref)
+    _REF_PATHS["examples"] = str(examples)
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "result = Box(100, 100, 100)"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    try:
+        await client._self_review("box", "result = Box(100,100,100)")
+        call_kwargs = mock_client.chat.completions.create.call_args[1]
+        system_msg = call_kwargs["messages"][0]["content"]
+        assert "REVIEW_API_MARKER" in system_msg
+        assert "REVIEW_EXAMPLES_MARKER" in system_msg
+    finally:
+        _REF_PATHS.update(original_paths)
+        _REFERENCE_CACHE.clear()
 
 
 def test_list_profiles_info():
