@@ -599,6 +599,56 @@ async def test_generate_pipeline_retries_with_gemini():
     assert mock_client.chat.completions.create.call_count == 5
 
 
+def test_ai_cad_generate_sse_streams_stages():
+    """POST /ai-cad/generate returns SSE stream with stage events."""
+    import json
+    from unittest.mock import patch
+    from fastapi.testclient import TestClient
+
+    from main import app
+    from schemas import BrepObject, BoundingBox, Origin, FacesAnalysis
+
+    mock_objects = [BrepObject(
+        object_id="test-0", file_name="ai_generated.step",
+        bounding_box=BoundingBox(x=100, y=50, z=10),
+        thickness=10, origin=Origin(position=[0, 0, 0], reference="bounding_box_min", description=""),
+        unit="mm", is_closed=True, is_planar=True,
+        machining_type="2d", faces_analysis=FacesAnalysis(top_features=False, bottom_features=False, freeform_surfaces=False),
+        outline=[],
+    )]
+
+    async def mock_pipeline(prompt, *, image_base64=None, profile="general", on_stage=None):
+        if on_stage:
+            await on_stage("designing")
+            await on_stage("coding")
+            await on_stage("reviewing")
+            await on_stage("executing")
+        return "result = Box(100, 50, 10)", mock_objects, b"STEP data"
+
+    with patch("main._get_llm") as mock_get_llm, \
+         patch("main._get_db") as mock_get_db:
+        mock_llm = MagicMock()
+        mock_llm.generate_pipeline = mock_pipeline
+        mock_get_llm.return_value = mock_llm
+
+        mock_db = AsyncMock()
+        mock_db.save_generation = AsyncMock(return_value="gen-123")
+        mock_get_db.return_value = mock_db
+
+        client = TestClient(app)
+        response = client.post(
+            "/ai-cad/generate",
+            json={"prompt": "Make a box"},
+            headers={"Accept": "text/event-stream"},
+        )
+
+        assert response.status_code == 200
+        text = response.text
+        assert "event: stage" in text
+        assert '"designing"' in text
+        assert "event: result" in text
+
+
 def test_list_profiles_info():
     """list_profiles_info() returns all available profiles."""
     client = LLMClient(api_key="test-key")

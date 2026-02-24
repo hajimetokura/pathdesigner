@@ -1,3 +1,4 @@
+import asyncio
 import io
 import json
 import uuid
@@ -439,55 +440,98 @@ def get_ai_cad_profiles():
     return _get_llm().list_profiles_info()
 
 
-@app.post("/ai-cad/generate", response_model=AiCadResult)
+@app.post("/ai-cad/generate")
 async def ai_cad_generate(req: AiCadRequest):
-    """Generate 3D model from text/image prompt via LLM."""
+    """Generate 3D model from text/image prompt via LLM pipeline (SSE stream)."""
     llm = _get_llm()
-    db = await _get_db()
-    model_used = req.model or llm.default_model
 
-    try:
-        code, objects, step_bytes = await llm.generate_and_execute(
-            req.prompt,
-            image_base64=req.image_base64,
-            model=req.model,
-            profile=req.profile,
+    async def event_stream():
+        stage_queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+        async def queue_stage(stage: str):
+            await stage_queue.put(stage)
+
+        result_holder: dict = {}
+
+        async def run_pipeline():
+            try:
+                code, objects, step_bytes = await llm.generate_pipeline(
+                    req.prompt,
+                    image_base64=req.image_base64,
+                    profile=req.profile,
+                    on_stage=queue_stage,
+                )
+                result_holder["code"] = code
+                result_holder["objects"] = objects
+                result_holder["step_bytes"] = step_bytes
+            except Exception as e:
+                result_holder["error"] = str(e)
+            finally:
+                await stage_queue.put(None)  # sentinel
+
+        task = asyncio.create_task(run_pipeline())
+
+        messages = {
+            "designing": "設計中...",
+            "coding": "コーディング中...",
+            "reviewing": "レビュー中...",
+            "executing": "実行中...",
+            "retrying": "リトライ中...",
+        }
+
+        while True:
+            stage = await stage_queue.get()
+            if stage is None:
+                break
+            data = json.dumps({"stage": stage, "message": messages.get(stage, stage)})
+            yield f"event: stage\ndata: {data}\n\n"
+
+        await task
+
+        if "error" in result_holder:
+            data = json.dumps({"message": result_holder["error"]})
+            yield f"event: error\ndata: {data}\n\n"
+            return
+
+        code = result_holder["code"]
+        objects = result_holder["objects"]
+        step_bytes = result_holder["step_bytes"]
+
+        # Save STEP + generation (same logic as before)
+        db = await _get_db()
+        file_id = f"ai-cad-{uuid.uuid4().hex[:8]}"
+        brep_result = BrepImportResult(
+            file_id=file_id, objects=objects, object_count=len(objects),
         )
-    except CodeExecutionError as e:
-        await db.save_generation(
-            prompt=req.prompt, code="(failed)", result_json=None,
-            model_used=model_used, status="error", error_message=str(e),
+
+        step_path = None
+        if step_bytes:
+            gen_dir = GENERATIONS_DIR / file_id
+            gen_dir.mkdir(exist_ok=True)
+            step_file = gen_dir / "model.step"
+            step_file.write_bytes(step_bytes)
+            step_path = str(step_file)
+            (UPLOAD_DIR / f"{file_id}.step").write_bytes(step_bytes)
+
+        gen_id = await db.save_generation(
+            prompt=req.prompt, code=code,
+            result_json=brep_result.model_dump_json(),
+            model_used="pipeline", status="success",
+            step_path=step_path,
         )
-        raise HTTPException(status_code=422, detail=f"Code execution failed: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"LLM generation failed: {e}")
 
-    # Save STEP + generation
-    file_id = f"ai-cad-{uuid.uuid4().hex[:8]}"
-    result = BrepImportResult(
-        file_id=file_id, objects=objects, object_count=len(objects),
-    )
+        result = AiCadResult(
+            file_id=file_id, objects=objects, object_count=len(objects),
+            generated_code=code, generation_id=gen_id,
+            prompt_used=req.prompt, model_used="pipeline",
+        )
+        data = result.model_dump_json()
+        yield f"event: result\ndata: {data}\n\n"
 
-    step_path = None
-    if step_bytes:
-        gen_dir = GENERATIONS_DIR / file_id
-        gen_dir.mkdir(exist_ok=True)
-        step_file = gen_dir / "model.step"
-        step_file.write_bytes(step_bytes)
-        step_path = str(step_file)
-        (UPLOAD_DIR / f"{file_id}.step").write_bytes(step_bytes)
-
-    gen_id = await db.save_generation(
-        prompt=req.prompt, code=code,
-        result_json=result.model_dump_json(),
-        model_used=model_used, status="success",
-        step_path=step_path,
-    )
-
-    return AiCadResult(
-        file_id=file_id, objects=objects, object_count=len(objects),
-        generated_code=code, generation_id=gen_id,
-        prompt_used=req.prompt, model_used=model_used,
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
