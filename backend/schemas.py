@@ -467,6 +467,7 @@ class ModelInfo(BaseModel):
     name: str
     is_default: bool
     supports_vision: bool
+    large_context: bool = False
 
 
 class ProfileInfo(BaseModel):

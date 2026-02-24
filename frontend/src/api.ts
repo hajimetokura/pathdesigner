@@ -16,6 +16,7 @@ import type {
   PlacementItem,
   AutoNestingResponse,
   AiCadResult,
+  AiCadStageEvent,
   GenerationSummary,
   ModelInfo,
   ProfileInfo,
@@ -236,17 +237,56 @@ export async function generateSbpZip(
 
 /** AI CAD API */
 
-export async function generateAiCad(
+export async function generateAiCadStream(
   prompt: string,
-  imageBase64?: string,
-  model?: string,
   profile?: string,
+  onStage?: (event: AiCadStageEvent) => void,
 ): Promise<AiCadResult> {
-  return requestJson<AiCadResult>(
-    `${API_BASE_URL}/ai-cad/generate`,
-    jsonPost({ prompt, image_base64: imageBase64, model, profile }),
-    "AI generation failed"
-  );
+  const response = await fetch(`${API_BASE_URL}/ai-cad/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify({ prompt, profile }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`AI generation failed: ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: AiCadResult | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    let eventType = "";
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        eventType = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        const data = JSON.parse(line.slice(6));
+        if (eventType === "stage" && onStage) {
+          onStage(data);
+        } else if (eventType === "result") {
+          result = data;
+        } else if (eventType === "error") {
+          throw new Error(data.message);
+        }
+        eventType = "";
+      }
+    }
+  }
+
+  if (!result) throw new Error("No result received");
+  return result;
 }
 
 export async function executeAiCadCode(code: string): Promise<AiCadResult> {

@@ -263,6 +263,13 @@ export interface AiCadResult extends BrepImportResult {
   model_used: string;
 }
 
+export type AiCadStage = "designing" | "coding" | "reviewing" | "executing" | "retrying";
+
+export interface AiCadStageEvent {
+  stage: AiCadStage;
+  message: string;
+}
+
 export interface GenerationSummary {
   generation_id: string;
   prompt: string;

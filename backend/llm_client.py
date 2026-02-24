@@ -8,24 +8,34 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Awaitable, Callable
+from pathlib import Path
 
 from openai import AsyncOpenAI
 
 from nodes.ai_cad import execute_build123d_code, CodeExecutionError
 from schemas import BrepObject
 
+PIPELINE_MODELS = {
+    "designer": "google/gemini-2.5-flash-lite",
+    "coder": "qwen/qwen3-coder-next",
+}
+
 AVAILABLE_MODELS: dict[str, dict] = {
     "google/gemini-2.5-flash-lite": {
         "name": "Gemini 2.5 Flash Lite",
         "supports_vision": True,
+        "large_context": True,
     },
     "deepseek/deepseek-r1": {
         "name": "DeepSeek R1",
         "supports_vision": False,
+        "large_context": False,
     },
     "qwen/qwen3-coder-next": {
         "name": "Qwen3 Coder Next",
         "supports_vision": False,
+        "large_context": False,
     },
 }
 
@@ -44,136 +54,62 @@ RULES:
 
 _GENERAL_CHEATSHEET = """\
 
-═══ build123d CHEATSHEET ═══
+═══ QUICK REFERENCE ═══
 
-3D PRIMITIVES (center-aligned by default):
-  Box(length, width, height)
-  Cylinder(radius, height)
-  Cone(bottom_radius, top_radius, height)
-  Sphere(radius)
-  Torus(major_radius, minor_radius)
-
-2D SKETCH SHAPES (use inside BuildSketch):
-  Rectangle(width, height)
-  RectangleRounded(width, height, radius)
-  Circle(radius)
-  Ellipse(x_radius, y_radius)
-  RegularPolygon(radius, side_count)
-  Polygon(*pts)              # Polygon((0,0), (10,0), (10,5), (0,5))
-  SlotOverall(width, height) # stadium/oblong slot
-  Text("string", font_size)  # text shape (auto-Face in BuildSketch)
-
-1D LINES (use inside BuildSketch > BuildLine, then call make_face()):
-  Line(pt1, pt2)
-  Polyline(*pts)             # connected line segments
-  Spline(*pts)               # smooth curve through points
-  CenterArc(center, radius, start_angle, arc_size)
-  RadiusArc(pt1, pt2, radius)
-
-OPERATIONS:
-  extrude(amount=d)              # sketch → solid (inside BuildPart)
-  extrude(sk.sketch, amount=d)   # sketch → solid (Algebra)
-  revolve(axis=Axis.Z)           # rotate profile around axis
-  loft()                         # connect multiple sections
-  sweep()                        # sweep sketch along path
-  fillet(edges, radius)          # round edges (BuildPart only)
-  chamfer(edges, length)         # bevel edges (BuildPart only)
-  offset(amount=-t, openings=f)  # shell (hollow out)
-  mirror(about=Plane.YZ)
-  make_face()                    # BuildLine edges → Face
-
-BOOLEAN (Algebra API):
-  plate - hole      # subtract
-  part1 + part2     # union
-  a & b             # intersect
-
-PLACEMENT:
-  Pos(x, y, z) * shape     # translate
-  Rot(0, 0, 45) * shape    # rotate (degrees)
-  Pos(...) * Rot(...) * shape
-
-PATTERNS (inside BuildPart/BuildSketch):
-  Locations((x1,y1), (x2,y2), ...)
-  GridLocations(x_spacing, y_spacing, x_count, y_count)
-  PolarLocations(radius, count)
-
-PLANES:
-  Plane.XY                  # default (Z normal)
-  Plane.XZ                  # for revolve profiles
-  Plane.XY.offset(20)       # parallel plane at Z=20
-  path.line ^ 0             # plane at path start (for sweep)
-
-SELECTORS:
-  bp.faces().sort_by(Axis.Z)[-1]           # top face
-  bp.faces().sort_by(Axis.Z)[0]            # bottom face
-  bp.edges().group_by(Axis.Z)[-1]          # top edge group (list)
-  bp.edges().filter_by(Axis.Z)             # vertical edges
-  bp.edges().filter_by(GeomType.CIRCLE)    # circular edges
-  bp.faces().filter_by(GeomType.CYLINDER)  # cylindrical faces
-
-BUILDER API:
-  with BuildPart() as bp:
-      Box(200, 100, 6)
-      with GridLocations(50, 30, 3, 2):
-          Hole(radius, depth)   # auto-subtract
-      result = bp.part
+3D: Box(l,w,h) | Cylinder(r,h) | Cone(r1,r2,h) | Sphere(r) | Torus(R,r)
+2D: Rectangle(w,h) | RectangleRounded(w,h,r) | Circle(r) | Polygon(*pts) | Text("s",font_size)
+1D: Line(p1,p2) | Polyline(*pts) | Spline(*pts) | CenterArc(c,r,start,arc) | RadiusArc(p1,p2,r)
+Ops: extrude(amount=d) | revolve(axis=) | loft() | sweep() | fillet(edges,r) | chamfer(edges,l)
+     offset(amount=-t, openings=f) | mirror(about=Plane.YZ) | make_face()
+Bool: A - B (subtract) | A + B (union) | A & B (intersect)
+Place: Pos(x,y,z) * shape | Rot(0,0,45) * shape
+Pattern: Locations(pts) | GridLocations(xs,ys,xn,yn) | PolarLocations(r,n)
+Plane: Plane.XY | Plane.XZ | Plane.XY.offset(20) | path.line ^ 0
+Select: .sort_by(Axis.Z)[-1] (top) | .group_by(Axis.Z)[-1] (top group)
+        .filter_by(Axis.Z) (vertical) | .filter_by(GeomType.CIRCLE) (circular)
 
 ═══ PITFALLS — READ CAREFULLY ═══
 
-1. DEFAULT ALIGNMENT IS CENTER — Box(100, 50, 10) spans -50..50, -25..25, -5..5
+1. DEFAULT ALIGNMENT IS CENTER — Box(100,50,10) spans -50..50, -25..25, -5..5
    Use align=(Align.MIN, Align.MIN, Align.MIN) to place at origin corner
 
-2. FILLET/CHAMFER — ONLY work inside BuildPart context, NOT on Algebra shapes
-   WRONG: box.fillet(...)
-   RIGHT: with BuildPart() as bp: Box(...); fillet(bp.edges(), radius=3)
+2. FILLET/CHAMFER — ONLY inside BuildPart, NOT on Algebra shapes
+   WRONG: box.fillet(...)  RIGHT: fillet(bp.edges(), radius=3)
 
 3. SKETCH NEEDS EXTRUDE — BuildSketch result is not a solid
-   WRONG: result = sk.sketch
-   RIGHT: result = extrude(sk.sketch, amount=6)
+   WRONG: result = sk.sketch  RIGHT: result = extrude(sk.sketch, amount=6)
 
-4. Cylinder height = Box height for clean boolean — if Box height=10, use Cylinder(r, 10)
+4. Cylinder height = Box height for clean boolean
 
-5. For holes in Algebra API, use Cylinder subtract:
-   plate = Box(100, 50, 10) - Pos(20, 0, 0) * Cylinder(5, 10)
+5. Holes in Algebra: plate = Box(100,50,10) - Pos(20,0,0) * Cylinder(5, 10)
 
-6. BuildLine MUST form closed loop — start point must equal end point
-   Last Line(...) must connect back to first point
+6. BuildLine MUST form closed loop — last Line connects back to first point
 
-7. sort_by()[-1] returns ONE element; group_by()[-1] returns a LIST
-   For fillet: fillet(bp.edges().group_by(Axis.Z)[-1], radius=2)
+7. sort_by()[-1] = ONE element; group_by()[-1] = LIST
+   fillet(bp.edges().group_by(Axis.Z)[-1], radius=2)
 
-8. Builder mode result: bp.part (NOT bp or part)
+8. Builder result: bp.part (NOT bp or part)
 
 ═══ PATTERNS ═══
 
-# Simple plate with holes (Algebra — preferred for simple parts):
+# Simple plate with holes (Algebra):
 plate = Box(200, 100, 6)
 for x, y in [(30, 20), (170, 20), (30, 80), (170, 80)]:
     plate = plate - Pos(x - 100, y - 50, 0) * Cylinder(4, 6)
 result = plate
 
-# Plate with hole pattern (Builder — for repeated patterns):
+# Plate with hole pattern (Builder):
 with BuildPart() as bp:
     Box(200, 100, 6)
     with GridLocations(50, 30, 3, 2):
         Hole(4, 6)
 result = bp.part
 
-# Rounded rectangle plate (Sketch + extrude):
+# Rounded rectangle plate:
 with BuildSketch() as sk:
     RectangleRounded(200, 100, radius=10)
     with Locations((50, 0)):
         Circle(15, mode=Mode.SUBTRACT)
-result = extrude(sk.sketch, amount=6)
-
-# Curved outline (Spline + extrude):
-with BuildSketch() as sk:
-    with BuildLine():
-        Spline((0, 0), (50, 30), (100, 20), (150, 40), (200, 0))
-        Line((200, 0), (200, -50))
-        Line((200, -50), (0, -50))
-        Line((0, -50), (0, 0))
-    make_face()
 result = extrude(sk.sketch, amount=6)
 
 # Pocket (partial-depth cut):
@@ -187,121 +123,39 @@ with BuildPart() as bp:
 result = bp.part
 """
 
-_FURNITURE_CHEATSHEET = """\
+_2D_CHEATSHEET = """\
 
-═══ FURNITURE / SHEET MATERIAL PROFILE ═══
+═══ 2D / SHEET MATERIAL PROFILE ═══
 
-CORE CONCEPT: CNC sheet material parts. Constant thickness, machined from top.
+CORE CONCEPT: 2D outlines, sheet material CNC parts, pockets, text engraving.
+Constant thickness, machined from top.
 
 KEY SETUP:
   thickness = 18  # material thickness (mm)
-  # Use MIN alignment for origin at corner — easier coordinate math
-  align=(Align.MIN, Align.MIN, Align.MIN)
+  align=(Align.MIN, Align.MIN, Align.MIN)  # origin at corner
 
-PRIMITIVES & OPERATIONS:
-  Box(width, depth, thickness)              # base plate
-  Hole(radius, depth)                       # through-hole (dowel, bolt)
-  GridLocations(x_sp, y_sp, x_n, y_n)      # hole patterns
-  PolarLocations(radius, count)             # circular patterns
-  SlotOverall(length, width)                # oblong slot
-  RectangleRounded(w, h, r)                 # rounded cutout
-  Rectangle(w, h)                           # square cutout
+═══ QUICK REFERENCE ═══
 
-BOOLEAN:
-  Mode.SUBTRACT                             # holes, pockets
-  extrude(amount=-depth, mode=Mode.SUBTRACT) # pocket from top face
+2D: Rectangle(w,h) | RectangleRounded(w,h,r) | Circle(r) | Polygon(*pts)
+    SlotOverall(w,h) | Text("s", font_size) | Ellipse(rx,ry) | RegularPolygon(r,n)
+1D: Line(p1,p2) | Polyline(*pts) | Spline(*pts) | CenterArc(c,r,start,arc)
+    make_face() — REQUIRED after BuildLine
+Ops: extrude(amount=d) | extrude(amount=-d, mode=Mode.SUBTRACT) | offset(amount=d)
+Place: Pos(x,y,z) * shape | Rot(0,0,45) * shape
+Pattern: Locations(pts) | GridLocations(xs,ys,xn,yn) | PolarLocations(r,n)
+Select: .sort_by(Axis.Z)[-1] (top face) | .sort_by(Axis.Z)[0] (bottom)
 
-SELECTORS:
-  bp.faces().sort_by(Axis.Z)[-1]           # top face (for sketching on)
-  bp.faces().sort_by(Axis.Z)[0]            # bottom face
-
-═══ PITFALLS ═══
-
-1. HOLE DEPTH = MATERIAL THICKNESS for through-holes
-   Hole(4, thickness) not Hole(4, 10) — use the variable
-2. USE Align.MIN for sheet parts — origin at corner makes dimensions intuitive
-   Box(300, 200, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
-3. DOWEL HOLES: standard φ8mm → radius=4, φ10mm → radius=5
-4. SLOT WIDTH = tool diameter + clearance (typically tool_d + 0.2mm)
-5. DEFAULT ALIGNMENT IS CENTER — without Align.MIN, Box(100,50,18) spans -50..50
-
-═══ PATTERNS ═══
-
-# Shelf panel with 4 dowel holes at corners:
-thickness = 18
-with BuildPart() as bp:
-    Box(400, 250, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
-    top = bp.faces().sort_by(Axis.Z)[-1]
-    with BuildSketch(top):
-        with Locations((30, 30), (370, 30), (30, 220), (370, 220)):
-            Circle(4)  # φ8 dowel holes
-    extrude(amount=-thickness, mode=Mode.SUBTRACT)
-result = bp.part
-
-# Tab-and-slot joint panel (tab side):
-thickness = 18
-tab_w, tab_h = 30, thickness
-with BuildPart() as bp:
-    Box(300, 200, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
-    top = bp.faces().sort_by(Axis.Z)[-1]
-    with BuildSketch(top):
-        with Locations((75, 200), (150, 200), (225, 200)):
-            Rectangle(tab_w, tab_h, align=(Align.CENTER, Align.MIN))
-    extrude(amount=thickness)  # tabs grow upward
-result = bp.part
-
-# Grid-hole top plate (4x3 pattern):
-thickness = 12
-with BuildPart() as bp:
-    Box(240, 180, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
-    with BuildSketch(bp.faces().sort_by(Axis.Z)[-1]):
-        with GridLocations(50, 40, 4, 3):
-            Circle(5)  # φ10 holes
-    extrude(amount=-thickness, mode=Mode.SUBTRACT)
-    fillet(bp.edges().group_by(Axis.Z)[-1], radius=3)
-result = bp.part
-"""
-
-_FLAT_CHEATSHEET = """\
-
-═══ FLAT / ENGRAVING PROFILE ═══
-
-CORE CONCEPT: 2D outlines, pockets, and text engraving on flat stock.
-
-TEXT OPERATIONS:
-  Text("string", font_size=20)              # text shape (auto-Face)
-  Text("string", font_size=20, font="Arial") # with font
-  Text() is used inside BuildSketch — no make_face() needed
-
-SKETCH SHAPES:
-  Rectangle(w, h)
-  RectangleRounded(w, h, radius)
-  Circle(radius)
-  Polygon(*pts)                             # arbitrary polygon
-  RegularPolygon(radius, side_count)
-  Ellipse(x_radius, y_radius)
-
-LINES (for complex outlines, use inside BuildSketch > BuildLine):
-  Line(pt1, pt2)
-  Polyline(*pts)
-  Spline(*pts)                              # smooth curve
-  CenterArc(center, radius, start_angle, arc_size)
-  RadiusArc(pt1, pt2, radius)
-  make_face()                               # REQUIRED after BuildLine
-
-OPERATIONS:
-  extrude(sk.sketch, amount=thickness)      # sketch → solid
-  extrude(amount=-depth, mode=Mode.SUBTRACT) # pocket from top
-  offset(amount=d)                          # expand/shrink 2D outline
-
-═══ PITFALLS ═══
+═══ PITFALLS — READ CAREFULLY ═══
 
 1. Text() inside BuildSketch auto-creates Face — do NOT call make_face()
-2. BuildLine shapes MUST form a closed loop (start point = end point)
+2. BuildLine MUST form closed loop (start point = end point)
 3. POCKET DEPTH is negative + Mode.SUBTRACT: extrude(amount=-3, mode=Mode.SUBTRACT)
 4. Spline/Line must connect end-to-end: Spline ends at pt, next Line starts at pt
-5. For text on a plate, subtract the text shape with SUBTRACT mode
-6. Complex outlines: BuildLine → make_face() → extrude
+5. HOLE DEPTH = MATERIAL THICKNESS for through-holes: Hole(4, thickness)
+6. USE Align.MIN for sheet parts — origin at corner makes dimensions intuitive
+   Box(300, 200, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
+7. DEFAULT ALIGNMENT IS CENTER — without Align.MIN, Box(100,50,18) spans -50..50
+8. Builder result: bp.part (NOT bp or part)
 
 ═══ PATTERNS ═══
 
@@ -318,7 +172,18 @@ with BuildPart() as bp:
     extrude(amount=-engrave_depth, mode=Mode.SUBTRACT)
 result = bp.part
 
-# Complex outline sign (Spline border):
+# Shelf panel with dowel holes:
+thickness = 18
+with BuildPart() as bp:
+    Box(400, 250, thickness, align=(Align.MIN, Align.MIN, Align.MIN))
+    top = bp.faces().sort_by(Axis.Z)[-1]
+    with BuildSketch(top):
+        with Locations((30, 30), (370, 30), (30, 220), (370, 220)):
+            Circle(4)  # φ8 dowel holes
+    extrude(amount=-thickness, mode=Mode.SUBTRACT)
+result = bp.part
+
+# Curved outline sign (Spline border):
 thickness = 6
 with BuildPart() as bp:
     with BuildSketch():
@@ -346,109 +211,57 @@ with BuildPart() as bp:
 result = bp.part
 """
 
-_3D_CHEATSHEET = """\
-
-═══ 3D MODELING PROFILE ═══
-
-CORE CONCEPT: Freeform 3D shapes using revolve, loft, sweep, shell.
-
-3D OPERATIONS:
-  revolve(axis=Axis.Z, revolution_arc=360)  # rotate profile
-  loft()                                     # connect sections
-  sweep()                                    # sweep along path
-  offset(amount=-t, openings=face)           # shell (hollow out)
-  fillet(edges, radius)                      # round edges
-  chamfer(edges, length)                     # bevel edges
-  split(bisect_by=Plane.XZ)                 # cut in half
-
-PLANES & PATHS:
-  Plane.XY                  # default (Z normal)
-  Plane.XZ                  # for revolve profiles (Y normal)
-  Plane.XY.offset(20)       # parallel plane at Z=20
-  path.line ^ 0             # plane at path start (for sweep)
-  path.line ^ 0.5           # plane at path midpoint
-
-SELECTORS:
-  bp.edges().group_by(Axis.Z)[-1]           # top edges (for fillet)
-  bp.edges().filter_by(Axis.Z)              # vertical edges
-  bp.faces().sort_by(Axis.Z)[-1]            # top face (for shell opening)
-  bp.faces().filter_by(GeomType.CYLINDER)   # cylindrical faces
-  bp.edges().filter_by(GeomType.CIRCLE)     # circular edges
-
-═══ PITFALLS ═══
-
-1. REVOLVE PROFILE must be on ONE SIDE of axis (X≥0 for Axis.Z on XZ plane)
-2. SWEEP: sketch plane = path.line ^ 0 (plane at path start)
-3. LOFT: BuildSketch sections from bottom to top (Z order matters)
-4. SHELL: must specify openings= face, or it creates fully enclosed void
-5. FILLET/CHAMFER only inside BuildPart — not on Algebra objects
-6. FILLET RADIUS must be less than smallest adjacent edge length
-
-═══ PATTERNS ═══
-
-# Vase (revolve + shell):
-with BuildPart() as bp:
-    with BuildSketch(Plane.XZ):
-        with BuildLine():
-            Polyline((0, 0), (30, 0), (25, 40), (15, 70), (20, 100))
-            Line((20, 100), (0, 100))
-            Line((0, 100), (0, 0))
-        make_face()
-    revolve(axis=Axis.Z)
-    offset(amount=-3, openings=bp.faces().sort_by(Axis.Z)[-1])
-result = bp.part
-
-# Tray (rounded box + shell):
-with BuildPart() as bp:
-    Box(150, 100, 40)
-    fillet(bp.edges().filter_by(Axis.Z), radius=10)
-    top = bp.faces().sort_by(Axis.Z)[-1]
-    offset(amount=-3, openings=top)
-result = bp.part
-
-# Pipe connector (sweep + boolean):
-with BuildPart() as bp:
-    with BuildLine() as path:
-        Spline((0, 0, 0), (30, 0, 20), (60, 0, 20), (90, 0, 0))
-    with BuildSketch(path.line ^ 0):
-        Circle(8)
-    sweep()
-    with BuildSketch(path.line ^ 0):
-        Circle(6)
-    sweep(mode=Mode.SUBTRACT)
-result = bp.part
-"""
-
 _PROFILES: dict[str, dict] = {
     "general": {
         "name": "汎用",
-        "description": "幅広い形状に対応",
+        "description": "幅広い形状に対応（3D含む）",
         "cheatsheet": _GENERAL_CHEATSHEET,
     },
-    "furniture": {
-        "name": "家具・板材",
-        "description": "板材CNC加工パーツ",
-        "cheatsheet": _FURNITURE_CHEATSHEET,
-    },
-    "flat": {
-        "name": "平面加工・彫刻",
-        "description": "2D切り抜き・ポケット・テキスト彫刻",
-        "cheatsheet": _FLAT_CHEATSHEET,
-    },
-    "3d": {
-        "name": "3D造形",
-        "description": "回転体・ロフト・スイープ・シェル",
-        "cheatsheet": _3D_CHEATSHEET,
+    "2d": {
+        "name": "2D・板材加工",
+        "description": "2D切り抜き・板材・ポケット・テキスト彫刻",
+        "cheatsheet": _2D_CHEATSHEET,
     },
 }
 
 
-def _build_system_prompt(profile: str = "general") -> str:
-    """Build system prompt from base + profile-specific cheatsheet."""
+_DATA_DIR = Path(__file__).parent / "data"
+
+_REF_PATHS: dict[str, str] = {
+    "api_reference": str(_DATA_DIR / "build123d_api_reference.md"),
+    "examples": str(_DATA_DIR / "build123d_examples.md"),
+}
+
+_REFERENCE_CACHE: dict[str, str] = {}
+
+
+def _load_reference_file(path: str) -> str:
+    """Load a reference file with caching. Returns empty string if missing."""
+    if path not in _REFERENCE_CACHE:
+        p = Path(path)
+        _REFERENCE_CACHE[path] = p.read_text() if p.exists() else ""
+    return _REFERENCE_CACHE[path]
+
+
+def _build_system_prompt(
+    profile: str = "general",
+    include_reference: bool = False,
+) -> str:
+    """Build system prompt from base + profile cheatsheet + optional full reference."""
     p = _PROFILES.get(profile)
     if p is None:
         p = _PROFILES["general"]
-    return _BASE_PROMPT + p["cheatsheet"]
+    prompt = _BASE_PROMPT + p["cheatsheet"]
+
+    if include_reference:
+        examples = _load_reference_file(_REF_PATHS["examples"])
+        if examples:
+            prompt += "\n\n═══ CODE EXAMPLES ═══\n" + examples
+        api_ref = _load_reference_file(_REF_PATHS["api_reference"])
+        if api_ref:
+            prompt += "\n\n═══ API REFERENCE ═══\n" + api_ref
+
+    return prompt
 
 _CODE_FENCE_RE = re.compile(r"```(?:python)?\s*\n?(.*?)\n?\s*```", re.DOTALL)
 
@@ -484,7 +297,10 @@ class LLMClient:
         Returns the raw Python code string (no fences).
         """
         use_model = model or self.default_model
-        messages: list[dict] = [{"role": "system", "content": _build_system_prompt(profile)}]
+        use_reference = _model_has_large_context(use_model)
+        messages: list[dict] = [
+            {"role": "system", "content": _build_system_prompt(profile, include_reference=use_reference)}
+        ]
 
         # Build user message (text or multimodal)
         if image_base64 and _model_supports_vision(use_model):
@@ -519,7 +335,10 @@ class LLMClient:
         System prompt is prepended automatically.
         """
         use_model = model or self.default_model
-        full_messages = [{"role": "system", "content": _build_system_prompt(profile)}] + messages
+        use_reference = _model_has_large_context(use_model)
+        full_messages = [
+            {"role": "system", "content": _build_system_prompt(profile, include_reference=use_reference)}
+        ] + messages
 
         response = await self._client.chat.completions.create(
             model=use_model,
@@ -581,6 +400,144 @@ class LLMClient:
 
         raise last_error  # type: ignore[misc]
 
+    async def _design_with_context(
+        self,
+        prompt: str,
+        profile: str = "general",
+    ) -> str:
+        """Stage 1: Use Gemini to analyze prompt and extract relevant API/examples."""
+        designer_model = PIPELINE_MODELS["designer"]
+        reference_content = _build_system_prompt(profile, include_reference=True)
+
+        design_prompt = (
+            "以下のユーザー要求を分析し、build123dで実装するための設計を出力してください。\n\n"
+            f"ユーザー要求: {prompt}\n\n"
+            "出力形式:\n"
+            "1. DESIGN: 構造の分解（パーツ数、各サイズ、組み立て方法）\n"
+            "2. APPROACH: Builder API か Algebra API か、主要な手法\n"
+            "3. RELEVANT_API: この設計に必要なAPIと使い方\n"
+            "4. RELEVANT_EXAMPLES: 参考になるコード例\n"
+        )
+
+        response = await self._client.chat.completions.create(
+            model=designer_model,
+            messages=[
+                {"role": "system", "content": reference_content},
+                {"role": "user", "content": design_prompt},
+            ],
+        )
+        return response.choices[0].message.content or ""
+
+    async def _generate_code(
+        self,
+        prompt: str,
+        design: str,
+        profile: str = "general",
+    ) -> str:
+        """Stage 2: Use Qwen3 Coder to generate build123d code from design."""
+        coder_model = PIPELINE_MODELS["coder"]
+        system = _build_system_prompt(profile, include_reference=False)
+
+        user_content = (
+            f"ユーザー要求: {prompt}\n\n"
+            f"設計:\n{design}\n\n"
+            "上記の設計に基づいてbuild123dコードを生成してください。"
+        )
+
+        response = await self._client.chat.completions.create(
+            model=coder_model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_content},
+            ],
+        )
+        raw = response.choices[0].message.content or ""
+        return _strip_code_fences(raw)
+
+    async def _self_review(
+        self,
+        prompt: str,
+        code: str,
+        profile: str = "general",
+    ) -> str:
+        """Stage 2.5: Self-review generated code before execution."""
+        coder_model = PIPELINE_MODELS["coder"]
+        system = _build_system_prompt(profile, include_reference=False)
+
+        review_content = (
+            "以下のコードをレビューしてください:\n"
+            "- ユーザー要求と一致しているか\n"
+            "- build123d APIの使い方は正しいか\n"
+            "- バグはないか\n"
+            "問題があれば修正版のコードのみを出力。問題なければそのまま出力。\n\n"
+            f"ユーザー要求: {prompt}\n\n"
+            f"コード:\n```python\n{code}\n```"
+        )
+
+        response = await self._client.chat.completions.create(
+            model=coder_model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": review_content},
+            ],
+        )
+        raw = response.choices[0].message.content or ""
+        return _strip_code_fences(raw)
+
+    async def generate_pipeline(
+        self,
+        prompt: str,
+        *,
+        image_base64: str | None = None,
+        profile: str = "general",
+        on_stage: Callable[[str], Awaitable[None]] | None = None,
+    ) -> tuple[str, list[BrepObject], bytes | None]:
+        """Run 2-stage pipeline: Gemini design → Qwen code → review → execute → retry."""
+
+        async def _notify(stage: str):
+            if on_stage:
+                await on_stage(stage)
+
+        # Stage 1: Design with Gemini
+        await _notify("designing")
+        design = await self._design_with_context(prompt, profile=profile)
+
+        # Stage 2: Generate code with Qwen
+        await _notify("coding")
+        code = await self._generate_code(prompt, design, profile=profile)
+
+        # Stage 2.5: Self-review
+        await _notify("reviewing")
+        code = await self._self_review(prompt, code, profile=profile)
+
+        # Execute
+        await _notify("executing")
+        first_error: CodeExecutionError | None = None
+        try:
+            objects, step_bytes = execute_build123d_code(code)
+            return code, objects, step_bytes
+        except CodeExecutionError as e:
+            first_error = e
+
+        # Retry: re-query Gemini with error info, then Qwen
+        await _notify("retrying")
+        retry_design = await self._design_with_context(
+            f"{prompt}\n\n前回のコードでエラーが発生しました:\n{first_error}\n\n"
+            f"失敗したコード:\n```python\n{code}\n```\n\n"
+            "エラーを修正するために必要なAPIと正しい使い方を提示してください。",
+            profile=profile,
+        )
+
+        retry_code = await self._generate_code(
+            f"{prompt}\n\n前回エラー: {first_error}",
+            retry_design,
+            profile=profile,
+        )
+
+        await _notify("executing")
+        objects, step_bytes = execute_build123d_code(retry_code)
+        return retry_code, objects, step_bytes
+
     def list_profiles_info(self) -> list[dict]:
         """Return available prompt profiles with metadata."""
         return [
@@ -596,6 +553,7 @@ class LLMClient:
                 "name": info["name"],
                 "is_default": mid == self.default_model,
                 "supports_vision": info["supports_vision"],
+                "large_context": info.get("large_context", False),
             }
             for mid, info in AVAILABLE_MODELS.items()
         ]
@@ -606,9 +564,15 @@ def _model_supports_vision(model_id: str) -> bool:
     return bool(info and info.get("supports_vision"))
 
 
+def _model_has_large_context(model_id: str) -> bool:
+    info = AVAILABLE_MODELS.get(model_id)
+    return bool(info and info.get("large_context"))
+
+
 def _strip_code_fences(text: str) -> str:
     """Remove markdown code fences if present."""
     match = _CODE_FENCE_RE.search(text)
     if match:
         return match.group(1).strip()
     return text.strip()
+

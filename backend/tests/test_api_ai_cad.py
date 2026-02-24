@@ -14,12 +14,14 @@ client = TestClient(app)
 
 
 def test_get_models():
-    """GET /ai-cad/models returns model list."""
+    """GET /ai-cad/models returns pipeline model configuration."""
     resp = client.get("/ai-cad/models")
     assert resp.status_code == 200
     data = resp.json()
-    assert len(data) >= 3
-    assert any(m["is_default"] for m in data)
+    assert len(data) == 2
+    names = [m["name"] for m in data]
+    assert any("designer" in n for n in names)
+    assert any("coder" in n for n in names)
 
 
 def test_execute_code_simple_box():
@@ -52,15 +54,17 @@ def test_library_list_empty():
 
 
 def test_generate_requires_api_key(monkeypatch):
-    """POST /ai-cad/generate without API key returns 500 or appropriate error."""
+    """POST /ai-cad/generate without API key returns SSE error event."""
     import main
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     old_llm = main._llm
     main._llm = None  # Reset singleton so new client gets empty key
     try:
         resp = client.post("/ai-cad/generate", json={"prompt": "a box"})
-        # Without API key, should fail gracefully
-        assert resp.status_code in (500, 422)
+        # SSE endpoint always returns 200, errors come as SSE events
+        assert resp.status_code == 200
+        text = resp.text
+        assert "event: error" in text or "event: stage" in text
     finally:
         main._llm = old_llm
 

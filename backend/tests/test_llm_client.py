@@ -18,7 +18,7 @@ def test_build_system_prompt_default():
     from llm_client import _build_system_prompt, _BASE_PROMPT, _PROFILES
     prompt = _build_system_prompt()
     assert prompt.startswith(_BASE_PROMPT)
-    assert "CHEATSHEET" in prompt
+    assert "QUICK REFERENCE" in prompt
     assert _PROFILES["general"]["cheatsheet"] in prompt
 
 
@@ -219,26 +219,27 @@ async def test_generate_uses_profile():
     client = LLMClient(api_key="test-key")
     client._client = mock_client
 
-    await client.generate("Make a box", profile="furniture")
+    await client.generate("Make a box", profile="2d")
 
     call_kwargs = mock_client.chat.completions.create.call_args[1]
     system_msg = call_kwargs["messages"][0]["content"]
-    assert "FURNITURE" in system_msg
+    assert "2D" in system_msg
 
 
-def test_furniture_profile_has_patterns():
-    """Furniture profile includes relevant keywords and patterns."""
+def test_2d_profile_has_patterns():
+    """2D profile includes text, sheet material, and outline keywords."""
     from llm_client import _build_system_prompt
-    prompt = _build_system_prompt("furniture")
-    assert "FURNITURE" in prompt
-    assert "thickness" in prompt
-    assert "Hole" in prompt
+    prompt = _build_system_prompt("2d")
+    assert "2D" in prompt
+    assert "Text" in prompt
+    assert "make_face" in prompt
     assert "Align.MIN" in prompt
-    assert "dowel" in prompt.lower() or "ダボ" in prompt
+    assert "thickness" in prompt
+    assert "SUBTRACT" in prompt
 
 
-def test_furniture_pattern_shelf_executes():
-    """Furniture pattern example (shelf with dowel holes) actually runs."""
+def test_2d_pattern_shelf_executes():
+    """2D pattern example (shelf with dowel holes) actually runs."""
     from nodes.ai_cad import execute_build123d_code
     code = """\
 thickness = 18
@@ -256,18 +257,8 @@ result = bp.part
     assert step_bytes is not None
 
 
-def test_flat_profile_has_patterns():
-    """Flat profile includes text, pocket, and outline keywords."""
-    from llm_client import _build_system_prompt
-    prompt = _build_system_prompt("flat")
-    assert "FLAT" in prompt or "ENGRAVING" in prompt
-    assert "Text" in prompt
-    assert "make_face" in prompt
-    assert "SUBTRACT" in prompt
-
-
-def test_flat_pattern_nameplate_executes():
-    """Flat pattern example (nameplate with text engraving) actually runs."""
+def test_2d_pattern_nameplate_executes():
+    """2D pattern example (nameplate with text engraving) actually runs."""
     from nodes.ai_cad import execute_build123d_code
     code = """\
 thickness = 6
@@ -286,40 +277,384 @@ result = bp.part
     assert len(objects) >= 1
 
 
-def test_3d_profile_has_patterns():
-    """3D profile includes revolve, loft, sweep, shell keywords."""
+def test_load_reference_file_returns_content(tmp_path):
+    """_load_reference_file reads content from file."""
+    from llm_client import _load_reference_file, _REFERENCE_CACHE
+    # Clear cache
+    _REFERENCE_CACHE.clear()
+    ref_file = tmp_path / "test_ref.md"
+    ref_file.write_text("# Test Reference\nSome API content")
+    content = _load_reference_file(str(ref_file))
+    assert "Test Reference" in content
+    assert "Some API content" in content
+    _REFERENCE_CACHE.clear()
+
+
+def test_load_reference_file_caches(tmp_path):
+    """_load_reference_file caches content after first read."""
+    from llm_client import _load_reference_file, _REFERENCE_CACHE
+    _REFERENCE_CACHE.clear()
+    ref_file = tmp_path / "cached_ref.md"
+    ref_file.write_text("original content")
+    content1 = _load_reference_file(str(ref_file))
+    ref_file.write_text("modified content")
+    content2 = _load_reference_file(str(ref_file))
+    assert content1 == content2  # cached, not re-read
+    _REFERENCE_CACHE.clear()
+
+
+def test_load_reference_file_missing_returns_empty():
+    """_load_reference_file returns empty string for missing file."""
+    from llm_client import _load_reference_file, _REFERENCE_CACHE
+    _REFERENCE_CACHE.clear()
+    content = _load_reference_file("/nonexistent/path/missing.md")
+    assert content == ""
+    _REFERENCE_CACHE.clear()
+
+
+def test_build_system_prompt_with_reference(tmp_path):
+    """_build_system_prompt includes reference content when include_reference=True."""
+    from llm_client import _build_system_prompt, _REFERENCE_CACHE, _REF_PATHS
+    _REFERENCE_CACHE.clear()
+    # Create temp reference files
+    api_ref = tmp_path / "build123d_api_reference.md"
+    api_ref.write_text("# API Reference\nBox(length, width, height)")
+    examples = tmp_path / "build123d_examples.md"
+    examples.write_text("# Examples\nresult = Box(10, 10, 10)")
+    # Temporarily override reference paths
+    original_paths = _REF_PATHS.copy()
+    _REF_PATHS["api_reference"] = str(api_ref)
+    _REF_PATHS["examples"] = str(examples)
+    try:
+        prompt = _build_system_prompt("general", include_reference=True)
+        assert "API Reference" in prompt
+        assert "Examples" in prompt
+        assert "CODE EXAMPLES" in prompt
+        assert "API REFERENCE" in prompt
+    finally:
+        _REF_PATHS.update(original_paths)
+        _REFERENCE_CACHE.clear()
+
+
+def test_build_system_prompt_without_reference():
+    """_build_system_prompt excludes reference when include_reference=False."""
     from llm_client import _build_system_prompt
-    prompt = _build_system_prompt("3d")
-    assert "3D" in prompt
-    assert "revolve" in prompt
-    assert "loft" in prompt
-    assert "sweep" in prompt
-    assert "offset" in prompt or "shell" in prompt.lower()
+    prompt = _build_system_prompt("general", include_reference=False)
+    assert "CODE EXAMPLES" not in prompt
+    assert "API REFERENCE" not in prompt
+    # But cheatsheet should still be there
+    assert "QUICK REFERENCE" in prompt
 
 
-def test_3d_pattern_tray_executes():
-    """3D pattern example (tray with shell) actually runs."""
-    from nodes.ai_cad import execute_build123d_code
-    code = """\
-with BuildPart() as bp:
-    Box(150, 100, 40)
-    fillet(bp.edges().filter_by(Axis.Z), radius=10)
-    top = bp.faces().sort_by(Axis.Z)[-1]
-    offset(amount=-3, openings=top)
-result = bp.part
-"""
-    objects, step_bytes = execute_build123d_code(code)
+def test_available_models_have_large_context():
+    """Each model has large_context flag."""
+    for mid, info in AVAILABLE_MODELS.items():
+        assert "large_context" in info, f"{mid} missing large_context"
+
+
+def test_flash_lite_is_large_context():
+    """Gemini Flash Lite has large_context=True."""
+    assert AVAILABLE_MODELS["google/gemini-2.5-flash-lite"]["large_context"] is True
+
+
+def test_list_models_includes_large_context():
+    """list_models() output includes large_context field."""
+    client = LLMClient(api_key="test-key")
+    models = client.list_models()
+    for m in models:
+        assert "large_context" in m
+
+
+def test_model_has_large_context_helper():
+    """_model_has_large_context returns correct values."""
+    from llm_client import _model_has_large_context
+    assert _model_has_large_context("google/gemini-2.5-flash-lite") is True
+    assert _model_has_large_context("deepseek/deepseek-r1") is False
+    assert _model_has_large_context("unknown/model") is False
+
+
+@pytest.mark.asyncio
+async def test_generate_includes_reference_for_large_context_model(tmp_path):
+    """generate() includes reference for large_context models."""
+    from llm_client import _REFERENCE_CACHE, _REF_PATHS
+    _REFERENCE_CACHE.clear()
+    # Create temp reference files
+    api_ref = tmp_path / "build123d_api_reference.md"
+    api_ref.write_text("UNIQUE_API_MARKER_12345")
+    examples = tmp_path / "build123d_examples.md"
+    examples.write_text("UNIQUE_EXAMPLES_MARKER_67890")
+    original_paths = _REF_PATHS.copy()
+    _REF_PATHS["api_reference"] = str(api_ref)
+    _REF_PATHS["examples"] = str(examples)
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "result = Box(10, 10, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat = MagicMock()
+    mock_client.chat.completions = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    try:
+        # Flash Lite is large_context=True
+        await client.generate("box", model="google/gemini-2.5-flash-lite")
+        call_kwargs = mock_client.chat.completions.create.call_args[1]
+        system_msg = call_kwargs["messages"][0]["content"]
+        assert "UNIQUE_API_MARKER_12345" in system_msg
+        assert "UNIQUE_EXAMPLES_MARKER_67890" in system_msg
+    finally:
+        _REF_PATHS.update(original_paths)
+        _REFERENCE_CACHE.clear()
+
+
+@pytest.mark.asyncio
+async def test_generate_excludes_reference_for_small_context_model(tmp_path):
+    """generate() excludes reference for non-large_context models."""
+    from llm_client import _REFERENCE_CACHE, _REF_PATHS
+    _REFERENCE_CACHE.clear()
+    api_ref = tmp_path / "build123d_api_reference.md"
+    api_ref.write_text("UNIQUE_API_MARKER_12345")
+    examples = tmp_path / "build123d_examples.md"
+    examples.write_text("UNIQUE_EXAMPLES_MARKER_67890")
+    original_paths = _REF_PATHS.copy()
+    _REF_PATHS["api_reference"] = str(api_ref)
+    _REF_PATHS["examples"] = str(examples)
+
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "result = Box(10, 10, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat = MagicMock()
+    mock_client.chat.completions = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    try:
+        # DeepSeek R1 is large_context=False
+        await client.generate("box", model="deepseek/deepseek-r1")
+        call_kwargs = mock_client.chat.completions.create.call_args[1]
+        system_msg = call_kwargs["messages"][0]["content"]
+        assert "UNIQUE_API_MARKER_12345" not in system_msg
+        assert "UNIQUE_EXAMPLES_MARKER_67890" not in system_msg
+    finally:
+        _REF_PATHS.update(original_paths)
+        _REFERENCE_CACHE.clear()
+
+
+@pytest.mark.asyncio
+async def test_design_with_context_calls_designer_model():
+    """_design_with_context calls Gemini with full reference."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "DESIGN: box from 6 panels\nAPPROACH: Builder API"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    result = await client._design_with_context("300x300x300の箱を板で組んで", profile="general")
+
+    assert "DESIGN" in result or "box" in result.lower()
+    call_kwargs = mock_client.chat.completions.create.call_args[1]
+    assert call_kwargs["model"] == "google/gemini-2.5-flash-lite"
+
+
+@pytest.mark.asyncio
+async def test_generate_code_calls_coder_model():
+    """_generate_code calls Qwen3 Coder with design context."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "result = Box(100, 50, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    design = "DESIGN: single box 100x100x100\nAPPROACH: Algebra API"
+    code = await client._generate_code("100mmの立方体", design, profile="general")
+
+    assert "Box" in code
+    call_kwargs = mock_client.chat.completions.create.call_args[1]
+    assert call_kwargs["model"] == "qwen/qwen3-coder-next"
+
+
+@pytest.mark.asyncio
+async def test_self_review_calls_coder_model():
+    """_self_review sends code back to Qwen3 for review."""
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "result = Box(100, 100, 100)"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    reviewed = await client._self_review("100mmの立方体", "result = Box(100, 100, 100)", profile="general")
+
+    assert "Box" in reviewed
+    call_kwargs = mock_client.chat.completions.create.call_args[1]
+    assert call_kwargs["model"] == "qwen/qwen3-coder-next"
+    # System message should contain review instructions
+    system_msg = call_kwargs["messages"][0]["content"]
+    assert "build123d" in system_msg.lower() or "review" in str(call_kwargs["messages"]).lower()
+
+
+@pytest.mark.asyncio
+async def test_generate_pipeline_success():
+    """generate_pipeline runs all stages and returns result."""
+    design_response = MagicMock()
+    design_response.choices = [MagicMock()]
+    design_response.choices[0].message.content = "DESIGN: single box"
+
+    code_response = MagicMock()
+    code_response.choices = [MagicMock()]
+    code_response.choices[0].message.content = "result = Box(100, 50, 10)"
+
+    review_response = MagicMock()
+    review_response.choices = [MagicMock()]
+    review_response.choices[0].message.content = "result = Box(100, 50, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(
+        side_effect=[design_response, code_response, review_response]
+    )
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    stages = []
+    async def on_stage(stage: str):
+        stages.append(stage)
+
+    code, objects, step_bytes = await client.generate_pipeline(
+        "Make a box 100x50x10mm",
+        on_stage=on_stage,
+    )
+
+    assert "Box(100, 50, 10)" in code
     assert len(objects) >= 1
+    assert step_bytes is not None
+    assert stages == ["designing", "coding", "reviewing", "executing"]
+    assert mock_client.chat.completions.create.call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_generate_pipeline_retries_with_gemini():
+    """On execution error, pipeline re-queries Gemini then Qwen."""
+    design_response = MagicMock()
+    design_response.choices = [MagicMock()]
+    design_response.choices[0].message.content = "DESIGN: box"
+
+    bad_code_response = MagicMock()
+    bad_code_response.choices = [MagicMock()]
+    bad_code_response.choices[0].message.content = "x = Box(100, 50, 10)"  # missing result
+
+    review_response = MagicMock()
+    review_response.choices = [MagicMock()]
+    review_response.choices[0].message.content = "x = Box(100, 50, 10)"  # still bad
+
+    retry_design_response = MagicMock()
+    retry_design_response.choices = [MagicMock()]
+    retry_design_response.choices[0].message.content = "DESIGN: assign to result"
+
+    good_code_response = MagicMock()
+    good_code_response.choices = [MagicMock()]
+    good_code_response.choices[0].message.content = "result = Box(100, 50, 10)"
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create = AsyncMock(
+        side_effect=[
+            design_response, bad_code_response, review_response,  # initial
+            retry_design_response, good_code_response,  # retry
+        ]
+    )
+
+    client = LLMClient(api_key="test-key")
+    client._client = mock_client
+
+    stages = []
+    async def on_stage(stage: str):
+        stages.append(stage)
+
+    code, objects, step_bytes = await client.generate_pipeline(
+        "Make a box",
+        on_stage=on_stage,
+    )
+
+    assert "result = Box(100, 50, 10)" in code
+    assert "retrying" in stages
+    assert mock_client.chat.completions.create.call_count == 5
+
+
+def test_ai_cad_generate_sse_streams_stages():
+    """POST /ai-cad/generate returns SSE stream with stage events."""
+    import json
+    from unittest.mock import patch
+    from fastapi.testclient import TestClient
+
+    from main import app
+    from schemas import BrepObject, BoundingBox, Origin, FacesAnalysis
+
+    mock_objects = [BrepObject(
+        object_id="test-0", file_name="ai_generated.step",
+        bounding_box=BoundingBox(x=100, y=50, z=10),
+        thickness=10, origin=Origin(position=[0, 0, 0], reference="bounding_box_min", description=""),
+        unit="mm", is_closed=True, is_planar=True,
+        machining_type="2d", faces_analysis=FacesAnalysis(top_features=False, bottom_features=False, freeform_surfaces=False),
+        outline=[],
+    )]
+
+    async def mock_pipeline(prompt, *, image_base64=None, profile="general", on_stage=None):
+        if on_stage:
+            await on_stage("designing")
+            await on_stage("coding")
+            await on_stage("reviewing")
+            await on_stage("executing")
+        return "result = Box(100, 50, 10)", mock_objects, b"STEP data"
+
+    with patch("main._get_llm") as mock_get_llm, \
+         patch("main._get_db") as mock_get_db:
+        mock_llm = MagicMock()
+        mock_llm.generate_pipeline = mock_pipeline
+        mock_get_llm.return_value = mock_llm
+
+        mock_db = AsyncMock()
+        mock_db.save_generation = AsyncMock(return_value="gen-123")
+        mock_get_db.return_value = mock_db
+
+        client = TestClient(app)
+        response = client.post(
+            "/ai-cad/generate",
+            json={"prompt": "Make a box"},
+            headers={"Accept": "text/event-stream"},
+        )
+
+        assert response.status_code == 200
+        text = response.text
+        assert "event: stage" in text
+        assert '"designing"' in text
+        assert "event: result" in text
 
 
 def test_list_profiles_info():
     """list_profiles_info() returns all available profiles."""
     client = LLMClient(api_key="test-key")
     profiles = client.list_profiles_info()
-    assert len(profiles) == 4
+    assert len(profiles) == 2
     ids = [p["id"] for p in profiles]
     assert "general" in ids
-    assert "furniture" in ids
-    assert "flat" in ids
-    assert "3d" in ids
+    assert "2d" in ids
     assert all("name" in p and "description" in p for p in profiles)
