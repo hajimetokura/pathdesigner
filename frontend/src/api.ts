@@ -17,6 +17,7 @@ import type {
   AutoNestingResponse,
   AiCadResult,
   AiCadStageEvent,
+  AiCadRefineResult,
   GenerationSummary,
   ModelInfo,
   ProfileInfo,
@@ -332,4 +333,65 @@ export async function loadAiCadGeneration(
     undefined,
     "Failed to load generation"
   );
+}
+
+export async function refineAiCadStream(
+  generationId: string,
+  message: string,
+  history: { role: string; content: string }[],
+  currentCode: string,
+  profile?: string,
+  onStage?: (event: AiCadStageEvent) => void,
+): Promise<AiCadRefineResult> {
+  const response = await fetch(`${API_BASE_URL}/ai-cad/refine`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify({
+      generation_id: generationId,
+      message,
+      history,
+      current_code: currentCode,
+      profile,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Refine failed: ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: AiCadRefineResult | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    let eventType = "";
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        eventType = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        const data = JSON.parse(line.slice(6));
+        if (eventType === "stage" && onStage) {
+          onStage(data);
+        } else if (eventType === "result") {
+          result = data;
+        } else if (eventType === "error") {
+          throw new Error(data.message);
+        }
+        eventType = "";
+      }
+    }
+  }
+
+  if (!result) throw new Error("No result received");
+  return result;
 }
