@@ -519,7 +519,10 @@ class LLMClient:
         Returns the raw Python code string (no fences).
         """
         use_model = model or self.default_model
-        messages: list[dict] = [{"role": "system", "content": _build_system_prompt(profile)}]
+        use_reference = _model_has_large_context(use_model)
+        messages: list[dict] = [
+            {"role": "system", "content": _build_system_prompt(profile, include_reference=use_reference)}
+        ]
 
         # Build user message (text or multimodal)
         if image_base64 and _model_supports_vision(use_model):
@@ -554,7 +557,10 @@ class LLMClient:
         System prompt is prepended automatically.
         """
         use_model = model or self.default_model
-        full_messages = [{"role": "system", "content": _build_system_prompt(profile)}] + messages
+        use_reference = _model_has_large_context(use_model)
+        full_messages = [
+            {"role": "system", "content": _build_system_prompt(profile, include_reference=use_reference)}
+        ] + messages
 
         response = await self._client.chat.completions.create(
             model=use_model,
@@ -640,6 +646,11 @@ class LLMClient:
 def _model_supports_vision(model_id: str) -> bool:
     info = AVAILABLE_MODELS.get(model_id)
     return bool(info and info.get("supports_vision"))
+
+
+def _model_has_large_context(model_id: str) -> bool:
+    info = AVAILABLE_MODELS.get(model_id)
+    return bool(info and info.get("large_context"))
 
 
 def _strip_code_fences(text: str) -> str:
