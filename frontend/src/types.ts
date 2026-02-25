@@ -308,3 +308,33 @@ export interface AiCadRefineResult {
   generation_id: string;
   ai_message: string;
 }
+
+// ── Snippet DB ────────────────────────────────────────────────────────────────
+
+export interface SnippetInfo {
+  id: string;
+  name: string;
+  tags: string[];
+  code: string;
+  thumbnail_png: string | null;
+  source_generation_id: string | null;
+  created_at: string;
+}
+
+export interface SnippetListResponse {
+  snippets: SnippetInfo[];
+  total: number;
+}
+
+export interface SnippetSaveRequest {
+  name: string;
+  tags: string[];
+  code: string;
+  thumbnail_png?: string;
+  source_generation_id?: string;
+}
+
+/** SnippetDbNode の node data */
+export interface SnippetDbNodeData extends Record<string, unknown> {
+  outputResult: AiCadResult | null;
+}

@@ -4,6 +4,7 @@
  */
 import type { NodeCategory } from "./components/NodeShell";
 import AiCadNode from "./nodes/AiCadNode";
+import SnippetDbNode from "./nodes/SnippetDbNode";
 import BrepImportNode from "./nodes/BrepImportNode";
 import SheetNode from "./nodes/SheetNode";
 import PlacementNode from "./nodes/PlacementNode";
@@ -24,6 +25,7 @@ interface NodeRegistryEntry {
 
 const NODE_REGISTRY: Record<string, NodeRegistryEntry> = {
   aiCad: { component: AiCadNode, label: "AI CAD", category: "cad" },
+  snippetDb: { component: SnippetDbNode, label: "Code Library", category: "cad" },
   brepImport: { component: BrepImportNode, label: "BREP Import", category: "cad" },
   sheet: { component: SheetNode, label: "Sheet", category: "cam" },
   placement: { component: PlacementNode, label: "Placement", category: "cam" },
