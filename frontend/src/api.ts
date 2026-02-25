@@ -21,6 +21,9 @@ import type {
   GenerationSummary,
   ModelInfo,
   ProfileInfo,
+  SnippetInfo,
+  SnippetListResponse,
+  SnippetSaveRequest,
 } from "./types";
 import { API_BASE_URL } from "./config";
 import { DEFAULT_TOOL_DIAMETER_MM, DEFAULT_OFFSET_SIDE, DEFAULT_CLEARANCE_MM } from "./constants";
@@ -394,4 +397,35 @@ export async function refineAiCadStream(
 
   if (!result) throw new Error("No result received");
   return result;
+}
+
+// ── Snippet DB ────────────────────────────────────────────────────────────────
+
+export async function saveSnippet(req: SnippetSaveRequest): Promise<SnippetInfo> {
+  const res = await fetch(`${API_BASE_URL}/snippets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function listSnippets(q?: string): Promise<SnippetListResponse> {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  const res = await fetch(`${API_BASE_URL}/snippets?${params}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function deleteSnippet(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/snippets/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+export async function executeSnippet(id: string): Promise<AiCadResult> {
+  const res = await fetch(`${API_BASE_URL}/snippets/${id}/execute`, { method: "POST" });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
