@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import type React from "react";
+import { useCallback, useEffect, useState } from "react";
 import { saveSnippet, listSnippets, deleteSnippet, executeSnippet } from "../api";
 import type { AiCadResult, SnippetInfo } from "../types";
 
@@ -78,7 +79,7 @@ export default function SnippetLibraryPanel({
       .catch(() => setSnippets([]));
   }, [searchQ]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!upstream || !name.trim()) return;
     setSaving(true);
     setSaveMsg(null);
@@ -101,13 +102,13 @@ export default function SnippetLibraryPanel({
       const refreshed = await listSnippets(searchQ || undefined);
       setSnippets(refreshed.snippets);
     } catch (e) {
-      setSaveMsg(`エラー: ${String(e)}`);
+      setSaveMsg(`エラー: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setSaving(false);
     }
-  };
+  }, [upstream, name, tagsInput, searchQ]);
 
-  const handleExecute = async () => {
+  const handleExecute = useCallback(async () => {
     if (!selectedId) return;
     setExecuting(true);
     setError(null);
@@ -115,18 +116,18 @@ export default function SnippetLibraryPanel({
       const result = await executeSnippet(selectedId);
       onExecute(result);
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setExecuting(false);
     }
-  };
+  }, [selectedId, onExecute]);
 
-  const handleDelete = async (sid: string) => {
+  const handleDelete = useCallback(async (sid: string) => {
     await deleteSnippet(sid).catch(() => {});
     if (selectedId === sid) onSelect("", "");
     const refreshed = await listSnippets(searchQ || undefined);
     setSnippets(refreshed.snippets);
-  };
+  }, [selectedId, searchQ, onSelect]);
 
   return (
     <div style={containerStyle}>
