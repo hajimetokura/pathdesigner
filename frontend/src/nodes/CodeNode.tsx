@@ -16,7 +16,7 @@ export default function CodeNode({ id, selected }: NodeProps) {
 
   const [status, setStatus] = useState<RunStatus>("idle");
   const [result, setResult] = useState<AiCadResult | null>(null);
-  const [code, _setCode] = useState<string | undefined>(undefined);
+  const [code, setCode] = useState<string | undefined>(undefined);
 
   const handleResult = useCallback(
     (r: AiCadResult) => {
@@ -35,6 +35,7 @@ export default function CodeNode({ id, selected }: NodeProps) {
     <CodeEditorPanel
       initialCode={code}
       onResult={handleResult}
+      onCodeChange={setCode}
     />
   );
 

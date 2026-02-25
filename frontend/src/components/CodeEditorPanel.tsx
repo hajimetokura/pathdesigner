@@ -15,11 +15,12 @@ result = Box(100, 100, 10)
 interface Props {
   initialCode?: string;
   onResult: (result: AiCadResult) => void;
+  onCodeChange?: (code: string) => void;
 }
 
 type RunStatus = "idle" | "running" | "success" | "error";
 
-export default function CodeEditorPanel({ initialCode, onResult }: Props) {
+export default function CodeEditorPanel({ initialCode, onResult, onCodeChange }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
@@ -73,6 +74,7 @@ export default function CodeEditorPanel({ initialCode, onResult }: Props) {
   const handleRun = useCallback(async () => {
     const code = getCode();
     if (!code.trim()) return;
+    onCodeChange?.(code);
     setRunStatus("running");
     setRunError("");
     try {
@@ -84,7 +86,7 @@ export default function CodeEditorPanel({ initialCode, onResult }: Props) {
       setRunError(e instanceof Error ? e.message : "Execution failed");
       setRunStatus("error");
     }
-  }, [onResult]);
+  }, [onResult, onCodeChange]);
 
   const handleSaveToLibrary = useCallback(async () => {
     if (!saveName.trim()) return;

@@ -63,19 +63,15 @@ function Flow() {
   }, [edges, setNodes, fitView]);
 
   const openTab = useCallback((tab: PanelTab) => {
-    let isNew = false;
     setPanelTabs((prev) => {
       if (prev.some((t) => t.id === tab.id)) {
-        // Update existing tab content only — don't change active tab
-        return prev.map((t) => (t.id === tab.id ? tab : t));
+        // Tab already exists — don't update content (prevents remount / state loss)
+        return prev;
       }
-      isNew = true;
       return [...prev, tab];
     });
-    // Only activate newly created tabs
-    if (isNew) {
-      setActiveTabId(tab.id);
-    }
+    // Always activate the tab (new or existing)
+    setActiveTabId(tab.id);
   }, []);
 
   // Update existing tab content only — does NOT create new tabs
@@ -97,6 +93,18 @@ function Flow() {
       return next;
     });
   }, []);
+
+  // ノードクリック時、そのノードに紐づくタブがあればアクティブ化
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: Node) => {
+      setPanelTabs((tabs) => {
+        const match = tabs.find((t) => t.id.endsWith(`-${node.id}`));
+        if (match) setActiveTabId(match.id);
+        return tabs;
+      });
+    },
+    [],
+  );
 
   const onConnect: OnConnect = useCallback(
     (params) => {
@@ -166,6 +174,7 @@ function Flow() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onNodeClick={onNodeClick}
             onDragOver={onDragOver}
             onDrop={onDrop}
             proOptions={{ hideAttribution: true }}
