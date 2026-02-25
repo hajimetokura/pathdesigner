@@ -30,7 +30,7 @@ export default function SnippetDbNode({ id, selected }: NodeProps) {
     (result: AiCadResult) => {
       setNodes((nodes) =>
         nodes.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, outputResult: result } } : n,
+          n.id === id ? { ...n, data: { ...n.data, brepResult: result } } : n,
         ),
       );
     },
