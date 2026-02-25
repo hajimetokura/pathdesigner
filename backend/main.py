@@ -21,7 +21,7 @@ from nodes.operation_detector import detect_operations
 from nodes.toolpath_gen import generate_toolpath, generate_toolpath_from_operations
 from nodes.ai_cad import execute_build123d_code, CodeExecutionError
 from llm_client import LLMClient
-from db import GenerationDB
+from db import GenerationDB, SnippetsDB
 from sbp_writer import SbpWriter
 from schemas import (
     BrepImportResult, ContourExtractRequest, ContourExtractResult,
@@ -37,6 +37,7 @@ from schemas import (
     AiCadRequest, AiCadCodeRequest, AiCadResult,
     AiCadRefineRequest, AiCadRefineResult, ChatMessage,
     GenerationSummary, ModelInfo, ProfileInfo,
+    SnippetSaveRequest, SnippetInfo, SnippetListResponse,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -60,6 +61,7 @@ GENERATIONS_DIR.mkdir(exist_ok=True)
 
 _db: GenerationDB | None = None
 _llm: LLMClient | None = None
+_snippets_db: SnippetsDB | None = None
 
 
 async def _get_db() -> GenerationDB:
@@ -68,6 +70,14 @@ async def _get_db() -> GenerationDB:
         _db = GenerationDB(DATA_DIR / "pathdesigner.db")
         await _db.init()
     return _db
+
+
+async def _get_snippets_db() -> SnippetsDB:
+    global _snippets_db
+    if _snippets_db is None:
+        _snippets_db = SnippetsDB(DATA_DIR / "pathdesigner.db")
+        await _snippets_db.init()
+    return _snippets_db
 
 
 def _get_llm() -> LLMClient:
@@ -81,6 +91,8 @@ def _get_llm() -> LLMClient:
 async def shutdown():
     if _db is not None:
         await _db.close()
+    if _snippets_db is not None:
+        await _snippets_db.close()
 
 
 def _get_uploaded_step_path(file_id: str) -> Path:
@@ -734,3 +746,99 @@ async def ai_cad_delete(gen_id: str):
     db = await _get_db()
     await db.delete_generation(gen_id)
     return {"deleted": gen_id}
+
+
+# ── Snippet DB endpoints ──────────────────────────────────────────────────────
+
+@app.post("/snippets", response_model=SnippetInfo)
+async def save_snippet(req: SnippetSaveRequest):
+    """Save a snippet to the library."""
+    db = await _get_snippets_db()
+    snippet_id = await db.save_snippet(
+        name=req.name,
+        code=req.code,
+        tags=req.tags,
+        thumbnail_png=req.thumbnail_png,
+        source_generation_id=req.source_generation_id,
+    )
+    row = await db.get_snippet(snippet_id)
+    return SnippetInfo(
+        id=row["id"],
+        name=row["name"],
+        tags=json.loads(row["tags"] or "[]"),
+        code=row["code"],
+        thumbnail_png=row["thumbnail_png"],
+        source_generation_id=row["source_generation_id"],
+        created_at=row["created_at"],
+    )
+
+
+@app.get("/snippets", response_model=SnippetListResponse)
+async def list_snippets(q: str = "", limit: int = 50, offset: int = 0):
+    """List snippets with optional name search."""
+    db = await _get_snippets_db()
+    rows, total = await db.list_snippets(q=q, limit=limit, offset=offset)
+    snippets = [
+        SnippetInfo(
+            id=r["id"],
+            name=r["name"],
+            tags=json.loads(r["tags"] or "[]"),
+            code=r["code"],
+            thumbnail_png=r["thumbnail_png"],
+            source_generation_id=r["source_generation_id"],
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
+    return SnippetListResponse(snippets=snippets, total=total)
+
+
+@app.delete("/snippets/{snippet_id}")
+async def delete_snippet(snippet_id: str):
+    """Delete a snippet by ID."""
+    db = await _get_snippets_db()
+    deleted = await db.delete_snippet(snippet_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Snippet not found")
+    return {"ok": True}
+
+
+@app.post("/snippets/{snippet_id}/execute", response_model=AiCadResult)
+async def execute_snippet(snippet_id: str):
+    """Execute a snippet's code and return AI-Node-compatible output."""
+    snippets_db = await _get_snippets_db()
+    row = await snippets_db.get_snippet(snippet_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Snippet not found")
+
+    try:
+        objects, step_bytes = execute_build123d_code(row["code"])
+    except CodeExecutionError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    file_id = f"snippet-{uuid.uuid4().hex[:8]}"
+    if step_bytes:
+        (UPLOAD_DIR / f"{file_id}.step").write_bytes(step_bytes)
+        gen_dir = GENERATIONS_DIR / file_id
+        gen_dir.mkdir(exist_ok=True)
+        (gen_dir / "model.step").write_bytes(step_bytes)
+
+    result = BrepImportResult(file_id=file_id, objects=objects, object_count=len(objects))
+    gen_db = await _get_db()
+    gen_id = await gen_db.save_generation(
+        prompt=f"(snippet: {row['name']})",
+        code=row["code"],
+        result_json=result.model_dump_json(),
+        model_used="snippet",
+        status="success",
+    )
+
+    return AiCadResult(
+        file_id=file_id,
+        objects=objects,
+        object_count=len(objects),
+        generated_code=row["code"],
+        generation_id=gen_id,
+        prompt_used=f"(snippet: {row['name']})",
+        model_used="snippet",
+    )

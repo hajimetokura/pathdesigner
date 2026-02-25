@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -137,3 +138,80 @@ class GenerationDB:
             "DELETE FROM generations WHERE id = ?", (gen_id,)
         )
         await self._conn.commit()
+
+
+# ── Snippet DB ────────────────────────────────────────────────────────────────
+
+_SNIPPETS_SCHEMA = """\
+CREATE TABLE IF NOT EXISTS snippets (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    tags TEXT,
+    code TEXT NOT NULL,
+    thumbnail_png TEXT,
+    source_generation_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+"""
+
+
+class SnippetsDB:
+    """Async SQLite wrapper for snippet storage."""
+
+    def __init__(self, db_path: str | Path):
+        self._db_path = str(db_path)
+        self._conn: aiosqlite.Connection | None = None
+
+    async def init(self):
+        self._conn = await aiosqlite.connect(self._db_path)
+        self._conn.row_factory = aiosqlite.Row
+        await self._conn.executescript(_SNIPPETS_SCHEMA)
+        await self._conn.commit()
+
+    async def close(self):
+        if self._conn:
+            await self._conn.close()
+
+    async def save_snippet(
+        self,
+        name: str,
+        code: str,
+        tags: list[str] | None = None,
+        thumbnail_png: str | None = None,
+        source_generation_id: str | None = None,
+    ) -> str:
+        snippet_id = uuid.uuid4().hex[:12]
+        now = datetime.now(timezone.utc).isoformat()
+        await self._conn.execute(
+            "INSERT INTO snippets (id, name, tags, code, thumbnail_png, source_generation_id, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (snippet_id, name, json.dumps(tags or []), code, thumbnail_png, source_generation_id, now, now),
+        )
+        await self._conn.commit()
+        return snippet_id
+
+    async def get_snippet(self, snippet_id: str) -> dict | None:
+        cursor = await self._conn.execute("SELECT * FROM snippets WHERE id = ?", (snippet_id,))
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+    async def list_snippets(
+        self, q: str = "", limit: int = 50, offset: int = 0
+    ) -> tuple[list[dict], int]:
+        search_val = f"%{q}%"
+        cursor = await self._conn.execute(
+            "SELECT * FROM snippets WHERE name LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (search_val, limit, offset),
+        )
+        rows = await cursor.fetchall()
+        count_cursor = await self._conn.execute(
+            "SELECT COUNT(*) FROM snippets WHERE name LIKE ?", (search_val,)
+        )
+        total = (await count_cursor.fetchone())[0]
+        return [dict(r) for r in rows], total
+
+    async def delete_snippet(self, snippet_id: str) -> bool:
+        cursor = await self._conn.execute("DELETE FROM snippets WHERE id = ?", (snippet_id,))
+        await self._conn.commit()
+        return cursor.rowcount > 0

@@ -500,3 +500,30 @@ class AiCadRefineResult(BaseModel):
     file_id: str
     generation_id: str
     ai_message: str
+
+
+# ── Snippet DB ────────────────────────────────────────────────────────────────
+
+class SnippetSaveRequest(BaseModel):
+    """Request to save a snippet."""
+    name: str
+    tags: list[str] = []
+    code: str
+    thumbnail_png: str | None = None        # base64 PNG 128×128
+    source_generation_id: str | None = None
+
+
+class SnippetInfo(BaseModel):
+    """A saved snippet record."""
+    id: str
+    name: str
+    tags: list[str]
+    code: str
+    thumbnail_png: str | None
+    source_generation_id: str | None
+    created_at: str
+
+
+class SnippetListResponse(BaseModel):
+    snippets: list[SnippetInfo]
+    total: int
