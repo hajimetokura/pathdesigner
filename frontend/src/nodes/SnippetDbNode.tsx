@@ -13,7 +13,7 @@ export default function SnippetDbNode({ id, selected }: NodeProps) {
   const { setNodes } = useReactFlow();
 
   const extractUpstream = useCallback(
-    (d: Record<string, unknown>) => d.result as AiCadResult | undefined,
+    (d: Record<string, unknown>) => d.brepResult as AiCadResult | undefined,
     [],
   );
   const upstream = useUpstreamData(id, `${id}-input`, extractUpstream);
