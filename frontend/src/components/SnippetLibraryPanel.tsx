@@ -51,7 +51,7 @@ async function renderThumbnail(meshUrl: string): Promise<string | null> {
 interface SnippetLibraryPanelProps {
   upstream: AiCadResult | undefined;
   selectedId: string | null;
-  onSelect: (id: string, name: string) => void;
+  onSelect: (id: string | null, name: string | null) => void;
   onExecute: (result: AiCadResult) => void;
 }
 
@@ -124,7 +124,7 @@ export default function SnippetLibraryPanel({
 
   const handleDelete = useCallback(async (sid: string) => {
     await deleteSnippet(sid).catch(() => {});
-    if (selectedId === sid) onSelect("", "");
+    if (selectedId === sid) onSelect(null, null);
     const refreshed = await listSnippets(searchQ || undefined);
     setSnippets(refreshed.snippets);
   }, [selectedId, searchQ, onSelect]);

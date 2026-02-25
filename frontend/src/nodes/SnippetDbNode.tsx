@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
@@ -9,11 +9,11 @@ import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelTabs } from "../contexts/PanelTabsContext";
 
 export default function SnippetDbNode({ id, selected }: NodeProps) {
-  const { openTab } = usePanelTabs();
+  const { openTab, updateTab } = usePanelTabs();
   const { setNodes } = useReactFlow();
 
   const extractUpstream = useCallback(
-    (d: Record<string, unknown>) => (d.result as AiCadResult | undefined) ?? undefined,
+    (d: Record<string, unknown>) => d.result as AiCadResult | undefined,
     [],
   );
   const upstream = useUpstreamData(id, `${id}-input`, extractUpstream);
@@ -21,9 +21,9 @@ export default function SnippetDbNode({ id, selected }: NodeProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedName, setSelectedName] = useState<string | null>(null);
 
-  const handleSelect = useCallback((sid: string, sname: string) => {
-    setSelectedId(sid || null);
-    setSelectedName(sname || null);
+  const handleSelect = useCallback((sid: string | null, sname: string | null) => {
+    setSelectedId(sid);
+    setSelectedName(sname);
   }, []);
 
   const handleExecute = useCallback(
@@ -52,6 +52,23 @@ export default function SnippetDbNode({ id, selected }: NodeProps) {
       ),
     });
   }, [id, upstream, selectedId, openTab, handleSelect, handleExecute]);
+
+  // タブが開いている場合、upstream/selectedId の変化を反映する
+  useEffect(() => {
+    updateTab({
+      id: `snippet-lib-${id}`,
+      label: "Code Library",
+      icon: "📚",
+      content: (
+        <SnippetLibraryPanel
+          upstream={upstream}
+          selectedId={selectedId}
+          onSelect={handleSelect}
+          onExecute={handleExecute}
+        />
+      ),
+    });
+  }, [id, upstream, selectedId, updateTab, handleSelect, handleExecute]);
 
   return (
     <NodeShell category="cad" selected={selected}>
