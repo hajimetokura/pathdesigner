@@ -1,42 +1,51 @@
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { saveSnippet, listSnippets, deleteSnippet, executeSnippet } from "../api";
-import type { AiCadResult, SnippetInfo } from "../types";
+import { saveSnippet, listSnippets, deleteSnippet, executeSnippet, fetchMeshData } from "../api";
+import type { AiCadResult, ObjectMesh, SnippetInfo } from "../types";
 
-async function renderThumbnail(meshUrl: string): Promise<string | null> {
+async function renderThumbnailFromMesh(fileId: string): Promise<string | null> {
   try {
-    const { WebGLRenderer, Scene, PerspectiveCamera, AmbientLight, DirectionalLight, Box3, Vector3 } =
-      await import("three");
-    const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
+    const meshData = await fetchMeshData(fileId);
+    const meshes: ObjectMesh[] = meshData.objects;
+    if (!meshes.length) return null;
+
+    const THREE = await import("three");
 
     const canvas = document.createElement("canvas");
     canvas.width = 128;
     canvas.height = 128;
 
-    const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setSize(128, 128);
 
-    const scene = new Scene();
-    scene.add(new AmbientLight(0xffffff, 0.8));
-    const dir = new DirectionalLight(0xffffff, 0.6);
-    dir.position.set(1, 2, 3);
+    const scene = new THREE.Scene();
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+    dir.position.set(1, 1, 1);
     scene.add(dir);
+    const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
+    dir2.position.set(-1, -0.5, 0.5);
+    scene.add(dir2);
 
-    const camera = new PerspectiveCamera(45, 1, 0.01, 1000);
+    // Build BufferGeometry from ObjectMesh data (same as MeshViewer.tsx)
+    const group = new THREE.Group();
+    group.rotation.x = -Math.PI / 2; // CAD Z-up → Three.js Y-up
+    for (const m of meshes) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(m.vertices), 3));
+      geo.setIndex(new THREE.BufferAttribute(new Uint32Array(m.faces), 1));
+      geo.computeVertexNormals();
+      group.add(new THREE.Mesh(geo, new THREE.MeshPhongMaterial({ color: 0xb0bec5, side: THREE.DoubleSide })));
+    }
+    scene.add(group);
 
-    const loader = new GLTFLoader();
-    const gltf = await new Promise<{ scene: object }>((res, rej) =>
-      loader.load(meshUrl, res as (g: unknown) => void, undefined, rej),
-    );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    scene.add(gltf.scene as any);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const box = new Box3().setFromObject(gltf.scene as any);
-    const center = new Vector3();
+    // Center camera on bounding box
+    const box = new THREE.Box3().setFromObject(group);
+    const center = new THREE.Vector3();
     box.getCenter(center);
-    const size = box.getSize(new Vector3()).length();
-    camera.position.copy(center).addScalar(size);
+    const size = box.getSize(new THREE.Vector3()).length();
+    const camera = new THREE.PerspectiveCamera(50, 1, size * 0.01, size * 10);
+    camera.position.set(center.x + size * 0.8, center.y + size * 0.8, center.z + size * 0.8);
     camera.lookAt(center);
 
     renderer.render(scene, camera);
@@ -86,8 +95,7 @@ export default function SnippetLibraryPanel({
     try {
       let thumbnail: string | undefined;
       if (upstream.file_id) {
-        const meshUrl = `/files/${upstream.file_id}/mesh.glb`;
-        thumbnail = (await renderThumbnail(meshUrl)) ?? undefined;
+        thumbnail = (await renderThumbnailFromMesh(upstream.file_id)) ?? undefined;
       }
       await saveSnippet({
         name: name.trim(),
