@@ -1,5 +1,6 @@
 import type { NodeCategory } from "./components/NodeShell";
 import { getSidebarGroups } from "./nodeRegistry";
+import { useLayoutDirection } from "./contexts/LayoutDirectionContext";
 
 const CATEGORY_COLORS: Record<NodeCategory, string> = {
   cad: "var(--color-cad)",
@@ -10,6 +11,9 @@ const CATEGORY_COLORS: Record<NodeCategory, string> = {
 const nodeGroups = getSidebarGroups();
 
 export default function Sidebar() {
+  const { direction } = useLayoutDirection();
+  const isLR = direction === "LR";
+
   const onDragStart = (
     event: React.DragEvent,
     nodeType: string,
@@ -19,10 +23,15 @@ export default function Sidebar() {
   };
 
   return (
-    <aside style={sidebarStyle}>
+    <aside style={isLR ? sidebarLRStyle : sidebarTBStyle}>
       {nodeGroups.map((group) => (
-        <div key={group.category}>
-          <div style={{ ...groupTitleStyle, color: CATEGORY_COLORS[group.category] }}>
+        <div key={group.category} style={isLR ? groupLRStyle : undefined}>
+          <div
+            style={{
+              ...(isLR ? groupTitleLRStyle : groupTitleTBStyle),
+              color: CATEGORY_COLORS[group.category],
+            }}
+          >
             {group.label}
           </div>
           {group.items.map((item) => (
@@ -30,7 +39,11 @@ export default function Sidebar() {
               key={item.type}
               draggable
               onDragStart={(e) => onDragStart(e, item.type)}
-              style={{ ...itemStyle, borderLeftColor: CATEGORY_COLORS[group.category] }}
+              style={
+                isLR
+                  ? { ...itemLRStyle, borderTopColor: CATEGORY_COLORS[group.category] }
+                  : { ...itemTBStyle, borderLeftColor: CATEGORY_COLORS[group.category] }
+              }
             >
               {item.label}
             </div>
@@ -41,7 +54,9 @@ export default function Sidebar() {
   );
 }
 
-const sidebarStyle: React.CSSProperties = {
+/* ── TB (vertical sidebar) ── */
+
+const sidebarTBStyle: React.CSSProperties = {
   width: 160,
   padding: "12px 8px",
   borderRight: "1px solid var(--border-subtle)",
@@ -52,7 +67,7 @@ const sidebarStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-const groupTitleStyle: React.CSSProperties = {
+const groupTitleTBStyle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
   textTransform: "uppercase",
@@ -60,7 +75,7 @@ const groupTitleStyle: React.CSSProperties = {
   padding: "8px 4px 4px",
 };
 
-const itemStyle: React.CSSProperties = {
+const itemTBStyle: React.CSSProperties = {
   padding: "8px 10px",
   background: "var(--node-bg)",
   border: "1px solid var(--border-color)",
@@ -70,4 +85,46 @@ const itemStyle: React.CSSProperties = {
   cursor: "grab",
   userSelect: "none",
   marginTop: 4,
+};
+
+/* ── LR (horizontal toolbar) ── */
+
+const sidebarLRStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "6px 12px",
+  borderBottom: "1px solid var(--border-subtle)",
+  background: "var(--sidebar-bg)",
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+  flexShrink: 0,
+  overflowX: "auto",
+};
+
+const groupLRStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 4,
+};
+
+const groupTitleLRStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: 1,
+  padding: "0 4px",
+  whiteSpace: "nowrap",
+};
+
+const itemLRStyle: React.CSSProperties = {
+  padding: "4px 8px",
+  background: "var(--node-bg)",
+  border: "1px solid var(--border-color)",
+  borderTop: "2px solid",
+  borderRadius: "var(--radius-control)",
+  fontSize: 11,
+  cursor: "grab",
+  userSelect: "none",
+  whiteSpace: "nowrap",
 };

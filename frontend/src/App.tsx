@@ -174,7 +174,7 @@ function Flow() {
 
   return (
     <PanelTabsContext.Provider value={panelTabsValue}>
-      <div style={{ display: "flex", width: "100vw", height: "100vh" }}>
+      <div style={{ display: "flex", flexDirection: direction === "LR" ? "column" : "row", width: "100vw", height: "100vh" }}>
         <Sidebar />
         <div ref={wrapperRef} style={{ flex: 1, position: "relative" }}>
           <div style={statusStyle}>
