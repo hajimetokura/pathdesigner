@@ -2,10 +2,10 @@ import { Handle, Position } from "@xyflow/react";
 
 // Data type → color mapping
 const handleColors: Record<string, string> = {
-  geometry: "#4a90d9", // blue — BREP, contours
-  settings: "#66bb6a", // green — machining params
-  toolpath: "#ff9800", // orange — generated paths
-  generic: "#9e9e9e", // gray — debug, default
+  geometry: "var(--handle-geometry)",
+  settings: "var(--handle-settings)",
+  toolpath: "var(--handle-toolpath)",
+  generic: "var(--handle-generic)",
 };
 
 interface LabeledHandleProps {
@@ -75,7 +75,7 @@ export default function LabeledHandle({
 
 const labelStyle: React.CSSProperties = {
   fontSize: 9,
-  color: "#888",
+  color: "var(--text-muted)",
   whiteSpace: "nowrap",
   userSelect: "none",
   lineHeight: 1,

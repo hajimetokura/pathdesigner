@@ -223,19 +223,21 @@ const statusStyle: React.CSSProperties = {
   top: 10,
   left: 10,
   zIndex: 10,
-  background: "white",
+  background: "var(--node-bg)",
   padding: "8px 16px",
-  borderRadius: 8,
-  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  borderRadius: "var(--radius-node)",
+  boxShadow: "var(--shadow-button)",
   fontSize: 14,
+  color: "var(--text-primary)",
 };
 
 const layoutBtnStyle: React.CSSProperties = {
-  background: "white",
-  border: "1px solid #ddd",
-  borderRadius: 6,
+  background: "var(--node-bg)",
+  border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-control)",
   padding: "6px 12px",
   fontSize: 12,
   cursor: "pointer",
-  boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+  boxShadow: "var(--shadow-button)",
+  color: "var(--text-primary)",
 };
