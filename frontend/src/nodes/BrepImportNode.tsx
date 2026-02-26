@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import { uploadStepFile, fetchMeshData } from "../api";
@@ -143,7 +143,7 @@ export default function BrepImportNode({ id, selected }: NodeProps) {
         </div>
       )}
 
-      <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="out" dataType="geometry" />
+      <LabeledHandle type="source" id={`${id}-out`} label="out" dataType="geometry" />
     </NodeShell>
   );
 }

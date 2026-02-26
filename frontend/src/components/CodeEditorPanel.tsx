@@ -193,13 +193,13 @@ const saveBtnStyle: React.CSSProperties = {
   background: "var(--node-bg)", color: "var(--text-primary)", cursor: "pointer", fontSize: 12,
 };
 const resultStyle: React.CSSProperties = {
-  fontSize: 12, color: "var(--color-success)", background: "#f1f8e9", padding: "6px 10px", borderRadius: "var(--radius-control)",
+  fontSize: 12, color: "var(--color-success)", background: "var(--surface-bg)", padding: "6px 10px", borderRadius: "var(--radius-control)",
 };
 const objStyle: React.CSSProperties = {
   color: "var(--text-secondary)", marginTop: 2, fontSize: 11,
 };
 const errorStyle: React.CSSProperties = {
-  fontSize: 11, color: "var(--color-error)", background: "#fff3f3", padding: "6px 10px", borderRadius: "var(--radius-control)",
+  fontSize: 11, color: "var(--color-error)", background: "var(--surface-bg)", padding: "6px 10px", borderRadius: "var(--radius-control)",
   whiteSpace: "pre-wrap",
 };
 const dialogStyle: React.CSSProperties = {

@@ -19,6 +19,7 @@ import SidePanel, { type PanelTab } from "./components/SidePanel";
 import { PanelTabsContext } from "./contexts/PanelTabsContext";
 import { API_BASE_URL } from "./config";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
+import { LayoutDirectionProvider, useLayoutDirection } from "./contexts/LayoutDirectionContext";
 
 const initialNodes: Node[] = [
   { id: "1", type: "brepImport", position: { x: 100, y: 100 }, data: {} },
@@ -53,18 +54,26 @@ function Flow() {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, fitView } = useReactFlow();
   const { theme, setTheme } = useTheme();
+  const { direction, setDirection } = useLayoutDirection();
   const toggleTheme = useCallback(() => {
     setTheme(theme === "clean" ? "terracotta" : "clean");
   }, [theme, setTheme]);
 
-  const onLayout = useCallback(() => {
+  const onLayout = useCallback((dir?: "TB" | "LR") => {
+    const d = dir ?? direction;
     setNodes((nds) => {
       const allMeasured = nds.every((n) => n.measured?.width && n.measured?.height);
       if (!allMeasured) return nds;
-      return getLayoutedElements(nds, edges);
+      return getLayoutedElements(nds, edges, { direction: d });
     });
     window.requestAnimationFrame(() => fitView({ padding: 0.1 }));
-  }, [edges, setNodes, fitView]);
+  }, [edges, setNodes, fitView, direction]);
+
+  const toggleDirection = useCallback(() => {
+    const next = direction === "TB" ? "LR" : "TB";
+    setDirection(next);
+    onLayout(next);
+  }, [direction, setDirection, onLayout]);
 
   const openTab = useCallback((tab: PanelTab) => {
     setPanelTabs((prev) => {
@@ -182,15 +191,19 @@ function Flow() {
             onDragOver={onDragOver}
             onDrop={onDrop}
             proOptions={{ hideAttribution: true }}
+            style={{ background: "var(--canvas-bg)" }}
             fitView
           >
-            <Background />
+            <Background color="var(--border-color)" />
             <Panel position="top-right">
               <div style={{ display: "flex", gap: 6 }}>
                 <button onClick={toggleTheme} style={layoutBtnStyle} title={`Theme: ${theme}`}>
                   {theme === "clean" ? "Clean" : "Terra"}
                 </button>
-                <button onClick={onLayout} style={layoutBtnStyle}>
+                <button onClick={toggleDirection} style={layoutBtnStyle} title={`Direction: ${direction}`}>
+                  {direction === "TB" ? "↓ TB" : "→ LR"}
+                </button>
+                <button onClick={() => onLayout()} style={layoutBtnStyle}>
                   Auto Layout
                 </button>
               </div>
@@ -211,9 +224,11 @@ function Flow() {
 export default function App() {
   return (
     <ThemeProvider>
-      <ReactFlowProvider>
-        <Flow />
-      </ReactFlowProvider>
+      <LayoutDirectionProvider>
+        <ReactFlowProvider>
+          <Flow />
+        </ReactFlowProvider>
+      </LayoutDirectionProvider>
     </ThemeProvider>
   );
 }

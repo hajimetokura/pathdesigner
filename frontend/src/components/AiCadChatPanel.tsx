@@ -181,7 +181,7 @@ const historyStyle: React.CSSProperties = {
   flex: 1, overflowY: "auto", padding: "12px 16px",
 };
 const userMsgStyle: React.CSSProperties = {
-  marginBottom: 12, padding: "8px 12px", background: "#e3f2fd",
+  marginBottom: 12, padding: "8px 12px", background: "var(--surface-bg)",
   borderRadius: 8, borderTopRightRadius: 2,
 };
 const aiMsgStyle: React.CSSProperties = {

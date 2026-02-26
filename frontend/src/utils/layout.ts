@@ -26,16 +26,27 @@ function handleIndex(handleId: string): number {
  * Only swaps nodes at the same rank (same y position) to avoid
  * causing overlaps with other nodes at different ranks.
  */
-function uncrossEdges(nodes: Node[], edges: Edge[]): void {
+function uncrossEdges(nodes: Node[], edges: Edge[], direction: "TB" | "LR"): void {
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
-  // Compare center-y (dagre aligns centers, not top-left corners)
-  const centerY = (n: Node) => n.position.y + (n.measured?.height ?? 100) / 2;
+  // In TB mode, same-rank nodes share y; in LR mode they share x
+  const rankPos = (n: Node) =>
+    direction === "TB"
+      ? n.position.y + (n.measured?.height ?? 100) / 2
+      : n.position.x + (n.measured?.width ?? 200) / 2;
   const sameRank = (ids: string[]): boolean => {
-    const nodes = ids.map((id) => nodeMap.get(id)).filter(Boolean) as Node[];
-    if (nodes.length < 2) return false;
-    const cy0 = centerY(nodes[0]);
-    return nodes.every((n) => Math.abs(centerY(n) - cy0) < 1);
+    const ns = ids.map((id) => nodeMap.get(id)).filter(Boolean) as Node[];
+    if (ns.length < 2) return false;
+    const r0 = rankPos(ns[0]);
+    return ns.every((n) => Math.abs(rankPos(n) - r0) < 1);
+  };
+
+  // The cross axis is x for TB, y for LR
+  const getCross = (n: Node) => (direction === "TB" ? n.position.x : n.position.y);
+  const setCross = (n: Node, v: number) => {
+    n.position = direction === "TB"
+      ? { ...n.position, x: v }
+      : { ...n.position, y: v };
   };
 
   // Fix source node ordering for edges sharing the same TARGET
@@ -54,16 +65,14 @@ function uncrossEdges(nodes: Node[], edges: Edge[]): void {
     const sorted = [...group].sort(
       (a, b) => handleIndex(a.targetHandle!) - handleIndex(b.targetHandle!),
     );
-    const xPositions = sorted
+    const positions = sorted
       .map((e) => nodeMap.get(e.source))
       .filter(Boolean)
-      .map((n) => n!.position.x)
+      .map((n) => getCross(n!))
       .sort((a, b) => a - b);
     sorted.forEach((edge, i) => {
       const node = nodeMap.get(edge.source);
-      if (node && xPositions[i] !== undefined) {
-        node.position = { ...node.position, x: xPositions[i] };
-      }
+      if (node && positions[i] !== undefined) setCross(node, positions[i]);
     });
   }
 
@@ -83,16 +92,14 @@ function uncrossEdges(nodes: Node[], edges: Edge[]): void {
     const sorted = [...group].sort(
       (a, b) => handleIndex(a.sourceHandle!) - handleIndex(b.sourceHandle!),
     );
-    const xPositions = sorted
+    const positions = sorted
       .map((e) => nodeMap.get(e.target))
       .filter(Boolean)
-      .map((n) => n!.position.x)
+      .map((n) => getCross(n!))
       .sort((a, b) => a - b);
     sorted.forEach((edge, i) => {
       const node = nodeMap.get(edge.target);
-      if (node && xPositions[i] !== undefined) {
-        node.position = { ...node.position, x: xPositions[i] };
-      }
+      if (node && positions[i] !== undefined) setCross(node, positions[i]);
     });
   }
 }
@@ -131,6 +138,6 @@ export function getLayoutedElements(
     };
   });
 
-  uncrossEdges(result, edges);
+  uncrossEdges(result, edges, direction);
   return result;
 }

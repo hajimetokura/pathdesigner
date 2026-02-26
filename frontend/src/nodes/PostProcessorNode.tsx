@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import type { PostProcessorSettings } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
@@ -66,7 +66,6 @@ export default function PostProcessorNode({ id, selected }: NodeProps) {
 
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-out`}
         label="settings"
         dataType="settings"

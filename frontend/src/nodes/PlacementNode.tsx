@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import type {
   BrepImportResult,
   SheetSettings,
@@ -128,10 +128,16 @@ export default function PlacementNode({ id, selected }: NodeProps) {
     const ox = (w - sheetMat.width * sc) / 2;
     const oy = (h - sheetMat.depth * sc) / 2;
 
+    // Read CSS variables
+    const cs = getComputedStyle(canvas);
+    const surfaceBg = cs.getPropertyValue("--surface-bg").trim() || "#f0f0f0";
+    const borderClr = cs.getPropertyValue("--border-color").trim() || "#999";
+    const textSecondary = cs.getPropertyValue("--text-secondary").trim() || "#666";
+
     // Sheet
-    ctx.fillStyle = "#f0f0f0";
+    ctx.fillStyle = surfaceBg;
     ctx.fillRect(ox, h - oy - sheetMat.depth * sc, sheetMat.width * sc, sheetMat.depth * sc);
-    ctx.strokeStyle = "#999";
+    ctx.strokeStyle = borderClr;
     ctx.lineWidth = 0.5;
     ctx.strokeRect(ox, h - oy - sheetMat.depth * sc, sheetMat.width * sc, sheetMat.depth * sc);
 
@@ -140,7 +146,11 @@ export default function PlacementNode({ id, selected }: NodeProps) {
     const sheetIdList = [...new Set(placements.map((p) => p.sheet_id))].sort();
 
     // Parts (only active sheet)
-    const colors = ["#4a90d9", "#7b61ff", "#43a047", "#ef5350"];
+    const accentColor = cs.getPropertyValue("--color-accent").trim() || "#4a90d9";
+    const cadColor = cs.getPropertyValue("--color-cad").trim() || "#ff9800";
+    const successColor = cs.getPropertyValue("--color-success").trim() || "#43a047";
+    const errorColor = cs.getPropertyValue("--color-error").trim() || "#ef5350";
+    const colors = [accentColor, cadColor, successColor, errorColor];
     for (let i = 0; i < activePlacements.length; i++) {
       const p = activePlacements[i];
       const obj = brepResult.objects.find((o) => o.object_id === p.object_id);
@@ -198,7 +208,7 @@ export default function PlacementNode({ id, selected }: NodeProps) {
     if (sheetIdList.length > 1) {
       const sheetIndex = sheetIdList.indexOf(activeSheetId) + 1;
       const label = `${sheetIndex}/${sheetIdList.length}`;
-      ctx.fillStyle = "#666";
+      ctx.fillStyle = textSecondary;
       ctx.font = "bold 10px sans-serif";
       ctx.textAlign = "right";
       ctx.fillText(label, w - 6, 12);
@@ -254,8 +264,8 @@ export default function PlacementNode({ id, selected }: NodeProps) {
 
   return (
     <NodeShell category="cam" selected={selected}>
-      <LabeledHandle type="target" position={Position.Top} id={`${id}-brep`} label="brep" dataType="geometry" index={0} total={2} />
-      <LabeledHandle type="target" position={Position.Top} id={`${id}-sheet`} label="sheet" dataType="settings" index={1} total={2} />
+      <LabeledHandle type="target" id={`${id}-brep`} label="brep" dataType="geometry" index={0} total={2} />
+      <LabeledHandle type="target" id={`${id}-sheet`} label="sheet" dataType="settings" index={1} total={2} />
 
       <div style={headerStyle}>Placement</div>
 
@@ -281,12 +291,12 @@ export default function PlacementNode({ id, selected }: NodeProps) {
         <div style={emptyStyle}>Connect BREP + Sheet</div>
       )}
 
-      <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="placement" dataType="geometry" />
+      <LabeledHandle type="source" id={`${id}-out`} label="placement" dataType="geometry" />
     </NodeShell>
   );
 }
 
 const headerStyle: React.CSSProperties = { fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--text-primary)" };
 const canvasStyle: React.CSSProperties = { width: "100%", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-item)", cursor: "pointer", background: "var(--surface-bg)" };
-const hintStyle: React.CSSProperties = { fontSize: 10, color: "#aaa", textAlign: "center", marginTop: 2 };
+const hintStyle: React.CSSProperties = { fontSize: 10, color: "var(--text-muted)", textAlign: "center", marginTop: 2 };
 const emptyStyle: React.CSSProperties = { color: "var(--text-muted)", fontSize: 11 };

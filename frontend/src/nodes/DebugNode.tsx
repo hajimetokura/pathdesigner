@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Position,
   type NodeProps,
   useReactFlow,
   useStore,
@@ -69,7 +68,7 @@ export default function DebugNode({ id, selected }: NodeProps) {
 
   return (
     <NodeShell category="utility" selected={selected} variant="dark">
-      <LabeledHandle type="target" position={Position.Top} id={`${id}-in`} label="in" dataType="generic" />
+      <LabeledHandle type="target" id={`${id}-in`} label="in" dataType="generic" />
 
       <div style={headerRow}>
         <span style={headerStyle}>Debug</span>
@@ -88,7 +87,7 @@ export default function DebugNode({ id, selected }: NodeProps) {
         </div>
       )}
 
-      <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="out" dataType="generic" />
+      <LabeledHandle type="source" id={`${id}-out`} label="out" dataType="generic" />
     </NodeShell>
   );
 }

@@ -1,7 +1,7 @@
 // frontend/src/nodes/CodeNode.tsx
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import CodeEditorPanel from "../components/CodeEditorPanel";
@@ -81,7 +81,6 @@ export default function CodeNode({ id, selected }: NodeProps) {
 
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-out`}
         label="out"
         dataType="geometry"

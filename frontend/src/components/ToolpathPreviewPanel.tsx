@@ -119,6 +119,15 @@ export default function ToolpathPreviewPanel({
       const maxZ = Math.max(...allZ);
       const zRange = maxZ - minZ || 1;
 
+      // Read CSS variables from canvas element
+      const cs = getComputedStyle(canvas);
+      const textMuted = cs.getPropertyValue("--text-muted").trim() || "#aaa";
+      const textPrimary = cs.getPropertyValue("--text-primary").trim() || "#333";
+      const borderClr = cs.getPropertyValue("--border-color").trim() || "#ccc";
+      const colorError = cs.getPropertyValue("--color-error").trim() || "#e53935";
+      const colorSuccess = cs.getPropertyValue("--color-success").trim() || "#43a047";
+      const colorWarning = cs.getPropertyValue("--color-warning").trim() || "#ff5722";
+
       // --- Sheet bounds ---
       if (toolpathResult.sheet_width && toolpathResult.sheet_depth) {
         const sw = toolpathResult.sheet_width;
@@ -126,12 +135,12 @@ export default function ToolpathPreviewPanel({
         const [sx0, sy0] = toCanvas(0, 0);
         const [sx1, sy1] = toCanvas(sw, sd);
         ctx.save();
-        ctx.strokeStyle = "#ccc";
+        ctx.strokeStyle = borderClr;
         ctx.lineWidth = 1;
         ctx.setLineDash([6, 4]);
         ctx.strokeRect(sx0, sy1, sx1 - sx0, sy0 - sy1);
         ctx.setLineDash([]);
-        ctx.fillStyle = "#aaa";
+        ctx.fillStyle = textMuted;
         ctx.font = "10px sans-serif";
         ctx.fillText(`${sw} × ${sd} mm`, sx0, sy1 - 4);
         ctx.restore();
@@ -141,23 +150,23 @@ export default function ToolpathPreviewPanel({
       const [ox, oy] = toCanvas(0, 0);
       const axisLen = 30;
       ctx.save();
-      ctx.strokeStyle = "#e53935";
+      ctx.strokeStyle = colorError;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(ox, oy);
       ctx.lineTo(ox + axisLen, oy);
       ctx.stroke();
-      ctx.fillStyle = "#e53935";
+      ctx.fillStyle = colorError;
       ctx.font = "bold 10px sans-serif";
       ctx.fillText("X", ox + axisLen + 2, oy + 3);
-      ctx.strokeStyle = "#43a047";
+      ctx.strokeStyle = colorSuccess;
       ctx.beginPath();
       ctx.moveTo(ox, oy);
       ctx.lineTo(ox, oy - axisLen);
       ctx.stroke();
-      ctx.fillStyle = "#43a047";
+      ctx.fillStyle = colorSuccess;
       ctx.fillText("Y", ox - 4, oy - axisLen - 4);
-      ctx.fillStyle = "#333";
+      ctx.fillStyle = textPrimary;
       ctx.beginPath();
       ctx.arc(ox, oy, 2.5, 0, Math.PI * 2);
       ctx.fill();
@@ -170,7 +179,7 @@ export default function ToolpathPreviewPanel({
           placements.filter((p) => p.sheet_id === sheetId).map((p) => [p.object_id, p])
         );
         ctx.save();
-        ctx.strokeStyle = "#999";
+        ctx.strokeStyle = textMuted;
         ctx.lineWidth = 1;
         ctx.setLineDash([4, 3]);
         for (const [objId, coords] of Object.entries(outlines)) {
@@ -235,7 +244,7 @@ export default function ToolpathPreviewPanel({
         // Draw tab markers
         for (const pass of tp.passes) {
           if (pass.tabs.length > 0) {
-            ctx.fillStyle = "#ff5722";
+            ctx.fillStyle = colorWarning;
             for (const tab of pass.tabs) {
               const midIdx = Math.floor((tab.start_index + tab.end_index) / 2);
               if (midIdx < pass.path.length) {
@@ -365,15 +374,15 @@ export default function ToolpathPreviewPanel({
       <div style={legendStyle}>
         <div style={summaryTitle}>Legend</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, flexWrap: "wrap" }}>
-          <span style={{ width: 16, height: 0, borderTop: "2px dashed #999", display: "inline-block" }} />
+          <span style={{ width: 16, height: 0, borderTop: "2px dashed var(--text-muted)", display: "inline-block" }} />
           <span>Original</span>
-          <span style={{ width: 12, height: 12, background: "rgb(0,188,212)", borderRadius: 2, display: "inline-block" }} />
+          <span style={{ width: 12, height: 12, background: "var(--color-cam)", borderRadius: 2, display: "inline-block" }} />
           <span>Contour</span>
-          <span style={{ width: 12, height: 12, background: "rgba(156,39,176,0.7)", borderRadius: 2, display: "inline-block" }} />
+          <span style={{ width: 12, height: 12, background: "var(--color-cad)", borderRadius: 2, display: "inline-block" }} />
           <span>Pocket</span>
-          <span style={{ width: 12, height: 12, background: "rgb(255,152,0)", borderRadius: 2, display: "inline-block" }} />
+          <span style={{ width: 12, height: 12, background: "var(--color-warning)", borderRadius: 2, display: "inline-block" }} />
           <span>Drill</span>
-          <span style={{ width: 12, height: 12, background: "#ff5722", borderRadius: "50%", display: "inline-block" }} />
+          <span style={{ width: 12, height: 12, background: "var(--color-warning)", borderRadius: "50%", display: "inline-block" }} />
           <span>Tab</span>
         </div>
       </div>
@@ -422,7 +431,7 @@ const canvasWrapStyle: React.CSSProperties = {
 
 const hintStyle: React.CSSProperties = {
   fontSize: 10,
-  color: "#aaa",
+  color: "var(--text-muted)",
   textAlign: "center",
   marginTop: 4,
 };

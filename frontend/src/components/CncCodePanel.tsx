@@ -39,7 +39,7 @@ function highlightSbpLine(line: string): React.ReactNode {
   }
   // Control flow: IF, THEN, GOTO, END, PAUSE
   if (/^(IF|THEN|GOTO|END|PAUSE|SA|CN)\b/.test(line)) {
-    return <span style={{ color: "#7b61ff" }}>{line}</span>;
+    return <span style={{ color: "var(--color-accent)" }}>{line}</span>;
   }
   // Movement commands: M3, J2, JZ, MZ
   if (/^(M3|M2|J2|JZ|MZ),/.test(line)) {
@@ -51,7 +51,7 @@ function highlightSbpLine(line: string): React.ReactNode {
   }
   // Label lines (e.g., UNIT_ERROR:)
   if (/^[A-Z_]+:/.test(line)) {
-    return <span style={{ color: "#7b61ff" }}>{line}</span>;
+    return <span style={{ color: "var(--color-accent)" }}>{line}</span>;
   }
   return <span>{line}</span>;
 }
@@ -62,7 +62,7 @@ function highlightCommand(line: string): React.ReactNode {
   const args = parts.slice(1).join(",");
   return (
     <span>
-      <span style={{ color: "#1976d2", fontWeight: 600 }}>{cmd}</span>
+      <span style={{ color: "var(--color-accent)", fontWeight: 600 }}>{cmd}</span>
       {args && <span style={{ color: "var(--color-cad)" }}>,{args}</span>}
     </span>
   );
@@ -85,9 +85,9 @@ const toolbarStyle: React.CSSProperties = {
 
 const exportSmallBtnStyle: React.CSSProperties = {
   padding: "4px 12px",
-  border: "1px solid #66bb6a",
+  border: "1px solid var(--color-success)",
   borderRadius: "var(--radius-item)",
-  background: "#66bb6a",
+  background: "var(--color-success)",
   color: "white",
   cursor: "pointer",
   fontSize: 11,
@@ -116,7 +116,7 @@ const lineStyle: React.CSSProperties = {
 const lineNumStyle: React.CSSProperties = {
   width: 36,
   textAlign: "right",
-  color: "#bbb",
+  color: "var(--text-muted)",
   marginRight: 12,
   userSelect: "none",
   flexShrink: 0,

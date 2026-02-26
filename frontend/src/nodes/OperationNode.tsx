@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import { detectOperations } from "../api";
 import type {
   BrepObject,
@@ -226,10 +226,9 @@ export default function OperationNode({ id, selected }: NodeProps) {
   }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab, allPlacements, sheetIds, activeSheetId, groupLabels, handleGroupLabelsChange]);
 
   return (
-    <NodeShell category="cam" selected={selected} statusBorder={status === "error" ? "var(--color-error)" : status === "loading" ? "#ffc107" : undefined}>
+    <NodeShell category="cam" selected={selected} statusBorder={status === "error" ? "var(--color-error)" : status === "loading" ? "var(--color-warning)" : undefined}>
       <LabeledHandle
         type="target"
-        position={Position.Top}
         id={`${id}-brep`}
         label="placement"
         dataType="geometry"
@@ -305,7 +304,6 @@ export default function OperationNode({ id, selected }: NodeProps) {
 
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-out`}
         label="operations"
         dataType="geometry"
@@ -370,7 +368,7 @@ const spinnerStyle: React.CSSProperties = {
   width: 16,
   height: 16,
   border: "2px solid var(--border-subtle)",
-  borderTopColor: "#7b61ff",
+  borderTopColor: "var(--color-accent)",
   borderRadius: "50%",
   animation: "spin 0.8s linear infinite",
 };

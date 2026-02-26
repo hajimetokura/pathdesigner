@@ -92,15 +92,8 @@ function saveUserPresets(presets: UserPreset[]) {
 
 /* --- Group background colors --- */
 
-const GROUP_COLORS = [
-  "#f8f9fa", // default: neutral gray
-  "#fef9f0", // override 1: warm
-  "#f0f7fe", // override 2: cool blue
-  "#f5f0fe", // override 3: light purple
-];
-
-const getGroupBg = (index: number, isDefault: boolean): string =>
-  isDefault ? GROUP_COLORS[0] : GROUP_COLORS[(index % (GROUP_COLORS.length - 1)) + 1];
+const getGroupBg = (_index: number, _isDefault: boolean): string =>
+  "var(--surface-bg)";
 
 /* --- Main component --- */
 
@@ -669,7 +662,7 @@ export default function OperationDetailPanel({
 
               {/* Divider */}
               {opsInGroup.length > 0 && (
-                <div style={{ borderTop: "1px solid #e8e8e8", margin: "4px 0" }} />
+                <div style={{ borderTop: "1px solid var(--border-subtle)", margin: "4px 0" }} />
               )}
 
               {/* Object rows */}
@@ -731,7 +724,7 @@ export default function OperationDetailPanel({
                 <div
                   style={{
                     fontSize: 11,
-                    color: "#aaa",
+                    color: "var(--text-muted)",
                     padding: "4px 8px",
                     fontStyle: "italic",
                   }}
@@ -801,7 +794,7 @@ function PresetRow({
     <button
       style={{
         ...presetItemBaseStyle,
-        background: hover ? "#f0f4ff" : "none",
+        background: hover ? "var(--sidebar-bg)" : "none",
         ...style,
       }}
       onMouseEnter={() => setHover(true)}
@@ -867,7 +860,7 @@ const objectRowStyle: React.CSSProperties = {
 
 const dragHandleStyle: React.CSSProperties = {
   cursor: "grab",
-  color: "#bbb",
+  color: "var(--text-muted)",
   fontSize: 12,
   userSelect: "none",
   padding: "0 4px",
@@ -926,9 +919,9 @@ const removeBtnStyle: React.CSSProperties = {
 
 const addSettingBtnStyle: React.CSSProperties = {
   fontSize: 11,
-  color: "#1976d2",
+  color: "var(--color-accent)",
   background: "none",
-  border: "1px dashed #1976d2",
+  border: "1px dashed var(--color-accent)",
   borderRadius: "var(--radius-control)",
   padding: "6px 12px",
   cursor: "pointer",

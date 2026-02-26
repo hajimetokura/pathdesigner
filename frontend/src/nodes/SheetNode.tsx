@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import type { SheetMaterial, SheetSettings } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
@@ -48,7 +48,6 @@ export default function SheetNode({ id, selected }: NodeProps) {
 
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-out`}
         label="sheet"
         dataType="settings"
@@ -148,6 +147,8 @@ const inputStyle: React.CSSProperties = {
   padding: "2px 4px",
   borderRadius: "var(--radius-item)",
   border: "1px solid var(--border-color)",
+  background: "var(--surface-bg)",
+  color: "var(--text-primary)",
   width: 60,
   textAlign: "right",
 };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import { generateToolpath, generateSbp, validatePlacement } from "../api";
 import type {
   OperationDetectResult,
@@ -187,10 +187,9 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
   }, [operations, postProc, operations?.upstreamActiveSheetId]);
 
   return (
-    <NodeShell category="cam" selected={selected} statusBorder={status === "blocked" ? "#ff9800" : status === "error" ? "var(--color-error)" : status === "loading" ? "#ffc107" : undefined}>
+    <NodeShell category="cam" selected={selected} statusBorder={status === "blocked" ? "var(--color-cad)" : status === "error" ? "var(--color-error)" : status === "loading" ? "var(--color-warning)" : undefined}>
       <LabeledHandle
         type="target"
-        position={Position.Top}
         id={`${id}-operations`}
         label="operations"
         dataType="geometry"
@@ -199,7 +198,6 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
       />
       <LabeledHandle
         type="target"
-        position={Position.Top}
         id={`${id}-postprocessor`}
         label="post proc"
         dataType="settings"
@@ -257,7 +255,7 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
                 <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
                   {tp.passes.length} passes
                 </div>
-                <div style={{ fontSize: 10, color: "#777" }}>
+                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
                   Z: {tp.passes.map((p) => p.z_depth.toFixed(1)).join(" \u2192 ")}
                 </div>
               </div>
@@ -268,7 +266,6 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
 
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-toolpath`}
         label="toolpath"
         dataType="toolpath"
@@ -277,7 +274,6 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
       />
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-output`}
         label="output"
         dataType="toolpath"
@@ -319,7 +315,7 @@ const blockedStyle: React.CSSProperties = {
   color: "var(--color-cad)",
   fontSize: 11,
   padding: "6px 8px",
-  background: "#fff3e0",
+  background: "var(--surface-bg)",
   borderRadius: "var(--radius-item)",
   lineHeight: 1.5,
 };
@@ -335,7 +331,7 @@ const spinnerStyle: React.CSSProperties = {
   width: 16,
   height: 16,
   border: "2px solid var(--border-subtle)",
-  borderTopColor: "#ff9800",
+  borderTopColor: "var(--color-cad)",
   borderRadius: "50%",
   animation: "spin 0.8s linear infinite",
 };

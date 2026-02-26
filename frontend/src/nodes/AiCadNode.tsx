@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import {
@@ -240,7 +240,6 @@ export default function AiCadNode({ id, selected }: NodeProps) {
 
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-out`}
         label="out"
         dataType="geometry"
@@ -256,11 +255,13 @@ const textareaStyle: React.CSSProperties = {
   width: "100%", border: "1px solid var(--border-color)", borderRadius: "var(--radius-control)",
   padding: "8px", fontSize: 12, resize: "vertical",
   fontFamily: "inherit", boxSizing: "border-box",
+  background: "var(--surface-bg)", color: "var(--text-primary)",
 };
 const selectStyle: React.CSSProperties = {
   width: "100%", padding: "4px 8px", border: "1px solid var(--border-color)",
   borderRadius: "var(--radius-control)", fontSize: 11, marginTop: 4,
   boxSizing: "border-box",
+  background: "var(--surface-bg)", color: "var(--text-primary)",
 };
 const generateBtnStyle: React.CSSProperties = {
   width: "100%", padding: "8px 12px", border: "none", borderRadius: "var(--radius-control)",

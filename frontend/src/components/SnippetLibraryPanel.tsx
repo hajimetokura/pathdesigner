@@ -194,7 +194,7 @@ export default function SnippetLibraryPanel({
               style={{
                 ...gridItemStyle,
                 border: `1px solid ${selectedId === s.id ? "var(--color-accent)" : "var(--border-color)"}`,
-                background: selectedId === s.id ? "#e8f4fd" : "var(--surface-bg)",
+                background: selectedId === s.id ? "var(--sidebar-bg)" : "var(--surface-bg)",
               }}
             >
               {s.thumbnail_png ? (

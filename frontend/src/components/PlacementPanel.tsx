@@ -90,29 +90,40 @@ export default function PlacementPanel({
 
     ctx.clearRect(0, 0, canvasW, canvasH);
 
+    // Read CSS variables from canvas element
+    const cs = getComputedStyle(canvas);
+    const surfaceBg = cs.getPropertyValue("--surface-bg").trim() || "#f5f5f5";
+    const textMuted = cs.getPropertyValue("--text-muted").trim() || "#999";
+    const textPrimary = cs.getPropertyValue("--text-primary").trim() || "#333";
+    const borderColor = cs.getPropertyValue("--border-color").trim() || "#999";
+
     // Sheet background
     const [sx0, sy0] = toCanvas(0, 0);
     const [sx1, sy1] = toCanvas(sheetMat.width, sheetMat.depth);
-    ctx.fillStyle = "#f5f5f5";
+    ctx.fillStyle = surfaceBg;
     ctx.fillRect(sx0, sy1, sx1 - sx0, sy0 - sy1);
-    ctx.strokeStyle = "#999";
+    ctx.strokeStyle = borderColor;
     ctx.lineWidth = 1;
     ctx.strokeRect(sx0, sy1, sx1 - sx0, sy0 - sy1);
 
     // Sheet dimensions
-    ctx.fillStyle = "#999";
+    ctx.fillStyle = textMuted;
     ctx.font = "11px sans-serif";
     ctx.fillText(`${sheetMat.width} \u00d7 ${sheetMat.depth} mm`, sx0, sy1 - 6);
 
     // Origin
-    ctx.fillStyle = "#333";
+    ctx.fillStyle = textPrimary;
     ctx.beginPath();
     ctx.arc(sx0, sy0, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillText("(0,0)", sx0 + 6, sy0 - 4);
 
     // Parts (only active sheet)
-    const colors = ["#4a90d9", "#7b61ff", "#43a047", "#ef5350"];
+    const accentColor = cs.getPropertyValue("--color-accent").trim() || "#4a90d9";
+    const cadColor = cs.getPropertyValue("--color-cad").trim() || "#ff9800";
+    const successColor = cs.getPropertyValue("--color-success").trim() || "#43a047";
+    const errorColor = cs.getPropertyValue("--color-error").trim() || "#ef5350";
+    const colors = [accentColor, cadColor, successColor, errorColor];
     for (let i = 0; i < activePlacements.length; i++) {
       const p = activePlacements[i];
       const obj = objects.find((o) => o.object_id === p.object_id);
@@ -132,7 +143,7 @@ export default function PlacementPanel({
         p.y_offset + aabb.minY < 0;
 
       const fillColor = isOut ? "rgba(229,57,53,0.15)" : `${colors[i % colors.length]}22`;
-      const strokeColor = isOut ? "#e53935" : colors[i % colors.length];
+      const strokeColor = isOut ? errorColor : colors[i % colors.length];
       const lineW = isOut ? 2 : 1.5;
 
       if (obj.outline && obj.outline.length > 2) {
@@ -344,7 +355,7 @@ export default function PlacementPanel({
 
 const nestingBtnStyle: React.CSSProperties = { padding: "4px 12px", fontSize: 12, background: "var(--color-accent)", color: "#fff", border: "none", borderRadius: "var(--radius-item)", cursor: "pointer", fontWeight: 600 };
 const panelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "auto" };
-const warningStyle: React.CSSProperties = { padding: "8px 16px", background: "#fff3e0", borderTop: "1px solid #ffe0b2" };
+const warningStyle: React.CSSProperties = { padding: "8px 16px", background: "var(--surface-bg)", borderTop: "1px solid var(--border-subtle)" };
 const inputsStyle: React.CSSProperties = { padding: "12px 16px", borderTop: "1px solid var(--surface-bg)" };
 const inputsTitle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1, paddingBottom: 8 };
 const inputRow: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "4px 0" };

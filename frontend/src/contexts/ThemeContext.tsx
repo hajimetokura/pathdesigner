@@ -18,11 +18,16 @@ export function useTheme() {
 
 const STORAGE_KEY = "pathdesigner-theme";
 
+// Set data-theme before first render to avoid FOUC
+const initTheme = (): ThemeName => {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  const t: ThemeName = saved === "terracotta" ? "terracotta" : "clean";
+  document.documentElement.setAttribute("data-theme", t);
+  return t;
+};
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeName>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved === "terracotta" ? "terracotta" : "clean";
-  });
+  const [theme, setThemeState] = useState<ThemeName>(initTheme);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);

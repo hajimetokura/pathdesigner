@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Position, type NodeProps } from "@xyflow/react";
+import { type NodeProps } from "@xyflow/react";
 import type {
   OutputResult,
   OperationAssignment,
@@ -129,7 +129,6 @@ export default function CncCodeNode({ id, selected }: NodeProps) {
     <NodeShell category="cam" selected={selected}>
       <LabeledHandle
         type="target"
-        position={Position.Top}
         id={`${id}-in`}
         label="output"
         dataType="toolpath"
@@ -187,9 +186,9 @@ const fileInfoStyle: React.CSSProperties = {
 const exportBtnStyle: React.CSSProperties = {
   width: "100%",
   padding: "8px 12px",
-  border: "1px solid #66bb6a",
+  border: "1px solid var(--color-success)",
   borderRadius: "var(--radius-control)",
-  background: "#66bb6a",
+  background: "var(--color-success)",
   color: "white",
   cursor: "pointer",
   fontSize: 12,

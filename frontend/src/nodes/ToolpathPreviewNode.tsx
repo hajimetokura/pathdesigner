@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { Position, type NodeProps } from "@xyflow/react";
+import { type NodeProps } from "@xyflow/react";
 import type { ToolpathGenResult, SheetSettings, PlacementItem } from "../types";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
@@ -89,7 +89,9 @@ export default function ToolpathPreviewNode({ id, selected }: NodeProps) {
       if (result.sheet_width && result.sheet_depth) {
         const [sx0, sy0] = toCanvas(0, 0);
         const [sx1, sy1] = toCanvas(result.sheet_width, result.sheet_depth);
-        ctx.strokeStyle = "#ddd";
+        const cs = getComputedStyle(canvas);
+        const borderClr = cs.getPropertyValue("--border-subtle").trim() || "#ddd";
+        ctx.strokeStyle = borderClr;
         ctx.lineWidth = 0.5;
         ctx.setLineDash([3, 2]);
         ctx.strokeRect(sx0, sy1, sx1 - sx0, sy0 - sy1);
@@ -97,7 +99,9 @@ export default function ToolpathPreviewNode({ id, selected }: NodeProps) {
       }
       // Origin marker (thumbnail)
       const [ox, oy] = toCanvas(0, 0);
-      ctx.fillStyle = "#e53935";
+      const cs2 = getComputedStyle(canvas);
+      const colorError = cs2.getPropertyValue("--color-error").trim() || "#e53935";
+      ctx.fillStyle = colorError;
       ctx.beginPath();
       ctx.arc(ox, oy, 2, 0, Math.PI * 2);
       ctx.fill();
@@ -155,7 +159,6 @@ export default function ToolpathPreviewNode({ id, selected }: NodeProps) {
     <NodeShell category="cam" selected={selected}>
       <LabeledHandle
         type="target"
-        position={Position.Top}
         id={`${id}-in`}
         label="toolpath"
         dataType="toolpath"
@@ -205,7 +208,7 @@ const canvasStyle: React.CSSProperties = {
 
 const hintStyle: React.CSSProperties = {
   fontSize: 10,
-  color: "#aaa",
+  color: "var(--text-muted)",
   textAlign: "center",
   marginTop: 2,
 };
