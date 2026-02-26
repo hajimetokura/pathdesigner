@@ -1,55 +1,92 @@
 import { Handle, Position } from "@xyflow/react";
+import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
 
 // Data type → color mapping
 const handleColors: Record<string, string> = {
-  geometry: "#4a90d9", // blue — BREP, contours
-  settings: "#66bb6a", // green — machining params
-  toolpath: "#ff9800", // orange — generated paths
-  generic: "#9e9e9e", // gray — debug, default
+  geometry: "var(--handle-geometry)",
+  settings: "var(--handle-settings)",
+  toolpath: "var(--handle-toolpath)",
+  generic: "var(--handle-generic)",
+};
+
+// Data type → small icon (Unicode symbols that render well at small sizes)
+const handleIcons: Record<string, string> = {
+  geometry: "⬡",   // hexagon — 3D shape
+  settings: "⚙",   // gear
+  toolpath: "⤳",   // squiggly arrow — path
+  generic: "○",
 };
 
 interface LabeledHandleProps {
   type: "source" | "target";
-  position: Position;
+  position?: Position;
   id: string;
   label: string;
   dataType?: keyof typeof handleColors;
-  /** 0-based index among handles on the same side, for horizontal offset */
+  /** 0-based index among handles on the same side, for spread offset */
   index?: number;
   total?: number;
 }
 
 export default function LabeledHandle({
   type,
-  position,
+  position: positionOverride,
   id,
   label,
   dataType = "generic",
   index = 0,
   total = 1,
 }: LabeledHandleProps) {
+  const { direction } = useLayoutDirection();
   const color = handleColors[dataType] ?? handleColors.generic;
-  const isTop = position === Position.Top;
+  const icon = handleIcons[dataType] ?? handleIcons.generic;
 
-  // Spread handles evenly across the node width
-  const leftPercent = total === 1 ? 50 : 20 + (60 / (total - 1)) * index;
+  // Resolve position from layout direction (unless explicitly overridden)
+  const position =
+    positionOverride ??
+    (type === "target"
+      ? direction === "TB" ? Position.Top : Position.Left
+      : direction === "TB" ? Position.Bottom : Position.Right);
+
+  const isVertical = position === Position.Top || position === Position.Bottom;
+  const isBeforeContent = position === Position.Top || position === Position.Left;
+
+  // Spread handles evenly across the node width (TB) or height (LR)
+  const spreadPercent = total === 1 ? 50 : 20 + (60 / (total - 1)) * index;
+
+  // Offset: push dot half-outside the node boundary
+  const DOT_SIZE = 8;
+  const offset = -(DOT_SIZE / 2 + 1); // -5px: dot sits half outside
+
+  const wrapperStyle: React.CSSProperties = {
+    position: "absolute",
+    ...(isVertical
+      ? {
+          [isBeforeContent ? "top" : "bottom"]: offset,
+          left: `${spreadPercent}%`,
+          transform: "translateX(-50%)",
+          flexDirection: "column" as const,
+        }
+      : {
+          [isBeforeContent ? "left" : "right"]: offset,
+          top: `${spreadPercent}%`,
+          transform: "translateY(-50%)",
+          flexDirection: "row" as const,
+        }),
+    display: "flex",
+    alignItems: "center",
+    pointerEvents: "none",
+  };
+
+  const iconEl = (
+    <span style={{ ...iconStyle, color }} title={label}>
+      {icon}
+    </span>
+  );
 
   return (
-    <div
-      style={{
-        position: "absolute",
-        [isTop ? "top" : "bottom"]: 0,
-        left: `${leftPercent}%`,
-        transform: "translateX(-50%)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        pointerEvents: "none",
-      }}
-    >
-      {!isTop && (
-        <span style={{ ...labelStyle, marginBottom: 2 }}>{label}</span>
-      )}
+    <div style={wrapperStyle}>
+      {!isBeforeContent && iconEl}
       <Handle
         type={type}
         position={position}
@@ -59,24 +96,24 @@ export default function LabeledHandle({
           top: "auto",
           bottom: "auto",
           left: "auto",
+          right: "auto",
           transform: "none",
-          width: 10,
-          height: 10,
+          width: DOT_SIZE,
+          height: DOT_SIZE,
           background: color,
           border: `2px solid ${color}`,
           borderRadius: "50%",
           pointerEvents: "all",
         }}
       />
-      {isTop && <span style={{ ...labelStyle, marginTop: 2 }}>{label}</span>}
+      {isBeforeContent && iconEl}
     </div>
   );
 }
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 9,
-  color: "#888",
-  whiteSpace: "nowrap",
-  userSelect: "none",
+const iconStyle: React.CSSProperties = {
+  fontSize: 15,
   lineHeight: 1,
+  userSelect: "none",
+  margin: 1,
 };

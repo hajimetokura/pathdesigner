@@ -9,8 +9,6 @@ import {
   type OnConnect,
   type Node,
   Background,
-  Controls,
-  MiniMap,
   Panel,
 } from "@xyflow/react";
 import { getLayoutedElements } from "./utils/layout";
@@ -20,6 +18,8 @@ import Sidebar from "./Sidebar";
 import SidePanel, { type PanelTab } from "./components/SidePanel";
 import { PanelTabsContext } from "./contexts/PanelTabsContext";
 import { API_BASE_URL } from "./config";
+import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
+import { LayoutDirectionProvider, useLayoutDirection } from "./contexts/LayoutDirectionContext";
 
 const initialNodes: Node[] = [
   { id: "1", type: "brepImport", position: { x: 100, y: 100 }, data: {} },
@@ -53,14 +53,27 @@ function Flow() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, fitView } = useReactFlow();
-  const onLayout = useCallback(() => {
+  const { theme, setTheme } = useTheme();
+  const { direction, setDirection } = useLayoutDirection();
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === "clean" ? "terracotta" : "clean");
+  }, [theme, setTheme]);
+
+  const onLayout = useCallback((dir?: "TB" | "LR") => {
+    const d = dir ?? direction;
     setNodes((nds) => {
       const allMeasured = nds.every((n) => n.measured?.width && n.measured?.height);
       if (!allMeasured) return nds;
-      return getLayoutedElements(nds, edges);
+      return getLayoutedElements(nds, edges, { direction: d });
     });
     window.requestAnimationFrame(() => fitView({ padding: 0.1 }));
-  }, [edges, setNodes, fitView]);
+  }, [edges, setNodes, fitView, direction]);
+
+  const toggleDirection = useCallback(() => {
+    const next = direction === "TB" ? "LR" : "TB";
+    setDirection(next);
+    onLayout(next);
+  }, [direction, setDirection, onLayout]);
 
   const openTab = useCallback((tab: PanelTab) => {
     setPanelTabs((prev) => {
@@ -178,15 +191,22 @@ function Flow() {
             onDragOver={onDragOver}
             onDrop={onDrop}
             proOptions={{ hideAttribution: true }}
+            style={{ background: "var(--canvas-bg)" }}
             fitView
           >
-            <Background />
-            <Controls />
-            <MiniMap />
+            <Background color="var(--border-color)" />
             <Panel position="top-right">
-              <button onClick={onLayout} style={layoutBtnStyle}>
-                Auto Layout
-              </button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={toggleTheme} style={layoutBtnStyle} title={`Theme: ${theme}`}>
+                  {theme === "clean" ? "Clean" : "Terra"}
+                </button>
+                <button onClick={toggleDirection} style={layoutBtnStyle} title={`Direction: ${direction}`}>
+                  {direction === "TB" ? "↓ TB" : "→ LR"}
+                </button>
+                <button onClick={() => onLayout()} style={layoutBtnStyle}>
+                  Auto Layout
+                </button>
+              </div>
             </Panel>
           </ReactFlow>
         </div>
@@ -203,9 +223,13 @@ function Flow() {
 
 export default function App() {
   return (
-    <ReactFlowProvider>
-      <Flow />
-    </ReactFlowProvider>
+    <ThemeProvider>
+      <LayoutDirectionProvider>
+        <ReactFlowProvider>
+          <Flow />
+        </ReactFlowProvider>
+      </LayoutDirectionProvider>
+    </ThemeProvider>
   );
 }
 
@@ -214,19 +238,21 @@ const statusStyle: React.CSSProperties = {
   top: 10,
   left: 10,
   zIndex: 10,
-  background: "white",
+  background: "var(--node-bg)",
   padding: "8px 16px",
-  borderRadius: 8,
-  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+  borderRadius: "var(--radius-node)",
+  boxShadow: "var(--shadow-button)",
   fontSize: 14,
+  color: "var(--text-primary)",
 };
 
 const layoutBtnStyle: React.CSSProperties = {
-  background: "white",
-  border: "1px solid #ddd",
-  borderRadius: 6,
+  background: "var(--node-bg)",
+  border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-control)",
   padding: "6px 12px",
   fontSize: 12,
   cursor: "pointer",
-  boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+  boxShadow: "var(--shadow-button)",
+  color: "var(--text-primary)",
 };

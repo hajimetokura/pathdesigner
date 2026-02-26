@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import { uploadStepFile, fetchMeshData } from "../api";
@@ -93,8 +93,8 @@ export default function BrepImportNode({ id, selected }: NodeProps) {
       <div
         style={{
           ...dropZoneStyle,
-          borderColor: isDragOver ? "#4a90d9" : "#ccc",
-          background: isDragOver ? "#eef4fc" : "#fafafa",
+          borderColor: isDragOver ? "var(--color-accent)" : "var(--border-color)",
+          background: isDragOver ? "var(--surface-bg)" : "var(--surface-bg)",
         }}
         onDrop={onDrop}
         onDragOver={onDragOver}
@@ -109,9 +109,9 @@ export default function BrepImportNode({ id, selected }: NodeProps) {
           onChange={onFileChange}
         />
         {status === "loading" ? (
-          <span style={{ color: "#888" }}>Analyzing...</span>
+          <span style={{ color: "var(--text-muted)" }}>Analyzing...</span>
         ) : (
-          <span style={{ color: "#888", fontSize: 12 }}>
+          <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
             Drop .step/.stp here
             <br />
             or click to select
@@ -120,7 +120,7 @@ export default function BrepImportNode({ id, selected }: NodeProps) {
       </div>
 
       {status === "error" && (
-        <div style={{ color: "#d32f2f", fontSize: 11, padding: "4px 0" }}>
+        <div style={{ color: "var(--color-error)", fontSize: 11, padding: "4px 0" }}>
           {error}
         </div>
       )}
@@ -143,7 +143,7 @@ export default function BrepImportNode({ id, selected }: NodeProps) {
         </div>
       )}
 
-      <LabeledHandle type="source" position={Position.Bottom} id={`${id}-out`} label="out" dataType="geometry" />
+      <LabeledHandle type="source" id={`${id}-out`} label="out" dataType="geometry" />
     </NodeShell>
   );
 }
@@ -152,17 +152,17 @@ function ObjectSummary({ obj }: { obj: BrepObject }) {
   const bb = obj.bounding_box;
   return (
     <div style={objStyle}>
-      <div style={{ fontSize: 11, color: "#555" }}>{obj.object_id}</div>
+      <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{obj.object_id}</div>
       <div style={{ fontSize: 11 }}>
         {bb.x.toFixed(1)} x {bb.y.toFixed(1)} x {bb.z.toFixed(1)} {obj.unit}
       </div>
       <div style={{ fontSize: 11 }}>
         Type: <strong>{obj.machining_type}</strong>
         {!obj.is_closed && (
-          <span style={{ color: "#e65100" }}> (open)</span>
+          <span style={{ color: "var(--color-cad)" }}> (open)</span>
         )}
         {!obj.is_planar && (
-          <span style={{ color: "#e65100" }}> (non-planar)</span>
+          <span style={{ color: "var(--color-cad)" }}> (non-planar)</span>
         )}
       </div>
     </div>
@@ -173,12 +173,12 @@ const headerStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 8,
-  color: "#333",
+  color: "var(--text-primary)",
 };
 
 const dropZoneStyle: React.CSSProperties = {
-  border: "2px dashed #ccc",
-  borderRadius: 6,
+  border: "2px dashed var(--border-color)",
+  borderRadius: "var(--radius-control)",
   padding: "16px 12px",
   textAlign: "center",
   cursor: "pointer",
@@ -197,8 +197,8 @@ const scrollableListStyle: React.CSSProperties = {
 };
 
 const objStyle: React.CSSProperties = {
-  background: "#f5f5f5",
-  borderRadius: 4,
+  background: "var(--surface-bg)",
+  borderRadius: "var(--radius-item)",
   padding: "6px 8px",
   marginTop: 4,
 };
@@ -206,10 +206,10 @@ const objStyle: React.CSSProperties = {
 const viewBtnStyle: React.CSSProperties = {
   width: "100%",
   padding: "6px 12px",
-  border: "1px solid #ddd",
-  borderRadius: 6,
-  background: "white",
-  color: "#333",
+  border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-control)",
+  background: "var(--node-bg)",
+  color: "var(--text-primary)",
   cursor: "pointer",
   fontSize: 11,
   marginTop: 8,

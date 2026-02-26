@@ -2,9 +2,9 @@ import type { NodeCategory } from "./components/NodeShell";
 import { getSidebarGroups } from "./nodeRegistry";
 
 const CATEGORY_COLORS: Record<NodeCategory, string> = {
-  cad: "#ff9800",
-  cam: "#00bcd4",
-  utility: "#888888",
+  cad: "var(--color-cad)",
+  cam: "var(--color-cam)",
+  utility: "var(--color-utility)",
 };
 
 const nodeGroups = getSidebarGroups();
@@ -44,8 +44,8 @@ export default function Sidebar() {
 const sidebarStyle: React.CSSProperties = {
   width: 160,
   padding: "12px 8px",
-  borderRight: "1px solid #e0e0e0",
-  background: "#fafafa",
+  borderRight: "1px solid var(--border-subtle)",
+  background: "var(--sidebar-bg)",
   display: "flex",
   flexDirection: "column",
   gap: 6,
@@ -62,10 +62,10 @@ const groupTitleStyle: React.CSSProperties = {
 
 const itemStyle: React.CSSProperties = {
   padding: "8px 10px",
-  background: "white",
-  border: "1px solid #ddd",
+  background: "var(--node-bg)",
+  border: "1px solid var(--border-color)",
   borderLeft: "3px solid",
-  borderRadius: 6,
+  borderRadius: "var(--radius-control)",
   fontSize: 12,
   cursor: "grab",
   userSelect: "none",

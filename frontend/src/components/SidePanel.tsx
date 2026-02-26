@@ -55,8 +55,8 @@ export default function SidePanel({ tabs, activeTabId, onSelectTab, onCloseTab }
 const containerStyle: React.CSSProperties = {
   width: 480,
   height: "100vh",
-  borderLeft: "1px solid #e0e0e0",
-  background: "white",
+  borderLeft: "1px solid var(--border-subtle)",
+  background: "var(--panel-bg)",
   display: "flex",
   flexDirection: "column",
   flexShrink: 0,
@@ -64,8 +64,8 @@ const containerStyle: React.CSSProperties = {
 
 const tabBarStyle: React.CSSProperties = {
   display: "flex",
-  borderBottom: "1px solid #e0e0e0",
-  background: "#fafafa",
+  borderBottom: "1px solid var(--border-subtle)",
+  background: "var(--sidebar-bg)",
   overflowX: "auto",
   flexShrink: 0,
 };
@@ -77,23 +77,23 @@ const tabStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 500,
   cursor: "pointer",
-  borderRight: "1px solid #e0e0e0",
+  borderRight: "1px solid var(--border-subtle)",
   whiteSpace: "nowrap",
-  color: "#666",
+  color: "var(--text-secondary)",
   userSelect: "none",
 };
 
 const activeTabStyle: React.CSSProperties = {
-  background: "white",
-  color: "#333",
+  background: "var(--panel-bg)",
+  color: "var(--text-primary)",
   fontWeight: 600,
-  borderBottom: "2px solid #4a90d9",
+  borderBottom: "2px solid var(--color-accent)",
 };
 
 const closeTabStyle: React.CSSProperties = {
   marginLeft: 6,
   fontSize: 14,
-  color: "#999",
+  color: "var(--text-muted)",
   cursor: "pointer",
   lineHeight: 1,
 };

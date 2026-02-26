@@ -115,7 +115,7 @@ export default function AiCadChatPanel({
         {isRefining && stage && (
           <div style={aiMsgStyle}>
             <div style={roleLabel}>AI</div>
-            <div style={{ ...msgContent, color: "#888" }}>{stage}</div>
+            <div style={{ ...msgContent, color: "var(--text-muted)" }}>{stage}</div>
           </div>
         )}
       </div>
@@ -181,50 +181,51 @@ const historyStyle: React.CSSProperties = {
   flex: 1, overflowY: "auto", padding: "12px 16px",
 };
 const userMsgStyle: React.CSSProperties = {
-  marginBottom: 12, padding: "8px 12px", background: "#e3f2fd",
+  marginBottom: 12, padding: "8px 12px", background: "var(--surface-bg)",
   borderRadius: 8, borderTopRightRadius: 2,
 };
 const aiMsgStyle: React.CSSProperties = {
-  marginBottom: 12, padding: "8px 12px", background: "#f5f5f5",
+  marginBottom: 12, padding: "8px 12px", background: "var(--surface-bg)",
   borderRadius: 8, borderTopLeftRadius: 2,
 };
 const roleLabel: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700, color: "#888", textTransform: "uppercase",
+  fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase",
   letterSpacing: 1, marginBottom: 4,
 };
 const msgContent: React.CSSProperties = {
-  fontSize: 13, lineHeight: 1.5, color: "#333", whiteSpace: "pre-wrap",
+  fontSize: 13, lineHeight: 1.5, color: "var(--text-primary)", whiteSpace: "pre-wrap",
 };
 const codeBlockWrapper: React.CSSProperties = { marginTop: 8 };
 const codeToggle: React.CSSProperties = {
   background: "none", border: "none", cursor: "pointer",
-  fontSize: 11, color: "#666", padding: 0,
+  fontSize: 11, color: "var(--text-secondary)", padding: 0,
 };
 const codePreStyle: React.CSSProperties = {
-  background: "#1e1e1e", color: "#d4d4d4", padding: 12, borderRadius: 6,
+  background: "#1e1e1e", color: "#d4d4d4", padding: 12, borderRadius: "var(--radius-control)",
   fontSize: 12, fontFamily: "'SF Mono', 'Fira Code', monospace",
   lineHeight: 1.4, margin: "8px 0 0", overflowX: "auto", whiteSpace: "pre-wrap",
 };
 const inputAreaStyle: React.CSSProperties = {
   display: "flex", gap: 8, padding: "8px 16px",
-  borderTop: "1px solid #e0e0e0",
+  borderTop: "1px solid var(--border-subtle)",
 };
 const inputStyle: React.CSSProperties = {
-  flex: 1, padding: "8px 12px", border: "1px solid #ddd",
+  flex: 1, padding: "8px 12px", border: "1px solid var(--border-color)",
   borderRadius: 8, fontSize: 13, fontFamily: "inherit",
   resize: "none", boxSizing: "border-box",
+  background: "var(--surface-bg)", color: "var(--text-primary)",
 };
 const sendBtnStyle: React.CSSProperties = {
   padding: "8px 16px", border: "none", borderRadius: 8,
-  background: "#e65100", color: "white", cursor: "pointer",
+  background: "var(--color-cad)", color: "white", cursor: "pointer",
   fontSize: 12, fontWeight: 600, alignSelf: "flex-end",
 };
 const actionBarStyle: React.CSSProperties = {
   display: "flex", gap: 8, padding: "8px 16px",
-  borderTop: "1px solid #e0e0e0",
+  borderTop: "1px solid var(--border-subtle)",
 };
 const applyBtnStyle: React.CSSProperties = {
   flex: 1, padding: "8px 16px", border: "none", borderRadius: 8,
-  background: "#2e7d32", color: "white", cursor: "pointer",
+  background: "var(--color-success)", color: "white", cursor: "pointer",
   fontSize: 12, fontWeight: 600,
 };

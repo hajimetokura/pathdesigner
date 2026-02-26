@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import { useUpstreamData } from "../hooks/useUpstreamData";
@@ -38,10 +38,9 @@ export default function DamNode({ id, selected }: NodeProps) {
   }, [id, upstreamData, setNodes]);
 
   return (
-    <NodeShell category="utility" selected={selected} width={140} statusBorder={hasUpdate ? "#ffc107" : undefined}>
+    <NodeShell category="utility" selected={selected} width={140} statusBorder={hasUpdate ? "var(--color-warning)" : undefined}>
       <LabeledHandle
         type="target"
-        position={Position.Top}
         id={`${id}-in`}
         label="in"
         dataType="geometry"
@@ -50,12 +49,12 @@ export default function DamNode({ id, selected }: NodeProps) {
       <div style={headerStyle}>Dam</div>
 
       <div style={statusStyle}>
-        {!upstreamData && <span style={{ color: "#999" }}>No input</span>}
+        {!upstreamData && <span style={{ color: "var(--text-muted)" }}>No input</span>}
         {upstreamData && !hasUpdate && (
-          <span style={{ color: "#4caf50", fontSize: 11 }}>Up to date</span>
+          <span style={{ color: "var(--color-success)", fontSize: 11 }}>Up to date</span>
         )}
         {upstreamData && hasUpdate && (
-          <span style={{ color: "#f57f17", fontSize: 11, fontWeight: 600 }}>
+          <span style={{ color: "var(--color-warning)", fontSize: 11, fontWeight: 600 }}>
             Update pending
           </span>
         )}
@@ -75,7 +74,6 @@ export default function DamNode({ id, selected }: NodeProps) {
 
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-out`}
         label="out"
         dataType="geometry"
@@ -88,7 +86,7 @@ const headerStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 8,
-  color: "#333",
+  color: "var(--text-primary)",
 };
 
 const statusStyle: React.CSSProperties = {
@@ -99,10 +97,10 @@ const statusStyle: React.CSSProperties = {
 const buttonStyle: React.CSSProperties = {
   width: "100%",
   padding: "6px 10px",
-  border: "1px solid #ffc107",
-  borderRadius: 6,
-  background: "#fff8e1",
-  color: "#f57f17",
+  border: "1px solid var(--color-warning)",
+  borderRadius: "var(--radius-control)",
+  background: "var(--surface-bg)",
+  color: "var(--color-warning)",
   fontSize: 11,
   fontWeight: 600,
 };

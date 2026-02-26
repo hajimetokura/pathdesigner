@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import { generateToolpath, generateSbp, validatePlacement } from "../api";
 import type {
   OperationDetectResult,
@@ -187,10 +187,9 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
   }, [operations, postProc, operations?.upstreamActiveSheetId]);
 
   return (
-    <NodeShell category="cam" selected={selected} statusBorder={status === "blocked" ? "#ff9800" : status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : undefined}>
+    <NodeShell category="cam" selected={selected} statusBorder={status === "blocked" ? "var(--color-cad)" : status === "error" ? "var(--color-error)" : status === "loading" ? "var(--color-warning)" : undefined}>
       <LabeledHandle
         type="target"
-        position={Position.Top}
         id={`${id}-operations`}
         label="operations"
         dataType="geometry"
@@ -199,7 +198,6 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
       />
       <LabeledHandle
         type="target"
-        position={Position.Top}
         id={`${id}-postprocessor`}
         label="post proc"
         dataType="settings"
@@ -219,7 +217,7 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
       {status === "loading" && (
         <div style={spinnerContainerStyle}>
           <div style={spinnerStyle} />
-          <span style={{ fontSize: 11, color: "#888" }}>Generating...</span>
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Generating...</span>
         </div>
       )}
 
@@ -233,13 +231,13 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
       )}
 
       {status === "error" && (
-        <div style={{ color: "#d32f2f", fontSize: 11, padding: "4px 0" }}>
+        <div style={{ color: "var(--color-error)", fontSize: 11, padding: "4px 0" }}>
           {error}
         </div>
       )}
 
       {!operations && !postProc && status !== "loading" && (
-        <div style={{ color: "#999", fontSize: 11 }}>Connect Operation + Post Proc</div>
+        <div style={{ color: "var(--text-muted)", fontSize: 11 }}>Connect Operation + Post Proc</div>
       )}
 
       {status === "success" && toolpathResult && (
@@ -251,13 +249,13 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
           <div style={scrollableListStyle}>
             {toolpathResult.toolpaths.map((tp) => (
               <div key={tp.operation_id} style={detailStyle}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#333" }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>
                   {tp.operation_id}
                 </div>
-                <div style={{ fontSize: 11, color: "#555" }}>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
                   {tp.passes.length} passes
                 </div>
-                <div style={{ fontSize: 10, color: "#777" }}>
+                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
                   Z: {tp.passes.map((p) => p.z_depth.toFixed(1)).join(" \u2192 ")}
                 </div>
               </div>
@@ -268,7 +266,6 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
 
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-toolpath`}
         label="toolpath"
         dataType="toolpath"
@@ -277,7 +274,6 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
       />
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-output`}
         label="output"
         dataType="toolpath"
@@ -294,7 +290,7 @@ const headerStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 8,
-  color: "#333",
+  color: "var(--text-primary)",
 };
 
 const resultStyle: React.CSSProperties = {
@@ -309,18 +305,18 @@ const scrollableListStyle: React.CSSProperties = {
 };
 
 const detailStyle: React.CSSProperties = {
-  background: "#f5f5f5",
-  borderRadius: 4,
+  background: "var(--surface-bg)",
+  borderRadius: "var(--radius-item)",
   padding: "6px 8px",
   marginTop: 4,
 };
 
 const blockedStyle: React.CSSProperties = {
-  color: "#e65100",
+  color: "var(--color-cad)",
   fontSize: 11,
   padding: "6px 8px",
-  background: "#fff3e0",
-  borderRadius: 4,
+  background: "var(--surface-bg)",
+  borderRadius: "var(--radius-item)",
   lineHeight: 1.5,
 };
 
@@ -334,8 +330,8 @@ const spinnerContainerStyle: React.CSSProperties = {
 const spinnerStyle: React.CSSProperties = {
   width: 16,
   height: 16,
-  border: "2px solid #eee",
-  borderTopColor: "#ff9800",
+  border: "2px solid var(--border-subtle)",
+  borderTopColor: "var(--color-cad)",
   borderRadius: "50%",
   animation: "spin 0.8s linear infinite",
 };

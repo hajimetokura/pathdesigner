@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import { detectOperations } from "../api";
 import type {
   BrepObject,
@@ -226,10 +226,9 @@ export default function OperationNode({ id, selected }: NodeProps) {
   }, [id, detected, assignments, upstream, handleAssignmentsChange, updateTab, allPlacements, sheetIds, activeSheetId, groupLabels, handleGroupLabelsChange]);
 
   return (
-    <NodeShell category="cam" selected={selected} statusBorder={status === "error" ? "#d32f2f" : status === "loading" ? "#ffc107" : undefined}>
+    <NodeShell category="cam" selected={selected} statusBorder={status === "error" ? "var(--color-error)" : status === "loading" ? "var(--color-warning)" : undefined}>
       <LabeledHandle
         type="target"
-        position={Position.Top}
         id={`${id}-brep`}
         label="placement"
         dataType="geometry"
@@ -247,18 +246,18 @@ export default function OperationNode({ id, selected }: NodeProps) {
       {status === "loading" && (
         <div style={spinnerContainerStyle}>
           <div style={spinnerStyle} />
-          <span style={{ fontSize: 11, color: "#888" }}>Detecting...</span>
+          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>Detecting...</span>
         </div>
       )}
 
       {status === "error" && (
-        <div style={{ color: "#d32f2f", fontSize: 11, padding: "4px 0" }}>
+        <div style={{ color: "var(--color-error)", fontSize: 11, padding: "4px 0" }}>
           {error}
         </div>
       )}
 
       {!upstream && status !== "loading" && (
-        <div style={{ color: "#999", fontSize: 11 }}>Connect Placement node</div>
+        <div style={{ color: "var(--text-muted)", fontSize: 11 }}>Connect Placement node</div>
       )}
 
       {status === "success" && detected && (
@@ -293,7 +292,7 @@ export default function OperationNode({ id, selected }: NodeProps) {
                     {enabled ? "\u2713" : "\u2717"}{" "}
                     {op.object_id}: {op.operation_type}
                   </span>
-                  <span style={{ fontSize: 10, color: "#888" }}>
+                  <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
                     z={op.geometry.depth.toFixed(1)}
                   </span>
                 </div>
@@ -305,7 +304,6 @@ export default function OperationNode({ id, selected }: NodeProps) {
 
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-out`}
         label="operations"
         dataType="geometry"
@@ -320,7 +318,7 @@ const headerStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 8,
-  color: "#333",
+  color: "var(--text-primary)",
 };
 
 const resultStyle: React.CSSProperties = {
@@ -331,10 +329,10 @@ const resultStyle: React.CSSProperties = {
 const editButtonStyle: React.CSSProperties = {
   width: "100%",
   padding: "6px 10px",
-  border: "1px solid #ccc",
-  borderRadius: 6,
-  background: "#f5f5f5",
-  color: "#333",
+  border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-control)",
+  background: "var(--surface-bg)",
+  color: "var(--text-primary)",
   cursor: "pointer",
   fontSize: 11,
   fontWeight: 600,
@@ -351,8 +349,8 @@ const opRowStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  background: "#f5f5f5",
-  borderRadius: 4,
+  background: "var(--surface-bg)",
+  borderRadius: "var(--radius-item)",
   padding: "4px 8px",
   marginTop: 3,
   cursor: "pointer",
@@ -369,8 +367,8 @@ const spinnerContainerStyle: React.CSSProperties = {
 const spinnerStyle: React.CSSProperties = {
   width: 16,
   height: 16,
-  border: "2px solid #eee",
-  borderTopColor: "#7b61ff",
+  border: "2px solid var(--border-subtle)",
+  borderTopColor: "var(--color-accent)",
   borderRadius: "50%",
   animation: "spin 0.8s linear infinite",
 };

@@ -1,7 +1,141 @@
+/* ===== Theme Variables ===== */
+
+/* Default / fallback (before JS sets data-theme) */
+:root {
+  --canvas-bg: #f8f8f8;
+  --node-bg: #ffffff;
+  --sidebar-bg: #fafafa;
+  --panel-bg: #ffffff;
+  --surface-bg: #f5f5f5;
+
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-muted: #888888;
+
+  --border-color: #dddddd;
+  --border-subtle: #e0e0e0;
+  --shadow-node: 0 2px 6px rgba(0, 0, 0, 0.08);
+  --shadow-button: 0 1px 4px rgba(0, 0, 0, 0.1);
+
+  --radius-node: 8px;
+  --radius-control: 6px;
+  --radius-item: 4px;
+
+  --color-cad: #ff9800;
+  --color-cam: #00bcd4;
+  --color-utility: #888888;
+
+  --handle-geometry: #4a90d9;
+  --handle-settings: #66bb6a;
+  --handle-toolpath: #ff9800;
+  --handle-generic: #9e9e9e;
+
+  --color-accent: #4a90d9;
+  --color-error: #d32f2f;
+  --color-success: #2e7d32;
+  --color-warning: #ffc107;
+
+  --edge-color: #b1b1b7;
+
+  --scrollbar-thumb: #c0c0c0;
+  --scrollbar-track: transparent;
+
+  --font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Clean theme — same as :root, but higher specificity to override terracotta */
+[data-theme="clean"] {
+  --canvas-bg: #f8f8f8;
+  --node-bg: #ffffff;
+  --sidebar-bg: #fafafa;
+  --panel-bg: #ffffff;
+  --surface-bg: #f5f5f5;
+
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-muted: #888888;
+
+  --border-color: #dddddd;
+  --border-subtle: #e0e0e0;
+  --shadow-node: 0 2px 6px rgba(0, 0, 0, 0.08);
+  --shadow-button: 0 1px 4px rgba(0, 0, 0, 0.1);
+
+  --radius-node: 8px;
+  --radius-control: 6px;
+  --radius-item: 4px;
+
+  --color-cad: #ff9800;
+  --color-cam: #00bcd4;
+  --color-utility: #888888;
+
+  --handle-geometry: #4a90d9;
+  --handle-settings: #66bb6a;
+  --handle-toolpath: #ff9800;
+  --handle-generic: #9e9e9e;
+
+  --color-accent: #4a90d9;
+  --color-error: #d32f2f;
+  --color-success: #2e7d32;
+  --color-warning: #ffc107;
+
+  --edge-color: #b1b1b7;
+
+  --scrollbar-thumb: #c0c0c0;
+  --scrollbar-track: transparent;
+
+  --font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Solarized Light — base3/base2 backgrounds, blue accent lines */
+[data-theme="terracotta"] {
+  --canvas-bg: #fdf6e3;      /* base3  — warm cream */
+  --node-bg: #fdf6e3;        /* base3 */
+  --sidebar-bg: #eee8d5;     /* base2 */
+  --panel-bg: #fdf6e3;       /* base3 */
+  --surface-bg: #eee8d5;     /* base2 */
+
+  --text-primary: #586e75;   /* base01 — primary content */
+  --text-secondary: #657b83; /* base00 */
+  --text-muted: #93a1a1;     /* base1  — comments/subtle */
+
+  --border-color: #93a1a1;   /* base1 */
+  --border-subtle: #eee8d5;  /* base2 */
+  --shadow-node: 0 2px 8px rgba(0, 43, 54, 0.10);
+  --shadow-button: 0 1px 4px rgba(0, 43, 54, 0.08);
+
+  --radius-node: 6px;
+  --radius-control: 4px;
+  --radius-item: 3px;
+
+  --color-cad: #cb4b16;      /* orange */
+  --color-cam: #2aa198;      /* cyan */
+  --color-utility: #839496;  /* base0 */
+
+  --handle-geometry: #268bd2; /* blue */
+  --handle-settings: #859900; /* green */
+  --handle-toolpath: #cb4b16; /* orange */
+  --handle-generic: #839496;  /* base0 */
+
+  --color-accent: #268bd2;   /* blue */
+  --color-error: #dc322f;    /* red */
+  --color-success: #859900;  /* green */
+  --color-warning: #b58900;  /* yellow */
+
+  --edge-color: #268bd2;     /* blue — Pd style */
+
+  --scrollbar-thumb: #93a1a1; /* base1 */
+  --scrollbar-track: #eee8d5; /* base2 */
+
+  --font-family: 'DM Sans', system-ui, sans-serif;
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 html,
@@ -9,9 +143,18 @@ body,
 #root {
   width: 100%;
   height: 100%;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-family);
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* React Flow edge colors */
+.react-flow__edge-path {
+  stroke: var(--edge-color) !important;
+}
+
+.react-flow__connection-path {
+  stroke: var(--edge-color) !important;
 }

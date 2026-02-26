@@ -1,7 +1,7 @@
 // frontend/src/nodes/CodeNode.tsx
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { Position, type NodeProps, useReactFlow } from "@xyflow/react";
+import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import CodeEditorPanel from "../components/CodeEditorPanel";
@@ -65,13 +65,13 @@ export default function CodeNode({ id, selected }: NodeProps) {
 
       <div style={summaryStyle}>
         {status === "success" && result ? (
-          <span style={{ color: "#2e7d32" }}>
+          <span style={{ color: "var(--color-success)" }}>
             ✅ {result.object_count} object{result.object_count > 1 ? "s" : ""}
           </span>
         ) : status === "error" ? (
-          <span style={{ color: "#d32f2f" }}>❌ Error</span>
+          <span style={{ color: "var(--color-error)" }}>❌ Error</span>
         ) : (
-          <span style={{ color: "#999" }}>コード未実行</span>
+          <span style={{ color: "var(--text-muted)" }}>コード未実行</span>
         )}
       </div>
 
@@ -81,7 +81,6 @@ export default function CodeNode({ id, selected }: NodeProps) {
 
       <LabeledHandle
         type="source"
-        position={Position.Bottom}
         id={`${id}-out`}
         label="out"
         dataType="geometry"
@@ -91,12 +90,12 @@ export default function CodeNode({ id, selected }: NodeProps) {
 }
 
 const headerStyle: React.CSSProperties = {
-  fontWeight: 700, fontSize: 13, marginBottom: 8, color: "#333",
+  fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--text-primary)",
 };
 const summaryStyle: React.CSSProperties = {
   fontSize: 12, marginBottom: 8, minHeight: 20,
 };
 const openBtnStyle: React.CSSProperties = {
-  width: "100%", padding: "6px 12px", border: "1px solid #ddd", borderRadius: 6,
-  background: "white", color: "#333", cursor: "pointer", fontSize: 11,
+  width: "100%", padding: "6px 12px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-control)",
+  background: "var(--node-bg)", color: "var(--text-primary)", cursor: "pointer", fontSize: 11,
 };

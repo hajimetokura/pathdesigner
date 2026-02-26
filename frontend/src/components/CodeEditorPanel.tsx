@@ -179,33 +179,34 @@ const containerStyle: React.CSSProperties = {
   display: "flex", flexDirection: "column", gap: 8, padding: 12, height: "100%",
 };
 const editorWrapStyle: React.CSSProperties = {
-  border: "1px solid #ddd", borderRadius: 6, overflow: "hidden", flex: 1,
+  border: "1px solid var(--border-color)", borderRadius: "var(--radius-control)", overflow: "hidden", flex: 1,
 };
 const toolbarStyle: React.CSSProperties = {
   display: "flex", gap: 8,
 };
 const runBtnStyle: React.CSSProperties = {
-  padding: "6px 16px", border: "none", borderRadius: 6,
-  background: "#e65100", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 600,
+  padding: "6px 16px", border: "none", borderRadius: "var(--radius-control)",
+  background: "var(--color-cad)", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 600,
 };
 const saveBtnStyle: React.CSSProperties = {
-  padding: "6px 16px", border: "1px solid #ddd", borderRadius: 6,
-  background: "white", color: "#333", cursor: "pointer", fontSize: 12,
+  padding: "6px 16px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-control)",
+  background: "var(--node-bg)", color: "var(--text-primary)", cursor: "pointer", fontSize: 12,
 };
 const resultStyle: React.CSSProperties = {
-  fontSize: 12, color: "#2e7d32", background: "#f1f8e9", padding: "6px 10px", borderRadius: 6,
+  fontSize: 12, color: "var(--color-success)", background: "var(--surface-bg)", padding: "6px 10px", borderRadius: "var(--radius-control)",
 };
 const objStyle: React.CSSProperties = {
-  color: "#555", marginTop: 2, fontSize: 11,
+  color: "var(--text-secondary)", marginTop: 2, fontSize: 11,
 };
 const errorStyle: React.CSSProperties = {
-  fontSize: 11, color: "#d32f2f", background: "#fff3f3", padding: "6px 10px", borderRadius: 6,
+  fontSize: 11, color: "var(--color-error)", background: "var(--surface-bg)", padding: "6px 10px", borderRadius: "var(--radius-control)",
   whiteSpace: "pre-wrap",
 };
 const dialogStyle: React.CSSProperties = {
   display: "flex", flexDirection: "column", gap: 6, padding: "8px 0",
-  borderTop: "1px solid #eee",
+  borderTop: "1px solid var(--border-subtle)",
 };
 const inputStyle: React.CSSProperties = {
-  padding: "6px 10px", border: "1px solid #ddd", borderRadius: 6, fontSize: 12,
+  padding: "6px 10px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-control)", fontSize: 12,
+  background: "var(--surface-bg)", color: "var(--text-primary)",
 };
