@@ -9,8 +9,6 @@ import {
   type OnConnect,
   type Node,
   Background,
-  Controls,
-  MiniMap,
   Panel,
 } from "@xyflow/react";
 import { getLayoutedElements } from "./utils/layout";
@@ -181,8 +179,6 @@ function Flow() {
             fitView
           >
             <Background />
-            <Controls />
-            <MiniMap />
             <Panel position="top-right">
               <button onClick={onLayout} style={layoutBtnStyle}>
                 Auto Layout
