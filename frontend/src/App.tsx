@@ -163,6 +163,20 @@ function Flow() {
     [screenToFlowPosition, setNodes]
   );
 
+  // Run auto-layout once after all nodes have been measured.
+  // We watch `nodes` to detect when `measured` properties arrive (via onNodesChange),
+  // but use a functional updater in setNodes to avoid overwriting concurrent data updates.
+  const initialLayoutDone = useRef(false);
+  useEffect(() => {
+    if (initialLayoutDone.current) return;
+    const allMeasured = nodes.length > 0 && nodes.every((n) => n.measured?.width && n.measured?.height);
+    if (!allMeasured) return;
+    initialLayoutDone.current = true;
+    // Use functional updater to get the freshest nodes (including any data updates)
+    setNodes((nds) => getLayoutedElements(nds, edges, { direction }));
+    window.requestAnimationFrame(() => fitView({ padding: 0.1 }));
+  }, [nodes, edges, direction, setNodes, fitView]);
+
   useEffect(() => {
     fetch(`${API_BASE_URL}/health`)
       .then((res) => res.json())
@@ -174,7 +188,7 @@ function Flow() {
 
   return (
     <PanelTabsContext.Provider value={panelTabsValue}>
-      <div style={{ display: "flex", width: "100vw", height: "100vh" }}>
+      <div style={{ display: "flex", flexDirection: direction === "LR" ? "column" : "row", width: "100vw", height: "100vh" }}>
         <Sidebar />
         <div ref={wrapperRef} style={{ flex: 1, position: "relative" }}>
           <div style={statusStyle}>

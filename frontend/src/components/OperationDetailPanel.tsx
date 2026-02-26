@@ -11,6 +11,7 @@ import type {
 } from "../types";
 import { SheetBadge } from "./SheetBadge";
 import { fetchPresets } from "../api";
+import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
 
 interface Props {
   detectedOperations: OperationDetectResult;
@@ -108,6 +109,9 @@ export default function OperationDetailPanel({
   groupLabels,
   onGroupLabelsChange,
 }: Props) {
+  const { direction } = useLayoutDirection();
+  const isLR = direction === "LR";
+
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [draggedOpId, setDraggedOpId] = useState<string | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
@@ -331,7 +335,7 @@ export default function OperationDetailPanel({
 
   return (
     <div style={panelStyle}>
-      <div style={panelBodyStyle}>
+      <div style={isLR ? panelBodyStyleLR : panelBodyStyle}>
         {sheetIds.length > 1 && (
           <SheetBadge activeSheetId={activeSheetId} totalSheets={sheetIds.length} />
         )}
@@ -353,6 +357,7 @@ export default function OperationDetailPanel({
               key={group.group_id}
               style={{
                 ...groupCardStyle,
+                ...(isLR ? { minWidth: 220, flex: 1 } : {}),
                 background: getGroupBg(groupIndex, isDefault),
                 border: isDragOver ? "2px dashed var(--color-accent)" : "1px solid var(--border-subtle)",
               }}
@@ -821,6 +826,18 @@ const panelBodyStyle: React.CSSProperties = {
   flex: 1,
   overflowY: "auto",
   padding: 12,
+};
+
+const panelBodyStyleLR: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "row",
+  flexWrap: "wrap",
+  gap: 8,
+  padding: 12,
+  overflowY: "auto",
+  flex: 1,
+  alignItems: "flex-start",
+  alignContent: "flex-start",
 };
 
 const groupCardStyle: React.CSSProperties = {

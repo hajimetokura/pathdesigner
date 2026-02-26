@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ToolpathGenResult, PlacementItem } from "../types";
 import { outlineToSheet } from "../utils/coordinates";
+import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
 
 interface Props {
   toolpathResult: ToolpathGenResult;
@@ -17,6 +18,9 @@ export default function ToolpathPreviewPanel({
   boundingBoxes,
   outlines,
 }: Props) {
+  const { direction } = useLayoutDirection();
+  const isLR = direction === "LR";
+
   // Transform outline coords (BB-min-local) to sheet-space using shared util
   const outlineToSheetCb = useCallback(
     (
@@ -329,8 +333,9 @@ export default function ToolpathPreviewPanel({
   }, []);
 
   return (
-    <div style={panelStyle}>
-      <div style={canvasWrapStyle}>
+    <div style={isLR ? panelStyleLR : panelStyle}>
+      {/* Canvas section */}
+      <div style={isLR ? canvasWrapStyleLR : canvasWrapStyle}>
         <canvas
           ref={canvasRef}
           width={600}
@@ -351,39 +356,42 @@ export default function ToolpathPreviewPanel({
         <div style={hintStyle}>Scroll to zoom / Drag to pan / Double-click to reset</div>
       </div>
 
-      <div style={summaryStyle}>
-        <div style={summaryTitle}>Summary</div>
-        <div style={summaryRow}>
-          <span>Operations</span>
-          <span>{stats.operationCount}</span>
+      {/* Info section */}
+      <div style={isLR ? infoSecLR : {}}>
+        <div style={summaryStyle}>
+          <div style={summaryTitle}>Summary</div>
+          <div style={summaryRow}>
+            <span>Operations</span>
+            <span>{stats.operationCount}</span>
+          </div>
+          <div style={summaryRow}>
+            <span>Total passes</span>
+            <span>{stats.totalPasses}</span>
+          </div>
+          <div style={summaryRow}>
+            <span>Total distance</span>
+            <span>{stats.totalDistance.toFixed(0)} mm</span>
+          </div>
+          <div style={summaryRow}>
+            <span>Tab count</span>
+            <span>{stats.tabCount}</span>
+          </div>
         </div>
-        <div style={summaryRow}>
-          <span>Total passes</span>
-          <span>{stats.totalPasses}</span>
-        </div>
-        <div style={summaryRow}>
-          <span>Total distance</span>
-          <span>{stats.totalDistance.toFixed(0)} mm</span>
-        </div>
-        <div style={summaryRow}>
-          <span>Tab count</span>
-          <span>{stats.tabCount}</span>
-        </div>
-      </div>
 
-      <div style={legendStyle}>
-        <div style={summaryTitle}>Legend</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, flexWrap: "wrap" }}>
-          <span style={{ width: 16, height: 0, borderTop: "2px dashed var(--text-muted)", display: "inline-block" }} />
-          <span>Original</span>
-          <span style={{ width: 12, height: 12, background: "var(--color-cam)", borderRadius: 2, display: "inline-block" }} />
-          <span>Contour</span>
-          <span style={{ width: 12, height: 12, background: "var(--color-cad)", borderRadius: 2, display: "inline-block" }} />
-          <span>Pocket</span>
-          <span style={{ width: 12, height: 12, background: "var(--color-warning)", borderRadius: 2, display: "inline-block" }} />
-          <span>Drill</span>
-          <span style={{ width: 12, height: 12, background: "var(--color-warning)", borderRadius: "50%", display: "inline-block" }} />
-          <span>Tab</span>
+        <div style={legendStyle}>
+          <div style={summaryTitle}>Legend</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, flexWrap: "wrap" }}>
+            <span style={{ width: 16, height: 0, borderTop: "2px dashed var(--text-muted)", display: "inline-block" }} />
+            <span>Original</span>
+            <span style={{ width: 12, height: 12, background: "var(--color-cam)", borderRadius: 2, display: "inline-block" }} />
+            <span>Contour</span>
+            <span style={{ width: 12, height: 12, background: "var(--color-cad)", borderRadius: 2, display: "inline-block" }} />
+            <span>Pocket</span>
+            <span style={{ width: 12, height: 12, background: "var(--color-warning)", borderRadius: 2, display: "inline-block" }} />
+            <span>Drill</span>
+            <span style={{ width: 12, height: 12, background: "var(--color-warning)", borderRadius: "50%", display: "inline-block" }} />
+            <span>Tab</span>
+          </div>
         </div>
       </div>
     </div>
@@ -423,10 +431,29 @@ const panelStyle: React.CSSProperties = {
   height: "100%",
 };
 
+const panelStyleLR: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "row",
+  height: "100%",
+};
+
 const canvasWrapStyle: React.CSSProperties = {
   padding: 16,
   flex: 1,
   minHeight: 0,
+};
+
+const canvasWrapStyleLR: React.CSSProperties = {
+  padding: 16,
+  flex: 2,
+  minWidth: 0,
+  minHeight: 0,
+};
+
+const infoSecLR: React.CSSProperties = {
+  flex: 1,
+  overflowY: "auto",
+  borderLeft: "1px solid var(--surface-bg)",
 };
 
 const hintStyle: React.CSSProperties = {
