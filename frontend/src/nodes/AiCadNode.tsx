@@ -198,13 +198,13 @@ export default function AiCadNode({ id, selected }: NodeProps) {
       </button>
 
       {status === "generating" && stage && (
-        <div style={{ fontSize: 11, color: "#666", padding: "4px 0" }}>
+        <div style={{ fontSize: 11, color: "var(--text-secondary)", padding: "4px 0" }}>
           {stage}
         </div>
       )}
 
       {status === "error" && (
-        <div style={{ color: "#d32f2f", fontSize: 11, padding: "4px 0" }}>
+        <div style={{ color: "var(--color-error)", fontSize: 11, padding: "4px 0" }}>
           {error}
         </div>
       )}
@@ -250,30 +250,30 @@ export default function AiCadNode({ id, selected }: NodeProps) {
 }
 
 const headerStyle: React.CSSProperties = {
-  fontWeight: 700, fontSize: 13, marginBottom: 8, color: "#333",
+  fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--text-primary)",
 };
 const textareaStyle: React.CSSProperties = {
-  width: "100%", border: "1px solid #ddd", borderRadius: 6,
+  width: "100%", border: "1px solid var(--border-color)", borderRadius: "var(--radius-control)",
   padding: "8px", fontSize: 12, resize: "vertical",
   fontFamily: "inherit", boxSizing: "border-box",
 };
 const selectStyle: React.CSSProperties = {
-  width: "100%", padding: "4px 8px", border: "1px solid #ddd",
-  borderRadius: 6, fontSize: 11, marginTop: 4,
+  width: "100%", padding: "4px 8px", border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-control)", fontSize: 11, marginTop: 4,
   boxSizing: "border-box",
 };
 const generateBtnStyle: React.CSSProperties = {
-  width: "100%", padding: "8px 12px", border: "none", borderRadius: 6,
-  background: "#e65100", color: "white", cursor: "pointer",
+  width: "100%", padding: "8px 12px", border: "none", borderRadius: "var(--radius-control)",
+  background: "var(--color-cad)", color: "white", cursor: "pointer",
   fontSize: 12, fontWeight: 600, marginTop: 6,
 };
 const resultStyle: React.CSSProperties = {
   marginTop: 8, fontSize: 12,
 };
 const objStyle: React.CSSProperties = {
-  background: "#f5f5f5", borderRadius: 4, padding: "4px 8px", marginTop: 4,
+  background: "var(--surface-bg)", borderRadius: "var(--radius-item)", padding: "4px 8px", marginTop: 4,
 };
 const viewBtnStyle: React.CSSProperties = {
-  flex: 1, padding: "6px 12px", border: "1px solid #ddd", borderRadius: 6,
-  background: "white", color: "#333", cursor: "pointer", fontSize: 11,
+  flex: 1, padding: "6px 12px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-control)",
+  background: "var(--node-bg)", color: "var(--text-primary)", cursor: "pointer", fontSize: 11,
 };

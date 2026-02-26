@@ -272,7 +272,7 @@ export default function PlacementNode({ id, selected }: NodeProps) {
             {placements.filter((p) => p.sheet_id === activeSheetId).length} part{placements.filter((p) => p.sheet_id === activeSheetId).length > 1 ? "s" : ""} — Click to edit
           </div>
           {warnings.length > 0 && (
-            <div style={{ color: "#e65100", fontSize: 10, padding: "4px 0" }}>
+            <div style={{ color: "var(--color-cad)", fontSize: 10, padding: "4px 0" }}>
               {warnings.length} warning{warnings.length > 1 ? "s" : ""}
             </div>
           )}
@@ -286,7 +286,7 @@ export default function PlacementNode({ id, selected }: NodeProps) {
   );
 }
 
-const headerStyle: React.CSSProperties = { fontWeight: 700, fontSize: 13, marginBottom: 8, color: "#333" };
-const canvasStyle: React.CSSProperties = { width: "100%", border: "1px solid #eee", borderRadius: 4, cursor: "pointer", background: "#fafafa" };
+const headerStyle: React.CSSProperties = { fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--text-primary)" };
+const canvasStyle: React.CSSProperties = { width: "100%", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-item)", cursor: "pointer", background: "var(--surface-bg)" };
 const hintStyle: React.CSSProperties = { fontSize: 10, color: "#aaa", textAlign: "center", marginTop: 2 };
-const emptyStyle: React.CSSProperties = { color: "#999", fontSize: 11 };
+const emptyStyle: React.CSSProperties = { color: "var(--text-muted)", fontSize: 11 };

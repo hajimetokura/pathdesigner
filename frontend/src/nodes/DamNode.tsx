@@ -50,7 +50,7 @@ export default function DamNode({ id, selected }: NodeProps) {
       <div style={headerStyle}>Dam</div>
 
       <div style={statusStyle}>
-        {!upstreamData && <span style={{ color: "#999" }}>No input</span>}
+        {!upstreamData && <span style={{ color: "var(--text-muted)" }}>No input</span>}
         {upstreamData && !hasUpdate && (
           <span style={{ color: "#4caf50", fontSize: 11 }}>Up to date</span>
         )}
@@ -88,7 +88,7 @@ const headerStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 8,
-  color: "#333",
+  color: "var(--text-primary)",
 };
 
 const statusStyle: React.CSSProperties = {
@@ -100,7 +100,7 @@ const buttonStyle: React.CSSProperties = {
   width: "100%",
   padding: "6px 10px",
   border: "1px solid #ffc107",
-  borderRadius: 6,
+  borderRadius: "var(--radius-control)",
   background: "#fff8e1",
   color: "#f57f17",
   fontSize: 11,

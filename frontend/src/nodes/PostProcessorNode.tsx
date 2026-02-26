@@ -84,16 +84,16 @@ const headerStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 8,
-  color: "#333",
+  color: "var(--text-primary)",
 };
 
 const detailBtn: React.CSSProperties = {
   fontSize: 10,
   padding: "2px 8px",
-  border: "1px solid #ddd",
-  borderRadius: 4,
-  background: "#f5f5f5",
-  color: "#555",
+  border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-item)",
+  background: "var(--surface-bg)",
+  color: "var(--text-secondary)",
   cursor: "pointer",
 };
 
@@ -106,10 +106,10 @@ const fieldRow: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = {
   fontSize: 11,
-  color: "#555",
+  color: "var(--text-secondary)",
 };
 
 const valueStyle: React.CSSProperties = {
   fontSize: 11,
-  color: "#333",
+  color: "var(--text-primary)",
 };

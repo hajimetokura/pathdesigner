@@ -192,15 +192,15 @@ const headerStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 8,
-  color: "#333",
+  color: "var(--text-primary)",
 };
 
 const canvasStyle: React.CSSProperties = {
   width: "100%",
-  border: "1px solid #eee",
-  borderRadius: 4,
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-item)",
   cursor: "pointer",
-  background: "#fafafa",
+  background: "var(--surface-bg)",
 };
 
 const hintStyle: React.CSSProperties = {
@@ -211,6 +211,6 @@ const hintStyle: React.CSSProperties = {
 };
 
 const emptyStyle: React.CSSProperties = {
-  color: "#999",
+  color: "var(--text-muted)",
   fontSize: 11,
 };

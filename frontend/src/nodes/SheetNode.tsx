@@ -120,7 +120,7 @@ const headerStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 8,
-  color: "#333",
+  color: "var(--text-primary)",
 };
 
 const dimRow: React.CSSProperties = {
@@ -138,7 +138,7 @@ const fieldRow: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = {
   fontSize: 11,
-  color: "#555",
+  color: "var(--text-secondary)",
   flexShrink: 0,
   marginRight: 8,
 };
@@ -146,8 +146,8 @@ const labelStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   fontSize: 11,
   padding: "2px 4px",
-  borderRadius: 4,
-  border: "1px solid #ccc",
+  borderRadius: "var(--radius-item)",
+  border: "1px solid var(--border-color)",
   width: 60,
   textAlign: "right",
 };

@@ -84,9 +84,9 @@ export default function SnippetDbNode({ id, selected }: NodeProps) {
 
       <div style={summaryStyle}>
         {selectedName ? (
-          <span style={{ color: "#333" }}>📦 {selectedName}</span>
+          <span style={{ color: "var(--text-primary)" }}>📦 {selectedName}</span>
         ) : (
-          <span style={{ color: "#999" }}>スニペット未選択</span>
+          <span style={{ color: "var(--text-muted)" }}>スニペット未選択</span>
         )}
       </div>
 
@@ -106,12 +106,12 @@ export default function SnippetDbNode({ id, selected }: NodeProps) {
 }
 
 const headerStyle: React.CSSProperties = {
-  fontWeight: 700, fontSize: 13, marginBottom: 8, color: "#333",
+  fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--text-primary)",
 };
 const summaryStyle: React.CSSProperties = {
   fontSize: 12, marginBottom: 8, minHeight: 20,
 };
 const openBtnStyle: React.CSSProperties = {
-  width: "100%", padding: "6px 12px", border: "1px solid #ddd", borderRadius: 6,
-  background: "white", color: "#333", cursor: "pointer", fontSize: 11,
+  width: "100%", padding: "6px 12px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-control)",
+  background: "var(--node-bg)", color: "var(--text-primary)", cursor: "pointer", fontSize: 11,
 };

@@ -172,7 +172,7 @@ const headerStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 13,
   marginBottom: 8,
-  color: "#333",
+  color: "var(--text-primary)",
 };
 
 const resultStyle: React.CSSProperties = {
@@ -180,7 +180,7 @@ const resultStyle: React.CSSProperties = {
 };
 
 const fileInfoStyle: React.CSSProperties = {
-  color: "#666",
+  color: "var(--text-secondary)",
   marginBottom: 8,
 };
 
@@ -188,7 +188,7 @@ const exportBtnStyle: React.CSSProperties = {
   width: "100%",
   padding: "8px 12px",
   border: "1px solid #66bb6a",
-  borderRadius: 6,
+  borderRadius: "var(--radius-control)",
   background: "#66bb6a",
   color: "white",
   cursor: "pointer",
@@ -200,9 +200,9 @@ const exportBtnStyle: React.CSSProperties = {
 const zipBtnStyle: React.CSSProperties = {
   width: "100%",
   padding: "8px 12px",
-  border: "1px solid #4a90d9",
-  borderRadius: 6,
-  background: "#4a90d9",
+  border: "1px solid var(--color-accent)",
+  borderRadius: "var(--radius-control)",
+  background: "var(--color-accent)",
   color: "white",
   cursor: "pointer",
   fontSize: 12,
@@ -213,15 +213,15 @@ const zipBtnStyle: React.CSSProperties = {
 const viewBtnStyle: React.CSSProperties = {
   width: "100%",
   padding: "6px 12px",
-  border: "1px solid #ddd",
-  borderRadius: 6,
-  background: "white",
-  color: "#333",
+  border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-control)",
+  background: "var(--node-bg)",
+  color: "var(--text-primary)",
   cursor: "pointer",
   fontSize: 11,
 };
 
 const emptyStyle: React.CSSProperties = {
-  color: "#999",
+  color: "var(--text-muted)",
   fontSize: 11,
 };

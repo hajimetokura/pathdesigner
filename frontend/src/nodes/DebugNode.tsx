@@ -83,7 +83,7 @@ export default function DebugNode({ id, selected }: NodeProps) {
       {upstreamDataStr ? (
         <pre style={preStyle}>{upstreamDataStr}</pre>
       ) : (
-        <div style={{ color: "#999", fontSize: 11, padding: "8px 0" }}>
+        <div style={{ color: "var(--text-muted)", fontSize: 11, padding: "8px 0" }}>
           Connect to a node
         </div>
       )}
@@ -108,8 +108,8 @@ const headerStyle: React.CSSProperties = {
 
 const copyBtnStyle: React.CSSProperties = {
   padding: "2px 8px",
-  border: "1px solid #555",
-  borderRadius: 4,
+  border: "1px solid var(--text-secondary)",
+  borderRadius: "var(--radius-item)",
   background: "transparent",
   color: "#aaa",
   cursor: "pointer",
@@ -120,7 +120,7 @@ const preStyle: React.CSSProperties = {
   margin: 0,
   padding: 8,
   background: "#2d2d2d",
-  borderRadius: 4,
+  borderRadius: "var(--radius-item)",
   fontSize: 10,
   color: "#d4d4d4",
   maxHeight: 300,
