@@ -11,7 +11,7 @@ export default function CncCodePanel({ outputResult, onExport }: Props) {
   return (
     <div style={panelStyle}>
       <div style={toolbarStyle}>
-        <span style={{ fontSize: 11, color: "#666" }}>
+        <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
           {outputResult.filename} · {outputResult.format.toUpperCase()} · {lines.length} lines
         </span>
         <button onClick={onExport} style={exportSmallBtnStyle}>Export</button>
@@ -35,7 +35,7 @@ export default function CncCodePanel({ outputResult, onExport }: Props) {
 function highlightSbpLine(line: string): React.ReactNode {
   // Comment lines
   if (line.startsWith("'")) {
-    return <span style={{ color: "#999" }}>{line}</span>;
+    return <span style={{ color: "var(--text-muted)" }}>{line}</span>;
   }
   // Control flow: IF, THEN, GOTO, END, PAUSE
   if (/^(IF|THEN|GOTO|END|PAUSE|SA|CN)\b/.test(line)) {
@@ -63,7 +63,7 @@ function highlightCommand(line: string): React.ReactNode {
   return (
     <span>
       <span style={{ color: "#1976d2", fontWeight: 600 }}>{cmd}</span>
-      {args && <span style={{ color: "#e65100" }}>,{args}</span>}
+      {args && <span style={{ color: "var(--color-cad)" }}>,{args}</span>}
     </span>
   );
 }
@@ -80,13 +80,13 @@ const toolbarStyle: React.CSSProperties = {
   justifyContent: "space-between",
   alignItems: "center",
   padding: "8px 16px",
-  borderBottom: "1px solid #f0f0f0",
+  borderBottom: "1px solid var(--surface-bg)",
 };
 
 const exportSmallBtnStyle: React.CSSProperties = {
   padding: "4px 12px",
   border: "1px solid #66bb6a",
-  borderRadius: 4,
+  borderRadius: "var(--radius-item)",
   background: "#66bb6a",
   color: "white",
   cursor: "pointer",
@@ -98,7 +98,7 @@ const codeAreaStyle: React.CSSProperties = {
   flex: 1,
   overflowY: "auto",
   padding: "8px 0",
-  background: "#fafafa",
+  background: "var(--surface-bg)",
 };
 
 const preStyle: React.CSSProperties = {

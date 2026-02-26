@@ -361,7 +361,7 @@ export default function OperationDetailPanel({
               style={{
                 ...groupCardStyle,
                 background: getGroupBg(groupIndex, isDefault),
-                border: isDragOver ? "2px dashed #4a90d9" : "1px solid #eee",
+                border: isDragOver ? "2px dashed var(--color-accent)" : "1px solid var(--border-subtle)",
               }}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -382,10 +382,10 @@ export default function OperationDetailPanel({
                 onClick={() => setExpandedGroup(isExpanded ? null : group.group_id)}
               >
                 <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
-                  <span style={{ fontSize: 10, color: "#888" }}>
+                  <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
                     {isExpanded ? "\u25BC" : "\u25B6"}
                   </span>
-                  <span style={{ fontSize: 11, color: "#666" }}>
+                  <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
                     [{group.operation_type}]
                   </span>
                   {isEditing ? (
@@ -415,7 +415,7 @@ export default function OperationDetailPanel({
                       {group.label}
                     </span>
                   )}
-                  <span style={{ fontSize: 11, color: "#999" }}>
+                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
                     ({opsInGroup.length})
                   </span>
                 </span>
@@ -499,7 +499,7 @@ export default function OperationDetailPanel({
                         </>
                       )}
                       {builtinPresets.length === 0 && userPresets.length === 0 && (
-                        <div style={{ fontSize: 11, color: "#999", padding: 6 }}>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", padding: 6 }}>
                           No presets available
                         </div>
                       )}
@@ -712,11 +712,11 @@ export default function OperationDetailPanel({
                       />
                       <span style={{ fontSize: 11 }}>
                         {op.operation_type} — {op.object_id}
-                        <span style={{ color: "#888", marginLeft: 6 }}>
+                        <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>
                           depth: {op.geometry.depth.toFixed(1)}mm
                         </span>
                         {thicknessWarning && (
-                          <span style={{ color: "#e65100", marginLeft: 4 }}>
+                          <span style={{ color: "var(--color-cad)", marginLeft: 4 }}>
                             ⚠ sheet too thin
                           </span>
                         )}
@@ -810,7 +810,7 @@ function PresetRow({
     >
       {label}
       {sub && (
-        <span style={{ fontSize: 10, color: "#999", marginLeft: 4 }}>{sub}</span>
+        <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 4 }}>{sub}</span>
       )}
     </button>
   );
@@ -831,8 +831,8 @@ const panelBodyStyle: React.CSSProperties = {
 };
 
 const groupCardStyle: React.CSSProperties = {
-  border: "1px solid #eee",
-  borderRadius: 6,
+  border: "1px solid var(--border-subtle)",
+  borderRadius: "var(--radius-control)",
   marginBottom: 8,
   padding: 8,
 };
@@ -851,7 +851,7 @@ const groupHeaderStyle: React.CSSProperties = {
 const labelEditStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 600,
-  border: "1px solid #4a90d9",
+  border: "1px solid var(--color-accent)",
   borderRadius: 3,
   padding: "1px 4px",
   outline: "none",
@@ -889,7 +889,7 @@ const fieldRowStyle: React.CSSProperties = {
 
 const fieldLabelStyle: React.CSSProperties = {
   fontSize: 11,
-  color: "#555",
+  color: "var(--text-secondary)",
   flexShrink: 0,
   marginRight: 8,
 };
@@ -897,25 +897,29 @@ const fieldLabelStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   fontSize: 11,
   padding: "2px 4px",
-  borderRadius: 4,
-  border: "1px solid #ccc",
+  borderRadius: "var(--radius-item)",
+  border: "1px solid var(--border-color)",
   width: 70,
   textAlign: "right",
+  background: "var(--surface-bg)",
+  color: "var(--text-primary)",
 };
 
 const selectStyle: React.CSSProperties = {
   fontSize: 11,
   padding: "2px 4px",
-  borderRadius: 4,
-  border: "1px solid #ccc",
+  borderRadius: "var(--radius-item)",
+  border: "1px solid var(--border-color)",
+  background: "var(--surface-bg)",
+  color: "var(--text-primary)",
 };
 
 const removeBtnStyle: React.CSSProperties = {
   fontSize: 10,
-  color: "#d32f2f",
+  color: "var(--color-error)",
   background: "none",
-  border: "1px solid #d32f2f",
-  borderRadius: 4,
+  border: "1px solid var(--color-error)",
+  borderRadius: "var(--radius-item)",
   padding: "1px 6px",
   cursor: "pointer",
 };
@@ -925,7 +929,7 @@ const addSettingBtnStyle: React.CSSProperties = {
   color: "#1976d2",
   background: "none",
   border: "1px dashed #1976d2",
-  borderRadius: 6,
+  borderRadius: "var(--radius-control)",
   padding: "6px 12px",
   cursor: "pointer",
   width: "100%",
@@ -940,18 +944,18 @@ const presetBarStyle: React.CSSProperties = {
 
 const presetBtnStyle: React.CSSProperties = {
   fontSize: 10,
-  color: "#555",
-  background: "#fff",
-  border: "1px solid #ccc",
-  borderRadius: 4,
+  color: "var(--text-secondary)",
+  background: "var(--node-bg)",
+  border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-item)",
   padding: "2px 8px",
   cursor: "pointer",
 };
 
 const presetDropdownStyle: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #ddd",
-  borderRadius: 4,
+  background: "var(--node-bg)",
+  border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-item)",
   marginBottom: 6,
   maxHeight: 160,
   overflowY: "auto",
@@ -961,7 +965,7 @@ const presetDropdownStyle: React.CSSProperties = {
 const presetSectionLabel: React.CSSProperties = {
   fontSize: 10,
   fontWeight: 600,
-  color: "#888",
+  color: "var(--text-muted)",
   padding: "4px 6px 2px",
   textTransform: "uppercase",
   letterSpacing: 0.5,
@@ -981,7 +985,7 @@ const presetItemBaseStyle: React.CSSProperties = {
 
 const presetDeleteBtnStyle: React.CSSProperties = {
   fontSize: 10,
-  color: "#999",
+  color: "var(--text-muted)",
   background: "none",
   border: "none",
   cursor: "pointer",
@@ -996,8 +1000,10 @@ const savePresetFormStyle: React.CSSProperties = {
 
 const savePresetInputStyle: React.CSSProperties = {
   fontSize: 11,
-  border: "1px solid #ccc",
-  borderRadius: 4,
+  border: "1px solid var(--border-color)",
+  borderRadius: "var(--radius-item)",
+  background: "var(--surface-bg)",
+  color: "var(--text-primary)",
   padding: "2px 6px",
   flex: 1,
 };

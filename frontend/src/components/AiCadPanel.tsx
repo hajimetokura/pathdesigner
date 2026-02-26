@@ -65,13 +65,13 @@ const panelStyle: React.CSSProperties = {
   overflow: "hidden",
 };
 const metaStyle: React.CSSProperties = {
-  padding: "12px 16px", borderBottom: "1px solid #f0f0f0",
+  padding: "12px 16px", borderBottom: "1px solid var(--surface-bg)",
 };
 const metaRow: React.CSSProperties = {
-  fontSize: 12, padding: "2px 0", color: "#555",
+  fontSize: 12, padding: "2px 0", color: "var(--text-secondary)",
 };
 const metaLabel: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, color: "#888",
+  fontSize: 11, fontWeight: 700, color: "var(--text-muted)",
   textTransform: "uppercase", letterSpacing: 1, marginRight: 8,
 };
 const codeSection: React.CSSProperties = {
@@ -83,8 +83,8 @@ const codeLabelRow: React.CSSProperties = {
   alignItems: "center", marginBottom: 8,
 };
 const toggleBtn: React.CSSProperties = {
-  padding: "4px 12px", border: "1px solid #ddd", borderRadius: 4,
-  background: "white", cursor: "pointer", fontSize: 11,
+  padding: "4px 12px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-item)",
+  background: "var(--node-bg)", cursor: "pointer", fontSize: 11,
 };
 const preStyle: React.CSSProperties = {
   flex: 1, overflow: "auto", background: "#1e1e1e", color: "#d4d4d4",
@@ -96,11 +96,11 @@ const editorStyle: React.CSSProperties = {
   flex: 1, background: "#1e1e1e", color: "#d4d4d4",
   padding: 16, borderRadius: 8, fontSize: 13,
   fontFamily: "'SF Mono', 'Fira Code', monospace",
-  lineHeight: 1.5, border: "2px solid #e65100",
+  lineHeight: 1.5, border: "2px solid var(--color-cad)",
   resize: "none", boxSizing: "border-box",
 };
 const rerunBtn: React.CSSProperties = {
-  padding: "8px 16px", border: "none", borderRadius: 6,
-  background: "#e65100", color: "white", cursor: "pointer",
+  padding: "8px 16px", border: "none", borderRadius: "var(--radius-control)",
+  background: "var(--color-cad)", color: "white", cursor: "pointer",
   fontSize: 12, fontWeight: 600, marginTop: 8,
 };

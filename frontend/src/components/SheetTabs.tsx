@@ -34,10 +34,10 @@ export default function SheetTabs({
             style={{
               padding: "4px 12px",
               fontSize: 12,
-              background: isActive ? "#4a90d9" : "#e0e0e0",
-              color: isActive ? "#fff" : "#333",
+              background: isActive ? "var(--color-accent)" : "var(--border-subtle)",
+              color: isActive ? "#fff" : "var(--text-primary)",
               border: "none",
-              borderRadius: 4,
+              borderRadius: "var(--radius-item)",
               cursor: "pointer",
               flexShrink: 0,
             }}

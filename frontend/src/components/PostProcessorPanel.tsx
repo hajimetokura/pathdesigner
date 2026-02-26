@@ -102,9 +102,9 @@ const sectionStyle: React.CSSProperties = {
 const sectionTitle: React.CSSProperties = {
   fontWeight: 600,
   fontSize: 12,
-  color: "#333",
+  color: "var(--text-primary)",
   marginBottom: 8,
-  borderBottom: "1px solid #eee",
+  borderBottom: "1px solid var(--border-subtle)",
   paddingBottom: 4,
 };
 
@@ -117,21 +117,23 @@ const fieldRow: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = {
   fontSize: 12,
-  color: "#555",
+  color: "var(--text-secondary)",
   flexShrink: 0,
   marginRight: 8,
 };
 
 const valueStyle: React.CSSProperties = {
   fontSize: 12,
-  color: "#333",
+  color: "var(--text-primary)",
 };
 
 const inputStyle: React.CSSProperties = {
   fontSize: 12,
   padding: "4px 6px",
-  borderRadius: 4,
-  border: "1px solid #ccc",
+  borderRadius: "var(--radius-item)",
+  border: "1px solid var(--border-color)",
   width: 80,
   textAlign: "right",
+  background: "var(--surface-bg)",
+  color: "var(--text-primary)",
 };

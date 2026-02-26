@@ -259,7 +259,7 @@ export default function PlacementPanel({
               type="number"
               value={clearance}
               onChange={(e) => setClearance(Number(e.target.value))}
-              style={{ width: 50, padding: "3px 6px", border: "1px solid #ddd", borderRadius: 4, fontSize: 12 }}
+              style={{ width: 50, padding: "3px 6px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-item)", fontSize: 12, background: "var(--surface-bg)", color: "var(--text-primary)" }}
               min={0}
               step={1}
             />
@@ -281,7 +281,7 @@ export default function PlacementPanel({
           ref={canvasRef}
           width={canvasW}
           height={canvasH}
-          style={{ width: "100%", border: "1px solid #eee", borderRadius: 4, cursor: dragging ? "grabbing" : "default" }}
+          style={{ width: "100%", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-item)", cursor: dragging ? "grabbing" : "default" }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -292,7 +292,7 @@ export default function PlacementPanel({
       {warnings.length > 0 && (
         <div style={warningStyle}>
           {warnings.map((w, i) => (
-            <div key={i} style={{ fontSize: 11, color: "#d32f2f", padding: "2px 0" }}>{w}</div>
+            <div key={i} style={{ fontSize: 11, color: "var(--color-error)", padding: "2px 0" }}>{w}</div>
           ))}
         </div>
       )}
@@ -330,7 +330,7 @@ export default function PlacementPanel({
                 {"\u27F3"} {p.rotation || 0}°
               </button>
               {obj && (
-                <span style={{ fontSize: 10, color: "#888" }}>
+                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
                   ({obj.bounding_box.x.toFixed(0)}{"\u00d7"}{obj.bounding_box.y.toFixed(0)})
                 </span>
               )}
@@ -342,12 +342,12 @@ export default function PlacementPanel({
   );
 }
 
-const nestingBtnStyle: React.CSSProperties = { padding: "4px 12px", fontSize: 12, background: "#4a90d9", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 600 };
+const nestingBtnStyle: React.CSSProperties = { padding: "4px 12px", fontSize: 12, background: "var(--color-accent)", color: "#fff", border: "none", borderRadius: "var(--radius-item)", cursor: "pointer", fontWeight: 600 };
 const panelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "auto" };
 const warningStyle: React.CSSProperties = { padding: "8px 16px", background: "#fff3e0", borderTop: "1px solid #ffe0b2" };
-const inputsStyle: React.CSSProperties = { padding: "12px 16px", borderTop: "1px solid #f0f0f0" };
-const inputsTitle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: 1, paddingBottom: 8 };
+const inputsStyle: React.CSSProperties = { padding: "12px 16px", borderTop: "1px solid var(--surface-bg)" };
+const inputsTitle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1, paddingBottom: 8 };
 const inputRow: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, padding: "4px 0" };
 const labelStyle: React.CSSProperties = { fontSize: 11, display: "flex", alignItems: "center", gap: 4 };
-const numInputStyle: React.CSSProperties = { width: 60, padding: "3px 6px", border: "1px solid #ddd", borderRadius: 4, fontSize: 12 };
-const rotBtnStyle: React.CSSProperties = { padding: "2px 6px", border: "1px solid #ddd", borderRadius: 4, fontSize: 11, background: "#fafafa", cursor: "pointer", whiteSpace: "nowrap" };
+const numInputStyle: React.CSSProperties = { width: 60, padding: "3px 6px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-item)", fontSize: 12, background: "var(--surface-bg)", color: "var(--text-primary)" };
+const rotBtnStyle: React.CSSProperties = { padding: "2px 6px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-item)", fontSize: 11, background: "var(--surface-bg)", cursor: "pointer", whiteSpace: "nowrap" };

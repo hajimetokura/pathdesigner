@@ -166,7 +166,7 @@ export default function SnippetLibraryPanel({
           {saving ? "保存中..." : "保存"}
         </button>
         {saveMsg && (
-          <div style={{ marginTop: 4, fontSize: 11, color: saveMsg.startsWith("エラー") ? "#d32f2f" : "#2e7d32" }}>
+          <div style={{ marginTop: 4, fontSize: 11, color: saveMsg.startsWith("エラー") ? "var(--color-error)" : "var(--color-success)" }}>
             {saveMsg}
           </div>
         )}
@@ -183,7 +183,7 @@ export default function SnippetLibraryPanel({
         />
         <div style={gridStyle}>
           {snippets.length === 0 && (
-            <div style={{ gridColumn: "1/-1", color: "#999", textAlign: "center", fontSize: 11, padding: 8 }}>
+            <div style={{ gridColumn: "1/-1", color: "var(--text-muted)", textAlign: "center", fontSize: 11, padding: 8 }}>
               スニペットなし
             </div>
           )}
@@ -193,8 +193,8 @@ export default function SnippetLibraryPanel({
               onClick={() => onSelect(s.id, s.name)}
               style={{
                 ...gridItemStyle,
-                border: `1px solid ${selectedId === s.id ? "#4a90d9" : "#ddd"}`,
-                background: selectedId === s.id ? "#e8f4fd" : "#fafafa",
+                border: `1px solid ${selectedId === s.id ? "var(--color-accent)" : "var(--border-color)"}`,
+                background: selectedId === s.id ? "#e8f4fd" : "var(--surface-bg)",
               }}
             >
               {s.thumbnail_png ? (
@@ -228,7 +228,7 @@ export default function SnippetLibraryPanel({
         >
           {executing ? "実行中..." : "選択して実行"}
         </button>
-        {error && <div style={{ color: "#d32f2f", fontSize: 11, marginTop: 4 }}>{error}</div>}
+        {error && <div style={{ color: "var(--color-error)", fontSize: 11, marginTop: 4 }}>{error}</div>}
       </div>
     </div>
   );
@@ -236,11 +236,11 @@ export default function SnippetLibraryPanel({
 
 const containerStyle: React.CSSProperties = { padding: 16, display: "flex", flexDirection: "column", gap: 16 };
 const sectionStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 4 };
-const sectionTitleStyle: React.CSSProperties = { fontWeight: 600, fontSize: 12, marginBottom: 4, color: "#333" };
-const inputStyle: React.CSSProperties = { width: "100%", padding: "6px 8px", border: "1px solid #ddd", borderRadius: 6, fontSize: 12, boxSizing: "border-box" };
-const primaryBtnStyle: React.CSSProperties = { width: "100%", padding: "8px 12px", border: "none", borderRadius: 6, background: "#e65100", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 600 };
+const sectionTitleStyle: React.CSSProperties = { fontWeight: 600, fontSize: 12, marginBottom: 4, color: "var(--text-primary)" };
+const inputStyle: React.CSSProperties = { width: "100%", padding: "6px 8px", border: "1px solid var(--border-color)", borderRadius: "var(--radius-control)", fontSize: 12, boxSizing: "border-box", background: "var(--surface-bg)", color: "var(--text-primary)" };
+const primaryBtnStyle: React.CSSProperties = { width: "100%", padding: "8px 12px", border: "none", borderRadius: "var(--radius-control)", background: "var(--color-cad)", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 600 };
 const gridStyle: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 4 };
-const gridItemStyle: React.CSSProperties = { borderRadius: 4, padding: 4, cursor: "pointer", position: "relative" };
-const placeholderStyle: React.CSSProperties = { width: "100%", aspectRatio: "1", background: "#f0f0f0", borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 };
-const itemNameStyle: React.CSSProperties = { fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#333" };
-const deleteBtnStyle: React.CSSProperties = { position: "absolute", top: 2, right: 2, fontSize: 9, padding: "0 3px", background: "#ddd", border: "none", borderRadius: 2, cursor: "pointer", color: "#333" };
+const gridItemStyle: React.CSSProperties = { borderRadius: "var(--radius-item)", padding: 4, cursor: "pointer", position: "relative" };
+const placeholderStyle: React.CSSProperties = { width: "100%", aspectRatio: "1", background: "var(--surface-bg)", borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 };
+const itemNameStyle: React.CSSProperties = { fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-primary)" };
+const deleteBtnStyle: React.CSSProperties = { position: "absolute", top: 2, right: 2, fontSize: 9, padding: "0 3px", background: "var(--border-color)", border: "none", borderRadius: 2, cursor: "pointer", color: "var(--text-primary)" };

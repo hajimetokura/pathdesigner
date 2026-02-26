@@ -328,8 +328,8 @@ export default function ToolpathPreviewPanel({
           height={450}
           style={{
             width: "100%",
-            background: "#fafafa",
-            borderRadius: 4,
+            background: "var(--surface-bg)",
+            borderRadius: "var(--radius-item)",
             cursor: dragging ? "grabbing" : "grab",
           }}
           onWheel={handleWheel}
@@ -429,13 +429,13 @@ const hintStyle: React.CSSProperties = {
 
 const summaryStyle: React.CSSProperties = {
   padding: "0 16px 12px",
-  borderTop: "1px solid #f0f0f0",
+  borderTop: "1px solid var(--surface-bg)",
 };
 
 const summaryTitle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
-  color: "#888",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   letterSpacing: 1,
   padding: "8px 0 4px",
@@ -446,7 +446,7 @@ const summaryRow: React.CSSProperties = {
   justifyContent: "space-between",
   fontSize: 12,
   padding: "2px 0",
-  color: "#555",
+  color: "var(--text-secondary)",
 };
 
 const legendStyle: React.CSSProperties = {

@@ -37,13 +37,13 @@ const panelStyle: React.CSSProperties = {
 
 const infoStyle: React.CSSProperties = {
   padding: "12px 16px",
-  borderTop: "1px solid #f0f0f0",
+  borderTop: "1px solid var(--surface-bg)",
 };
 
 const infoTitle: React.CSSProperties = {
   fontSize: 11,
   fontWeight: 700,
-  color: "#888",
+  color: "var(--text-muted)",
   textTransform: "uppercase",
   letterSpacing: 1,
   paddingBottom: 4,
@@ -54,5 +54,5 @@ const infoRow: React.CSSProperties = {
   justifyContent: "space-between",
   fontSize: 12,
   padding: "2px 0",
-  color: "#555",
+  color: "var(--text-secondary)",
 };

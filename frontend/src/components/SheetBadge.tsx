@@ -14,7 +14,7 @@ export function SheetBadge({ activeSheetId, totalSheets }: SheetBadgeProps) {
         display: "inline-block",
         padding: "1px 8px",
         borderRadius: 10,
-        backgroundColor: "#4a90d9",
+        backgroundColor: "var(--color-accent)",
         color: "#fff",
         fontSize: 10,
         fontWeight: 600,
