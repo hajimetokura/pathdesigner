@@ -1,5 +1,6 @@
 import type { BrepImportResult, ObjectMesh } from "../types";
 import MeshViewer from "./MeshViewer";
+import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
 
 interface Props {
   brepResult: BrepImportResult;
@@ -7,14 +8,17 @@ interface Props {
 }
 
 export default function BrepImportPanel({ brepResult, meshes }: Props) {
+  const { direction } = useLayoutDirection();
+  const isLR = direction === "LR";
+
   return (
-    <div style={panelStyle}>
+    <div style={isLR ? panelStyleLR : panelStyle}>
       <MeshViewer
         meshes={meshes}
-        style={{ flex: 1, minHeight: 300 }}
+        style={isLR ? { flex: 2, minHeight: 0 } : { flex: 1, minHeight: 300 }}
       />
 
-      <div style={infoStyle}>
+      <div style={isLR ? infoStyleLR : infoStyle}>
         <div style={infoTitle}>Objects</div>
         {brepResult.objects.map((obj) => (
           <div key={obj.object_id} style={infoRow}>
@@ -35,9 +39,22 @@ const panelStyle: React.CSSProperties = {
   height: "100%",
 };
 
+const panelStyleLR: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "row",
+  height: "100%",
+};
+
 const infoStyle: React.CSSProperties = {
   padding: "12px 16px",
   borderTop: "1px solid var(--surface-bg)",
+};
+
+const infoStyleLR: React.CSSProperties = {
+  flex: 1,
+  padding: "12px 16px",
+  borderLeft: "1px solid var(--surface-bg)",
+  overflowY: "auto",
 };
 
 const infoTitle: React.CSSProperties = {

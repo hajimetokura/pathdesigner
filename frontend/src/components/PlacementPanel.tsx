@@ -4,6 +4,7 @@ import { autoNesting } from "../api";
 import SheetTabs from "./SheetTabs";
 import { DEFAULT_SHEET_ID, DEFAULT_CLEARANCE_MM } from "../constants";
 import { rotatePoint, rotatedAABB } from "../utils/coordinates";
+import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
 
 interface Props {
   objects: BrepObject[];
@@ -24,6 +25,9 @@ export default function PlacementPanel({
   activeSheetId,
   onActiveSheetChange,
 }: Props) {
+  const { direction } = useLayoutDirection();
+  const isLR = direction === "LR";
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState<{ mx: number; my: number; ox: number; oy: number } | null>(null);
@@ -253,7 +257,8 @@ export default function PlacementPanel({
   if (!sheetMat) return null;
 
   return (
-    <div style={panelStyle}>
+    <div style={isLR ? panelStyleLR : panelStyle}>
+      {/* Toolbar — always full width */}
       <div style={{ padding: "12px 16px 0" }}>
         {/* Auto Nesting + Clearance */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
@@ -287,67 +292,74 @@ export default function PlacementPanel({
         />
       </div>
 
-      <div style={{ padding: "0 16px 16px" }}>
-        <canvas
-          ref={canvasRef}
-          width={canvasW}
-          height={canvasH}
-          style={{ width: "100%", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-item)", cursor: dragging ? "grabbing" : "default" }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        />
-      </div>
-
-      {warnings.length > 0 && (
-        <div style={warningStyle}>
-          {warnings.map((w, i) => (
-            <div key={i} style={{ fontSize: 11, color: "var(--color-error)", padding: "2px 0" }}>{w}</div>
-          ))}
+      {/* Content area — row in LR, column in TB */}
+      <div style={isLR ? contentRowStyle : contentColStyle}>
+        {/* Canvas section */}
+        <div style={isLR ? canvasSecLR : canvasSecTB}>
+          <canvas
+            ref={canvasRef}
+            width={canvasW}
+            height={canvasH}
+            style={{ width: "100%", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-item)", cursor: dragging ? "grabbing" : "default" }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          />
         </div>
-      )}
 
-      <div style={inputsStyle}>
-        <div style={inputsTitle}>Position (mm)</div>
-        {activePlacements.map((p) => {
-          const obj = objects.find((o) => o.object_id === p.object_id);
-          return (
-            <div key={p.object_id} style={inputRow}>
-              <span style={{ fontSize: 12, fontWeight: 600, minWidth: 60 }}>{p.object_id}</span>
-              <label style={labelStyle}>
-                X:
-                <input
-                  type="number"
-                  value={p.x_offset}
-                  onChange={(e) => handleNumericChange(p.object_id, "x_offset", Number(e.target.value))}
-                  style={numInputStyle}
-                />
-              </label>
-              <label style={labelStyle}>
-                Y:
-                <input
-                  type="number"
-                  value={p.y_offset}
-                  onChange={(e) => handleNumericChange(p.object_id, "y_offset", Number(e.target.value))}
-                  style={numInputStyle}
-                />
-              </label>
-              <button
-                onClick={() => handleRotate(p.object_id)}
-                style={rotBtnStyle}
-                title="45° rotate"
-              >
-                {"\u27F3"} {p.rotation || 0}°
-              </button>
-              {obj && (
-                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                  ({obj.bounding_box.x.toFixed(0)}{"\u00d7"}{obj.bounding_box.y.toFixed(0)})
-                </span>
-              )}
+        {/* Info section: warnings + position inputs */}
+        <div style={isLR ? infoSecLR : infoSecTB}>
+          {warnings.length > 0 && (
+            <div style={warningStyle}>
+              {warnings.map((w, i) => (
+                <div key={i} style={{ fontSize: 11, color: "var(--color-error)", padding: "2px 0" }}>{w}</div>
+              ))}
             </div>
-          );
-        })}
+          )}
+
+          <div style={inputsStyle}>
+            <div style={inputsTitle}>Position (mm)</div>
+            {activePlacements.map((p) => {
+              const obj = objects.find((o) => o.object_id === p.object_id);
+              return (
+                <div key={p.object_id} style={inputRow}>
+                  <span style={{ fontSize: 12, fontWeight: 600, minWidth: 60 }}>{p.object_id}</span>
+                  <label style={labelStyle}>
+                    X:
+                    <input
+                      type="number"
+                      value={p.x_offset}
+                      onChange={(e) => handleNumericChange(p.object_id, "x_offset", Number(e.target.value))}
+                      style={numInputStyle}
+                    />
+                  </label>
+                  <label style={labelStyle}>
+                    Y:
+                    <input
+                      type="number"
+                      value={p.y_offset}
+                      onChange={(e) => handleNumericChange(p.object_id, "y_offset", Number(e.target.value))}
+                      style={numInputStyle}
+                    />
+                  </label>
+                  <button
+                    onClick={() => handleRotate(p.object_id)}
+                    style={rotBtnStyle}
+                    title="45° rotate"
+                  >
+                    {"\u27F3"} {p.rotation || 0}°
+                  </button>
+                  {obj && (
+                    <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                      ({obj.bounding_box.x.toFixed(0)}{"\u00d7"}{obj.bounding_box.y.toFixed(0)})
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -355,6 +367,13 @@ export default function PlacementPanel({
 
 const nestingBtnStyle: React.CSSProperties = { padding: "4px 12px", fontSize: 12, background: "var(--color-accent)", color: "#fff", border: "none", borderRadius: "var(--radius-item)", cursor: "pointer", fontWeight: 600 };
 const panelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "auto" };
+const panelStyleLR: React.CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" };
+const contentRowStyle: React.CSSProperties = { display: "flex", flexDirection: "row", flex: 1, minHeight: 0 };
+const contentColStyle: React.CSSProperties = { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 };
+const canvasSecLR: React.CSSProperties = { flex: 2, padding: "0 16px 16px", minWidth: 0 };
+const canvasSecTB: React.CSSProperties = { padding: "0 16px 16px" };
+const infoSecLR: React.CSSProperties = { flex: 1, overflowY: "auto", minWidth: 180, borderLeft: "1px solid var(--border-subtle)" };
+const infoSecTB: React.CSSProperties = {};
 const warningStyle: React.CSSProperties = { padding: "8px 16px", background: "var(--surface-bg)", borderTop: "1px solid var(--border-subtle)" };
 const inputsStyle: React.CSSProperties = { padding: "12px 16px", borderTop: "1px solid var(--surface-bg)" };
 const inputsTitle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1, paddingBottom: 8 };

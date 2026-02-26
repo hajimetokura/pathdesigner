@@ -2,6 +2,7 @@ import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { saveSnippet, listSnippets, deleteSnippet, executeSnippet, fetchMeshData } from "../api";
 import type { AiCadResult, ObjectMesh, SnippetInfo } from "../types";
+import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
 
 async function renderThumbnailFromMesh(fileId: string): Promise<string | null> {
   try {
@@ -70,6 +71,9 @@ export default function SnippetLibraryPanel({
   onSelect,
   onExecute,
 }: SnippetLibraryPanelProps) {
+  const { direction } = useLayoutDirection();
+  const isLR = direction === "LR";
+
   // 保存フォーム
   const [name, setName] = useState("");
   const [tagsInput, setTagsInput] = useState("");
@@ -137,10 +141,23 @@ export default function SnippetLibraryPanel({
     setSnippets(refreshed.snippets);
   }, [selectedId, searchQ, onSelect]);
 
+  const containerStyleDyn: React.CSSProperties = isLR
+    ? { padding: 16, display: "flex", flexDirection: "row", gap: 16, height: "100%" }
+    : containerStyle;
+  const saveSecStyleDyn: React.CSSProperties = isLR
+    ? { ...sectionStyle, flex: "0 0 200px", opacity: upstream ? 1 : 0.4 }
+    : { ...sectionStyle, opacity: upstream ? 1 : 0.4 };
+  const gridStyleDyn: React.CSSProperties = isLR
+    ? { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: 6, marginTop: 4 }
+    : gridStyle;
+  const libSecStyleDyn: React.CSSProperties = isLR
+    ? { ...sectionStyle, flex: 1, overflowY: "auto" }
+    : sectionStyle;
+
   return (
-    <div style={containerStyle}>
+    <div style={containerStyleDyn}>
       {/* 保存エリア */}
-      <div style={{ ...sectionStyle, opacity: upstream ? 1 : 0.4 }}>
+      <div style={saveSecStyleDyn}>
         <div style={sectionTitleStyle}>
           保存 {upstream ? `— ${upstream.object_count} objects` : "（input 未接続）"}
         </div>
@@ -173,7 +190,7 @@ export default function SnippetLibraryPanel({
       </div>
 
       {/* ライブラリエリア */}
-      <div style={sectionStyle}>
+      <div style={libSecStyleDyn}>
         <div style={sectionTitleStyle}>ライブラリ</div>
         <input
           value={searchQ}
@@ -181,7 +198,7 @@ export default function SnippetLibraryPanel({
           placeholder="🔍 検索..."
           style={inputStyle}
         />
-        <div style={gridStyle}>
+        <div style={gridStyleDyn}>
           {snippets.length === 0 && (
             <div style={{ gridColumn: "1/-1", color: "var(--text-muted)", textAlign: "center", fontSize: 11, padding: 8 }}>
               スニペットなし
