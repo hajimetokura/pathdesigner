@@ -18,6 +18,7 @@ import Sidebar from "./Sidebar";
 import SidePanel, { type PanelTab } from "./components/SidePanel";
 import { PanelTabsContext } from "./contexts/PanelTabsContext";
 import { API_BASE_URL } from "./config";
+import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 
 const initialNodes: Node[] = [
   { id: "1", type: "brepImport", position: { x: 100, y: 100 }, data: {} },
@@ -51,6 +52,11 @@ function Flow() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, fitView } = useReactFlow();
+  const { theme, setTheme } = useTheme();
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === "clean" ? "terracotta" : "clean");
+  }, [theme, setTheme]);
+
   const onLayout = useCallback(() => {
     setNodes((nds) => {
       const allMeasured = nds.every((n) => n.measured?.width && n.measured?.height);
@@ -180,9 +186,14 @@ function Flow() {
           >
             <Background />
             <Panel position="top-right">
-              <button onClick={onLayout} style={layoutBtnStyle}>
-                Auto Layout
-              </button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={toggleTheme} style={layoutBtnStyle} title={`Theme: ${theme}`}>
+                  {theme === "clean" ? "Clean" : "Terra"}
+                </button>
+                <button onClick={onLayout} style={layoutBtnStyle}>
+                  Auto Layout
+                </button>
+              </div>
             </Panel>
           </ReactFlow>
         </div>
@@ -199,9 +210,11 @@ function Flow() {
 
 export default function App() {
   return (
-    <ReactFlowProvider>
-      <Flow />
-    </ReactFlowProvider>
+    <ThemeProvider>
+      <ReactFlowProvider>
+        <Flow />
+      </ReactFlowProvider>
+    </ThemeProvider>
   );
 }
 
