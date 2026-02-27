@@ -6,7 +6,7 @@ import { autocompletion } from "@codemirror/autocomplete";
 import { build123dCompletionSource } from "../lib/build123dCompletions";
 import { executeAiCadCode, saveSnippet } from "../api";
 import type { AiCadResult } from "../types";
-import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
+
 
 const DEFAULT_CODE = `from build123d import *
 
@@ -22,9 +22,6 @@ interface Props {
 type RunStatus = "idle" | "running" | "success" | "error";
 
 export default function CodeEditorPanel({ initialCode, onResult, onCodeChange }: Props) {
-  const { direction } = useLayoutDirection();
-  const isLR = direction === "LR";
-
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
@@ -115,7 +112,6 @@ export default function CodeEditorPanel({ initialCode, onResult, onCodeChange }:
 
   const editorWrapDyn: React.CSSProperties = {
     ...editorWrapStyle,
-    ...(isLR ? {} : { maxHeight: 360 }),
   };
 
   return (
@@ -124,63 +120,35 @@ export default function CodeEditorPanel({ initialCode, onResult, onCodeChange }:
       <div ref={editorRef} style={editorWrapDyn} />
 
       {/* ツールバー */}
-      {isLR ? (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button
-            onClick={handleRun}
-            disabled={runStatus === "running"}
-            style={{ ...runBtnStyle, opacity: runStatus === "running" ? 0.5 : 1 }}
-          >
-            {runStatus === "running" ? "Running..." : "▶ Run"}
-          </button>
-          <button
-            onClick={() => setShowSaveDialog((v) => !v)}
-            style={saveBtnStyle}
-          >
-            Save to Library
-          </button>
-          {runStatus === "success" && lastResult && (
-            <span style={{ fontSize: 12, color: "var(--color-success)" }}>
-              {lastResult.object_count} object{lastResult.object_count > 1 ? "s" : ""} generated
-            </span>
-          )}
-          {runStatus === "error" && (
-            <span style={{ fontSize: 11, color: "var(--color-error)" }}>{runError}</span>
-          )}
-        </div>
-      ) : (
-        <>
-          <div style={toolbarStyle}>
-            <button
-              onClick={handleRun}
-              disabled={runStatus === "running"}
-              style={{ ...runBtnStyle, opacity: runStatus === "running" ? 0.5 : 1 }}
-            >
-              {runStatus === "running" ? "Running..." : "▶ Run"}
-            </button>
-            <button
-              onClick={() => setShowSaveDialog((v) => !v)}
-              style={saveBtnStyle}
-            >
-              Save to Library
-            </button>
-          </div>
+      <div style={toolbarStyle}>
+        <button
+          onClick={handleRun}
+          disabled={runStatus === "running"}
+          style={{ ...runBtnStyle, opacity: runStatus === "running" ? 0.5 : 1 }}
+        >
+          {runStatus === "running" ? "Running..." : "▶ Run"}
+        </button>
+        <button
+          onClick={() => setShowSaveDialog((v) => !v)}
+          style={saveBtnStyle}
+        >
+          Save to Library
+        </button>
+      </div>
 
-          {/* 実行結果 */}
-          {runStatus === "success" && lastResult && (
-            <div style={resultStyle}>
-              {lastResult.object_count} object{lastResult.object_count > 1 ? "s" : ""} generated
-              {lastResult.objects.map((obj) => (
-                <div key={obj.object_id} style={objStyle}>
-                  {obj.bounding_box.x.toFixed(1)} × {obj.bounding_box.y.toFixed(1)} × {obj.bounding_box.z.toFixed(1)} mm
-                </div>
-              ))}
+      {/* 実行結果 */}
+      {runStatus === "success" && lastResult && (
+        <div style={resultStyle}>
+          {lastResult.object_count} object{lastResult.object_count > 1 ? "s" : ""} generated
+          {lastResult.objects.map((obj) => (
+            <div key={obj.object_id} style={objStyle}>
+              {obj.bounding_box.x.toFixed(1)} × {obj.bounding_box.y.toFixed(1)} × {obj.bounding_box.z.toFixed(1)} mm
             </div>
-          )}
-          {runStatus === "error" && (
-            <div style={errorStyle}>{runError}</div>
-          )}
-        </>
+          ))}
+        </div>
+      )}
+      {runStatus === "error" && (
+        <div style={errorStyle}>{runError}</div>
       )}
 
       {/* ライブラリ保存ダイアログ */}

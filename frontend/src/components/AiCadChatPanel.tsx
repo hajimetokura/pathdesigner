@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { refineAiCadStream } from "../api";
 import type { ChatMessage, AiCadRefineResult } from "../types";
-import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
-
 interface Props {
   generationId: string;
   initialCode: string;
@@ -18,9 +16,6 @@ export default function AiCadChatPanel({
   profile,
   onApply,
 }: Props) {
-  const { direction } = useLayoutDirection();
-  const isLR = direction === "LR";
-
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
@@ -125,77 +120,40 @@ export default function AiCadChatPanel({
       </div>
 
       {/* Input + Action */}
-      {isLR ? (
-        <div style={inputBarLRStyle}>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="修正指示を入力... (Enter で送信)"
-            style={inputStyle}
-            rows={1}
-            disabled={isRefining}
-          />
-          <button
-            onClick={handleSend}
-            disabled={isRefining || !input.trim()}
-            style={{
-              ...sendBtnStyle,
-              opacity: isRefining || !input.trim() ? 0.5 : 1,
-            }}
-          >
-            送信
-          </button>
-          <button
-            onClick={handleApply}
-            disabled={!latestResult}
-            style={{
-              ...applyBtnStyle,
-              flex: "none",
-              opacity: latestResult ? 1 : 0.5,
-            }}
-          >
-            適用
-          </button>
-        </div>
-      ) : (
-        <>
-          <div style={inputAreaStyle}>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="修正指示を入力... (Enter で送信)"
-              style={inputStyle}
-              rows={2}
-              disabled={isRefining}
-            />
-            <button
-              onClick={handleSend}
-              disabled={isRefining || !input.trim()}
-              style={{
-                ...sendBtnStyle,
-                opacity: isRefining || !input.trim() ? 0.5 : 1,
-              }}
-            >
-              送信
-            </button>
-          </div>
+      <div style={inputAreaStyle}>
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="修正指示を入力... (Enter で送信)"
+          style={inputStyle}
+          rows={2}
+          disabled={isRefining}
+        />
+        <button
+          onClick={handleSend}
+          disabled={isRefining || !input.trim()}
+          style={{
+            ...sendBtnStyle,
+            opacity: isRefining || !input.trim() ? 0.5 : 1,
+          }}
+        >
+          送信
+        </button>
+      </div>
 
-          <div style={actionBarStyle}>
-            <button
-              onClick={handleApply}
-              disabled={!latestResult}
-              style={{
-                ...applyBtnStyle,
-                opacity: latestResult ? 1 : 0.5,
-              }}
-            >
-              適用
-            </button>
-          </div>
-        </>
-      )}
+      <div style={actionBarStyle}>
+        <button
+          onClick={handleApply}
+          disabled={!latestResult}
+          style={{
+            ...applyBtnStyle,
+            opacity: latestResult ? 1 : 0.5,
+          }}
+        >
+          適用
+        </button>
+      </div>
     </div>
   );
 }
@@ -244,10 +202,6 @@ const codePreStyle: React.CSSProperties = {
   background: "#1e1e1e", color: "#d4d4d4", padding: 12, borderRadius: "var(--radius-control)",
   fontSize: 12, fontFamily: "'SF Mono', 'Fira Code', monospace",
   lineHeight: 1.4, margin: "8px 0 0", overflowX: "auto", whiteSpace: "pre-wrap",
-};
-const inputBarLRStyle: React.CSSProperties = {
-  display: "flex", gap: 8, padding: "8px 16px",
-  borderTop: "1px solid var(--border-subtle)", alignItems: "flex-end",
 };
 const inputAreaStyle: React.CSSProperties = {
   display: "flex", gap: 8, padding: "8px 16px",

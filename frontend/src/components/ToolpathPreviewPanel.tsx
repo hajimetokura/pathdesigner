@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ToolpathGenResult, PlacementItem } from "../types";
 import { outlineToSheet } from "../utils/coordinates";
-import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
 
 interface Props {
   toolpathResult: ToolpathGenResult;
@@ -18,9 +17,6 @@ export default function ToolpathPreviewPanel({
   boundingBoxes,
   outlines,
 }: Props) {
-  const { direction } = useLayoutDirection();
-  const isLR = direction === "LR";
-
   // Transform outline coords (BB-min-local) to sheet-space using shared util
   const outlineToSheetCb = useCallback(
     (
@@ -333,9 +329,9 @@ export default function ToolpathPreviewPanel({
   }, []);
 
   return (
-    <div style={isLR ? panelStyleLR : panelStyle}>
+    <div style={panelStyle}>
       {/* Canvas section */}
-      <div style={isLR ? canvasWrapStyleLR : canvasWrapStyle}>
+      <div style={canvasWrapStyle}>
         <canvas
           ref={canvasRef}
           width={600}
@@ -357,7 +353,7 @@ export default function ToolpathPreviewPanel({
       </div>
 
       {/* Info section */}
-      <div style={isLR ? infoSecLR : {}}>
+      <div>
         <div style={summaryStyle}>
           <div style={summaryTitle}>Summary</div>
           <div style={summaryRow}>
@@ -431,29 +427,10 @@ const panelStyle: React.CSSProperties = {
   height: "100%",
 };
 
-const panelStyleLR: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "row",
-  height: "100%",
-};
-
 const canvasWrapStyle: React.CSSProperties = {
   padding: 16,
   flex: 1,
   minHeight: 0,
-};
-
-const canvasWrapStyleLR: React.CSSProperties = {
-  padding: 16,
-  flex: 2,
-  minWidth: 0,
-  minHeight: 0,
-};
-
-const infoSecLR: React.CSSProperties = {
-  flex: 1,
-  overflowY: "auto",
-  borderLeft: "1px solid var(--surface-bg)",
 };
 
 const hintStyle: React.CSSProperties = {
