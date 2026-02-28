@@ -1,21 +1,17 @@
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
-import { uploadStepFile, fetchMeshData } from "../api";
-import type { BrepImportResult, BrepObject, ObjectMesh } from "../types";
-import BrepImportPanel from "../components/BrepImportPanel";
-import { usePanelTabs } from "../contexts/PanelTabsContext";
+import { uploadStepFile } from "../api";
+import type { BrepImportResult, BrepObject } from "../types";
 
 type Status = "idle" | "loading" | "success" | "error";
 
 export default function BrepImportNode({ id, selected }: NodeProps) {
-  const { openTab } = usePanelTabs();
   const [status, setStatus] = useState<Status>("idle");
   const [result, setResult] = useState<BrepImportResult | null>(null);
   const [error, setError] = useState<string>("");
   const [isDragOver, setIsDragOver] = useState(false);
-  const [meshes, setMeshes] = useState<ObjectMesh[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const { setNodes } = useReactFlow();
 
@@ -33,13 +29,6 @@ export default function BrepImportNode({ id, selected }: NodeProps) {
             n.id === id ? { ...n, data: { ...n.data, brepResult: data } } : n
           )
         );
-        // Fetch mesh data for 3D preview
-        try {
-          const meshData = await fetchMeshData(data.file_id);
-          setMeshes(meshData.objects);
-        } catch {
-          // Mesh fetch failure is non-critical, preview just won't show
-        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Upload failed");
         setStatus("error");
@@ -74,17 +63,6 @@ export default function BrepImportNode({ id, selected }: NodeProps) {
     },
     [handleFile]
   );
-
-  const handleView3D = useCallback(() => {
-    if (!result) return;
-    openTab({
-      id: `brep-3d-${id}`,
-      label: "3D View",
-      icon: "📦",
-      content: <BrepImportPanel brepResult={result} meshes={meshes} />,
-    });
-  }, [id, result, meshes, openTab]);
-
 
   return (
     <NodeShell category="cad" selected={selected}>
@@ -135,11 +113,6 @@ export default function BrepImportNode({ id, selected }: NodeProps) {
               <ObjectSummary key={obj.object_id} obj={obj} />
             ))}
           </div>
-          {meshes.length > 0 && (
-            <button onClick={handleView3D} style={viewBtnStyle}>
-              View 3D
-            </button>
-          )}
         </div>
       )}
 
@@ -203,14 +176,3 @@ const objStyle: React.CSSProperties = {
   marginTop: 4,
 };
 
-const viewBtnStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "6px 12px",
-  border: "1px solid var(--border-color)",
-  borderRadius: "var(--radius-control)",
-  background: "var(--node-bg)",
-  color: "var(--text-primary)",
-  cursor: "pointer",
-  fontSize: 11,
-  marginTop: 8,
-};
