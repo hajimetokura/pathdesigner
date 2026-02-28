@@ -336,6 +336,15 @@ export interface SnippetSaveRequest {
   source_generation_id?: string;
 }
 
+/** Sketch data (for API boundary use; also exported from SketchCanvas component) */
+
+export interface SketchData {
+  image_base64: string;
+  strokes: { points: [number, number][]; color: string; width: number; tool: "pen" | "eraser" }[];
+  canvas_width: number;
+  canvas_height: number;
+}
+
 /** SnippetDbNode の node data */
 export interface SnippetDbNodeData extends Record<string, unknown> {
   outputResult: AiCadResult | null;

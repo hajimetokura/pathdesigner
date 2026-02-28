@@ -20,6 +20,7 @@ import { PreviewNode } from "./nodes/PreviewNode";
 import DebugNode from "./nodes/DebugNode";
 import MergeNode from "./nodes/MergeNode";
 import SketchCanvasNode from "./nodes/SketchCanvasNode";
+import Sketch2BrepNode from "./nodes/Sketch2BrepNode";
 
 interface NodeRegistryEntry {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,6 +44,7 @@ const NODE_REGISTRY: Record<string, NodeRegistryEntry> = {
   cncCode: { component: CncCodeNode, label: "CNC Code", category: "cam" },
   toolpathPreview: { component: ToolpathPreviewNode, label: "Toolpath Preview", category: "cam" },
   sketchCanvas: { component: SketchCanvasNode, label: "Sketch Canvas", category: "cad" },
+  sketch2Brep: { component: Sketch2BrepNode, label: "Sketch \u2192 BREP", category: "cad" },
   merge: { component: MergeNode, label: "Merge", category: "utility" },
   dam: { component: DamNode, label: "Dam", category: "utility" },
   debug: { component: DebugNode, label: "Debug", category: "utility" },
