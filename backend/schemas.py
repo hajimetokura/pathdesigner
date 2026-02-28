@@ -48,6 +48,13 @@ class BrepImportResult(BaseModel):
     object_count: int
 
 
+# --- Align Parts ---
+
+
+class AlignPartsRequest(BaseModel):
+    file_id: str
+
+
 # --- Node 2: Contour Extract ---
 
 
