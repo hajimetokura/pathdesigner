@@ -73,10 +73,9 @@ function PreviewNodeInner({ id }: NodeProps) {
       </div>
 
       <div
+        className="nodrag nopan nowheel"
         style={{ width: 200, height: 150, borderRadius: 4, overflow: "hidden", background: "#111", cursor: brepResult ? "pointer" : "default" }}
         onClick={handleExpand}
-        onPointerDown={(e) => e.stopPropagation()}
-        onWheelCapture={(e) => e.stopPropagation()}
       >
         {!brepResult && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#666", fontSize: 11 }}>
