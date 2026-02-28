@@ -224,15 +224,19 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
       {status === "blocked" && (
         <div style={blockedStyle}>
           <span style={{ fontWeight: 600 }}>Placement問題あり</span>
-          {error.split("\n").map((line, i) => (
-            <div key={i}>{line}</div>
-          ))}
+          <div style={scrollableListStyle}>
+            {error.split("\n").map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </div>
         </div>
       )}
 
       {status === "error" && (
-        <div style={{ color: "var(--color-error)", fontSize: 11, padding: "4px 0" }}>
-          {error}
+        <div style={scrollableListStyle}>
+          <div style={{ color: "var(--color-error)", fontSize: 11, padding: "4px 0" }}>
+            {error}
+          </div>
         </div>
       )}
 

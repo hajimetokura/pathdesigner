@@ -10,7 +10,7 @@ import { SheetBadge } from "../components/SheetBadge";
 
 export default function ToolpathPreviewNode({ id, selected }: NodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { openTab } = usePanelTabs();
+  const { openTab, updateTab } = usePanelTabs();
 
   // Subscribe to upstream ToolpathGenNode data
   const extractUpstream = useCallback((d: Record<string, unknown>) => ({
@@ -154,6 +154,25 @@ export default function ToolpathPreviewNode({ id, selected }: NodeProps) {
       ),
     });
   }, [id, toolpathResult, placements, upstream?.activeSheetId, boundingBoxes, outlines, openTab]);
+
+  // Keep panel in sync when upstream data changes
+  useEffect(() => {
+    if (!toolpathResult) return;
+    updateTab({
+      id: `preview-${id}`,
+      label: "Preview",
+      icon: "\ud83d\udc41",
+      content: (
+        <ToolpathPreviewPanel
+          toolpathResult={toolpathResult}
+          placements={placements}
+          activeSheetId={upstream?.activeSheetId}
+          boundingBoxes={boundingBoxes}
+          outlines={outlines}
+        />
+      ),
+    });
+  }, [id, toolpathResult, placements, upstream?.activeSheetId, boundingBoxes, outlines, updateTab]);
 
   return (
     <NodeShell category="cam" selected={selected}>

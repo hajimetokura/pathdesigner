@@ -9,7 +9,7 @@ interface Props {
   objects: BrepObject[];
   sheetSettings: SheetSettings;
   placements: PlacementItem[];
-  onPlacementsChange: (placements: PlacementItem[]) => void;
+  onPlacementsChange: (placements: PlacementItem[], newSheetId?: string) => void;
   warnings: string[];
   activeSheetId: string;
   onActiveSheetChange: (sheetId: string) => void;
@@ -49,10 +49,12 @@ export default function PlacementPanel({
     setNestingLoading(true);
     try {
       const result = await autoNesting(objects, sheetSettings, 6.35, clearance);
-      onPlacementsChange(result.placements);
-      if (result.placements.length > 0) {
-        onActiveSheetChange(result.placements[0].sheet_id);
-      }
+      // Pass new sheetId together with placements — handlePlacementsChange
+      // already calls setActiveSheetId + syncToNodeData, so we must NOT also
+      // call onActiveSheetChange here (its closure captures stale placements
+      // and would overwrite node.data with the old array).
+      const newSheetId = result.placements.length > 0 ? result.placements[0].sheet_id : undefined;
+      onPlacementsChange(result.placements, newSheetId);
     } catch (e) {
       console.error("Auto nesting failed:", e);
     } finally {
@@ -384,7 +386,7 @@ const nestingBtnStyle: React.CSSProperties = { padding: "4px 12px", fontSize: 12
 const panelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "auto" };
 const contentColStyle: React.CSSProperties = { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 };
 const canvasSecStyle: React.CSSProperties = { padding: "0 16px 16px", flex: 1, minHeight: 0 };
-const infoSecTB: React.CSSProperties = {};
+const infoSecTB: React.CSSProperties = { maxHeight: 180, overflowY: "auto", flexShrink: 0 };
 const warningStyle: React.CSSProperties = { padding: "8px 16px", background: "var(--surface-bg)", borderTop: "1px solid var(--border-subtle)" };
 const inputsStyle: React.CSSProperties = { padding: "12px 16px", borderTop: "1px solid var(--surface-bg)" };
 const inputsTitle: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1, paddingBottom: 8 };
