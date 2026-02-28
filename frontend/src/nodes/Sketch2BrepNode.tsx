@@ -1,10 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import { sketchToBrepStream } from "../api";
-import type { AiCadResult } from "../types";
-import type { SketchData } from "../components/SketchCanvas";
+import type { AiCadResult, SketchData } from "../types";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelTabs } from "../contexts/PanelTabsContext";
 
@@ -12,7 +11,8 @@ type Status = "idle" | "converting" | "done" | "error";
 
 export default function Sketch2BrepNode({ id, selected }: NodeProps) {
   const { setNodes } = useReactFlow();
-  const { openTab } = usePanelTabs();
+  const { openTab, updateTab } = usePanelTabs();
+  const panelOpenRef = useRef(false);
 
   const extractSketch = useCallback(
     (d: Record<string, unknown>) => d.sketchData as SketchData | undefined,
@@ -55,7 +55,27 @@ export default function Sketch2BrepNode({ id, selected }: NodeProps) {
     }
   }, [id, sketchData, profile, setNodes]);
 
+  // Keep panel content in sync when state changes
+  useEffect(() => {
+    if (!panelOpenRef.current) return;
+    updateTab({
+      id: `sketch2brep-${id}`,
+      label: "Sketch\u2192BREP",
+      icon: "\u2728",
+      content: (
+        <Sketch2BrepPanel
+          status={status}
+          stage={stage}
+          error={error}
+          code={code}
+          result={result}
+        />
+      ),
+    });
+  }, [id, status, stage, error, code, result, updateTab]);
+
   const handleOpenPanel = useCallback(() => {
+    panelOpenRef.current = true;
     openTab({
       id: `sketch2brep-${id}`,
       label: "Sketch\u2192BREP",
@@ -215,7 +235,7 @@ const convertBtnStyle: React.CSSProperties = {
   padding: "8px 12px",
   border: "none",
   borderRadius: "var(--radius-control)",
-  background: "#e91e63",
+  background: "var(--handle-sketch, #e91e63)",
   color: "white",
   cursor: "pointer",
   fontSize: 12,

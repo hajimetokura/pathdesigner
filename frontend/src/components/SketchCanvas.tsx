@@ -1,19 +1,8 @@
 import { useRef, useEffect, useCallback } from "react";
 import getStroke from "perfect-freehand";
+import type { Stroke } from "../types";
 
-export interface Stroke {
-  points: [number, number][];
-  color: string;
-  width: number;
-  tool: "pen" | "eraser";
-}
-
-export interface SketchData {
-  image_base64: string;
-  strokes: Stroke[];
-  canvas_width: number;
-  canvas_height: number;
-}
+export type { Stroke, SketchData } from "../types";
 
 interface Props {
   width?: number;

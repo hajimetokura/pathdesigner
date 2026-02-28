@@ -336,11 +336,18 @@ export interface SnippetSaveRequest {
   source_generation_id?: string;
 }
 
-/** Sketch data (for API boundary use; also exported from SketchCanvas component) */
+/** Sketch types */
+
+export interface Stroke {
+  points: [number, number][];
+  color: string;
+  width: number;
+  tool: "pen" | "eraser";
+}
 
 export interface SketchData {
   image_base64: string;
-  strokes: { points: [number, number][]; color: string; width: number; tool: "pen" | "eraser" }[];
+  strokes: Stroke[];
   canvas_width: number;
   canvas_height: number;
 }
