@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useCallback } from "react";
+import { memo, useRef, useState, useEffect, useCallback } from "react";
 import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import { useUpstreamData } from "../hooks/useUpstreamData";
@@ -10,7 +10,8 @@ import type { BrepImportResult, ObjectMesh } from "../types";
 
 function PreviewNodeInner({ id }: NodeProps) {
   const { setNodes } = useReactFlow();
-  const { openTab } = usePanelTabs();
+  const { openTab, updateTab } = usePanelTabs();
+  const panelOpenRef = useRef(false);
 
   const brepResult = useUpstreamData<BrepImportResult>(
     id,
@@ -55,15 +56,28 @@ function PreviewNodeInner({ id }: NodeProps) {
   }, [id, brepResult, setNodes]);
 
   // Open side panel with full 3D view
+  const tabId = `preview-3d-${id}`;
   const handleExpand = useCallback(() => {
     if (!brepResult) return;
+    panelOpenRef.current = true;
     openTab({
-      id: `preview-3d-${id}`,
+      id: tabId,
       label: "3D View",
       icon: "📦",
       content: <BrepImportPanel brepResult={brepResult} meshes={meshes} />,
     });
-  }, [id, brepResult, meshes, openTab]);
+  }, [tabId, brepResult, meshes, openTab]);
+
+  // Auto-update panel content when data changes
+  useEffect(() => {
+    if (!panelOpenRef.current || !brepResult || meshes.length === 0) return;
+    updateTab({
+      id: tabId,
+      label: "3D View",
+      icon: "📦",
+      content: <BrepImportPanel brepResult={brepResult} meshes={meshes} />,
+    });
+  }, [tabId, brepResult, meshes, updateTab]);
 
   return (
     <div style={{ background: "#1e1e1e", borderRadius: 8, padding: 8, width: 220 }}>
