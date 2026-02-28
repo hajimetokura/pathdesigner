@@ -4,7 +4,6 @@ import { autoNesting } from "../api";
 import SheetTabs from "./SheetTabs";
 import { DEFAULT_SHEET_ID, DEFAULT_CLEARANCE_MM } from "../constants";
 import { rotatePoint, rotatedAABB } from "../utils/coordinates";
-import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
 
 interface Props {
   objects: BrepObject[];
@@ -25,14 +24,13 @@ export default function PlacementPanel({
   activeSheetId,
   onActiveSheetChange,
 }: Props) {
-  const { direction } = useLayoutDirection();
-  const isLR = direction === "LR";
-
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState<{ mx: number; my: number; ox: number; oy: number } | null>(null);
   const [clearance, setClearance] = useState(DEFAULT_CLEARANCE_MM);
   const [nestingLoading, setNestingLoading] = useState(false);
+  const [canvasSize, setCanvasSize] = useState<{ w: number; h: number }>({ w: 560, h: 400 });
 
   // Sheet list derived from placements
   const sheetIds = useMemo(() => {
@@ -62,10 +60,27 @@ export default function PlacementPanel({
     }
   };
 
+  // キャンバスを親コンテナに合わせてリサイズ
+  useEffect(() => {
+    const wrap = canvasWrapRef.current;
+    if (!wrap) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          const dpr = window.devicePixelRatio || 1;
+          setCanvasSize({ w: Math.round(width * dpr), h: Math.round(height * dpr) });
+        }
+      }
+    });
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, []);
+
   const sheetMat = sheetSettings.materials[0];
 
-  const canvasW = 560;
-  const canvasH = 400;
+  const canvasW = canvasSize.w;
+  const canvasH = canvasSize.h;
   const padding = 40;
 
   const scale = sheetMat
@@ -257,7 +272,7 @@ export default function PlacementPanel({
   if (!sheetMat) return null;
 
   return (
-    <div style={isLR ? panelStyleLR : panelStyle}>
+    <div style={panelStyle}>
       {/* Toolbar — always full width */}
       <div style={{ padding: "12px 16px 0" }}>
         {/* Auto Nesting + Clearance */}
@@ -293,14 +308,14 @@ export default function PlacementPanel({
       </div>
 
       {/* Content area — row in LR, column in TB */}
-      <div style={isLR ? contentRowStyle : contentColStyle}>
+      <div style={contentColStyle}>
         {/* Canvas section */}
-        <div style={isLR ? canvasSecLR : canvasSecTB}>
+        <div ref={canvasWrapRef} style={canvasSecStyle}>
           <canvas
             ref={canvasRef}
             width={canvasW}
             height={canvasH}
-            style={{ width: "100%", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-item)", cursor: dragging ? "grabbing" : "default" }}
+            style={{ width: "100%", height: "100%", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-item)", cursor: dragging ? "grabbing" : "default" }}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -309,7 +324,7 @@ export default function PlacementPanel({
         </div>
 
         {/* Info section: warnings + position inputs */}
-        <div style={isLR ? infoSecLR : infoSecTB}>
+        <div style={infoSecTB}>
           {warnings.length > 0 && (
             <div style={warningStyle}>
               {warnings.map((w, i) => (
@@ -367,12 +382,8 @@ export default function PlacementPanel({
 
 const nestingBtnStyle: React.CSSProperties = { padding: "4px 12px", fontSize: 12, background: "var(--color-accent)", color: "#fff", border: "none", borderRadius: "var(--radius-item)", cursor: "pointer", fontWeight: 600 };
 const panelStyle: React.CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "auto" };
-const panelStyleLR: React.CSSProperties = { display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" };
-const contentRowStyle: React.CSSProperties = { display: "flex", flexDirection: "row", flex: 1, minHeight: 0 };
 const contentColStyle: React.CSSProperties = { display: "flex", flexDirection: "column", flex: 1, minHeight: 0 };
-const canvasSecLR: React.CSSProperties = { flex: 2, padding: "0 16px 16px", minWidth: 0 };
-const canvasSecTB: React.CSSProperties = { padding: "0 16px 16px" };
-const infoSecLR: React.CSSProperties = { flex: 1, overflowY: "auto", minWidth: 180, borderLeft: "1px solid var(--border-subtle)" };
+const canvasSecStyle: React.CSSProperties = { padding: "0 16px 16px", flex: 1, minHeight: 0 };
 const infoSecTB: React.CSSProperties = {};
 const warningStyle: React.CSSProperties = { padding: "8px 16px", background: "var(--surface-bg)", borderTop: "1px solid var(--border-subtle)" };
 const inputsStyle: React.CSSProperties = { padding: "12px 16px", borderTop: "1px solid var(--surface-bg)" };

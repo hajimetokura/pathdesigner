@@ -51,6 +51,8 @@ function Flow() {
   const [backendStatus, setBackendStatus] = useState<string>("checking...");
   const [panelTabs, setPanelTabs] = useState<PanelTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  /** LRモード: 表示中パネルID一覧 (最大3) */
+  const [visibleTabIds, setVisibleTabIds] = useState<string[]>([]);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, fitView } = useReactFlow();
   const { theme, setTheme } = useTheme();
@@ -85,6 +87,12 @@ function Flow() {
     });
     // Always activate the tab (new or existing)
     setActiveTabId(tab.id);
+    // LRモード: visibleTabIds にも追加 (最大3)
+    setVisibleTabIds((prev) => {
+      if (prev.includes(tab.id)) return prev;
+      if (prev.length >= 3) return [...prev.slice(1), tab.id]; // 古いものを押し出す
+      return [...prev, tab.id];
+    });
   }, []);
 
   // Update existing tab content only — does NOT create new tabs
@@ -104,6 +112,17 @@ function Flow() {
           : prevActive
       );
       return next;
+    });
+    setVisibleTabIds((prev) => prev.filter((id) => id !== tabId));
+  }, []);
+
+  const onToggleVisible = useCallback((tabId: string) => {
+    setVisibleTabIds((prev) => {
+      if (prev.includes(tabId)) {
+        return prev.filter((id) => id !== tabId);
+      }
+      if (prev.length >= 3) return prev; // 上限
+      return [...prev, tabId];
     });
   }, []);
 
@@ -229,6 +248,8 @@ function Flow() {
           activeTabId={activeTabId}
           onSelectTab={setActiveTabId}
           onCloseTab={closeTab}
+          visibleTabIds={visibleTabIds}
+          onToggleVisible={onToggleVisible}
         />
       </div>
     </PanelTabsContext.Provider>

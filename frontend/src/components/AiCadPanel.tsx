@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLayoutDirection } from "../contexts/LayoutDirectionContext";
 
 interface Props {
   code: string;
@@ -9,9 +8,6 @@ interface Props {
 }
 
 export default function AiCadPanel({ code, prompt, model, onRerun }: Props) {
-  const { direction } = useLayoutDirection();
-  const isLR = direction === "LR";
-
   const [editedCode, setEditedCode] = useState(code);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -20,8 +16,8 @@ export default function AiCadPanel({ code, prompt, model, onRerun }: Props) {
   };
 
   return (
-    <div style={isLR ? panelStyleLR : panelStyle}>
-      <div style={isLR ? metaStyleLR : metaStyle}>
+    <div style={panelStyle}>
+      <div style={metaStyle}>
         <div style={metaRow}>
           <span style={metaLabel}>Prompt:</span>
           <span>{prompt}</span>
@@ -30,35 +26,18 @@ export default function AiCadPanel({ code, prompt, model, onRerun }: Props) {
           <span style={metaLabel}>Model:</span>
           <span>{model}</span>
         </div>
-        {isLR && (
-          <div style={{ marginTop: 8 }}>
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              style={toggleBtn}
-            >
-              {isEditing ? "Cancel Edit" : "Edit"}
-            </button>
-            {isEditing && (
-              <button onClick={handleRerun} style={{ ...rerunBtn, marginTop: 8 }}>
-                Re-run Code
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
-      <div style={isLR ? codeSectionLR : codeSection}>
-        {!isLR && (
-          <div style={codeLabelRow}>
-            <span style={metaLabel}>build123d Code</span>
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              style={toggleBtn}
-            >
-              {isEditing ? "Cancel Edit" : "Edit"}
-            </button>
-          </div>
-        )}
+      <div style={codeSection}>
+        <div style={codeLabelRow}>
+          <span style={metaLabel}>build123d Code</span>
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            style={toggleBtn}
+          >
+            {isEditing ? "Cancel Edit" : "Edit"}
+          </button>
+        </div>
 
         {isEditing ? (
           <>
@@ -69,11 +48,9 @@ export default function AiCadPanel({ code, prompt, model, onRerun }: Props) {
               rows={20}
               spellCheck={false}
             />
-            {!isLR && (
-              <button onClick={handleRerun} style={rerunBtn}>
-                Re-run Code
-              </button>
-            )}
+            <button onClick={handleRerun} style={rerunBtn}>
+              Re-run Code
+            </button>
           </>
         ) : (
           <pre style={preStyle}>{code}</pre>
@@ -87,16 +64,8 @@ const panelStyle: React.CSSProperties = {
   display: "flex", flexDirection: "column", height: "100%",
   overflow: "hidden",
 };
-const panelStyleLR: React.CSSProperties = {
-  display: "flex", flexDirection: "row", height: "100%",
-  overflow: "hidden",
-};
 const metaStyle: React.CSSProperties = {
   padding: "12px 16px", borderBottom: "1px solid var(--surface-bg)",
-};
-const metaStyleLR: React.CSSProperties = {
-  flex: "0 0 200px", padding: "12px 16px",
-  borderRight: "1px solid var(--surface-bg)", overflowY: "auto",
 };
 const metaRow: React.CSSProperties = {
   fontSize: 12, padding: "2px 0", color: "var(--text-secondary)",
@@ -106,10 +75,6 @@ const metaLabel: React.CSSProperties = {
   textTransform: "uppercase", letterSpacing: 1, marginRight: 8,
 };
 const codeSection: React.CSSProperties = {
-  flex: 1, display: "flex", flexDirection: "column",
-  padding: "12px 16px", overflow: "hidden",
-};
-const codeSectionLR: React.CSSProperties = {
   flex: 1, display: "flex", flexDirection: "column",
   padding: "12px 16px", overflow: "hidden",
 };

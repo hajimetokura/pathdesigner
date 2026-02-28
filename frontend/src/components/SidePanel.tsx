@@ -13,14 +13,25 @@ interface SidePanelProps {
   activeTabId: string | null;
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string) => void;
+  /** LRモード: 表示中パネルID一覧 (最大3) */
+  visibleTabIds: string[];
+  onToggleVisible: (id: string) => void;
 }
 
 const PANEL_HEIGHT_KEY = "pathdesigner-panel-height";
 const DEFAULT_HEIGHT = 300;
 const MIN_HEIGHT = 150;
 const MAX_HEIGHT_RATIO = 0.7;
+const MAX_VISIBLE_PANELS = 3;
 
-export default function SidePanel({ tabs, activeTabId, onSelectTab, onCloseTab }: SidePanelProps) {
+export default function SidePanel({
+  tabs,
+  activeTabId,
+  onSelectTab,
+  onCloseTab,
+  visibleTabIds,
+  onToggleVisible,
+}: SidePanelProps) {
   const { direction } = useLayoutDirection();
   const isLR = direction === "LR";
 
@@ -54,25 +65,90 @@ export default function SidePanel({ tabs, activeTabId, onSelectTab, onCloseTab }
 
   if (tabs.length === 0) return null;
 
+  /* ── LR mode: 複数パネル横並び ── */
+  if (isLR) {
+    const visibleTabs = visibleTabIds
+      .map((id) => tabs.find((t) => t.id === id))
+      .filter((t): t is PanelTab => t != null);
+
+    // 表示パネルが0ならタブバーだけ表示
+    const hasVisiblePanels = visibleTabs.length > 0;
+
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: hasVisiblePanels ? panelHeight : "auto",
+          borderTop: "1px solid var(--border-subtle)",
+          background: "var(--panel-bg)",
+          display: "flex",
+          flexDirection: "column",
+          flexShrink: 0,
+        }}
+      >
+        {hasVisiblePanels && (
+          <div style={resizeHandleStyle} onMouseDown={onResizeStart} />
+        )}
+        {/* Tab bar */}
+        <div style={tabBarStyle}>
+          {tabs.map((tab) => {
+            const isVisible = visibleTabIds.includes(tab.id);
+            const isFull = visibleTabIds.length >= MAX_VISIBLE_PANELS && !isVisible;
+            return (
+              <div
+                key={tab.id}
+                style={{
+                  ...tabStyle,
+                  ...(isVisible ? activeTabStyle : {}),
+                  ...(isFull ? { opacity: 0.5, cursor: "not-allowed" } : {}),
+                }}
+                onClick={() => {
+                  if (!isFull || isVisible) {
+                    onToggleVisible(tab.id);
+                  }
+                }}
+                title={isFull ? "最大3パネルまで表示可能" : undefined}
+              >
+                <span style={{ marginRight: 4 }}>{tab.icon}</span>
+                <span style={{ flex: 1 }}>{tab.label}</span>
+                <span
+                  style={closeTabStyle}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCloseTab(tab.id);
+                  }}
+                >
+                  ×
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        {/* Panels: 横並び (最大3) */}
+        {hasVisiblePanels && (
+          <div style={panelRowStyle}>
+            {visibleTabs.map((tab, i) => (
+              <div
+                key={tab.id}
+                style={{
+                  ...panelSlotStyle,
+                  borderLeft: i > 0 ? "1px solid var(--border-subtle)" : undefined,
+                }}
+              >
+                {tab.content}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* ── TB mode: 従来の1パネル表示 ── */
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
 
-  const dynContainerStyle: React.CSSProperties = isLR
-    ? {
-        width: "100%",
-        height: panelHeight,
-        borderTop: "1px solid var(--border-subtle)",
-        background: "var(--panel-bg)",
-        display: "flex",
-        flexDirection: "column",
-        flexShrink: 0,
-      }
-    : containerTBStyle;
-
   return (
-    <div style={dynContainerStyle}>
-      {isLR && (
-        <div style={resizeHandleStyle} onMouseDown={onResizeStart} />
-      )}
+    <div style={containerTBStyle}>
       {/* Tab bar */}
       <div style={tabBarStyle}>
         {tabs.map((tab) => (
@@ -123,6 +199,24 @@ const resizeHandleStyle: React.CSSProperties = {
   cursor: "row-resize",
   background: "var(--border-subtle)",
   flexShrink: 0,
+};
+
+/* ── LR multi-panel ── */
+
+const panelRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "row",
+  flex: 1,
+  minHeight: 0,
+  overflow: "hidden",
+};
+
+const panelSlotStyle: React.CSSProperties = {
+  flex: "1 1 0",
+  minWidth: 0,
+  overflow: "auto",
+  display: "flex",
+  flexDirection: "column",
 };
 
 /* ── Shared styles ── */
