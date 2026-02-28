@@ -77,7 +77,7 @@ export default function MeshViewer({ meshes, style }: Props) {
           ],
           fov: 50,
           near: 0.1,
-          far: bounds.size * 10,
+          far: bounds.size * 100,
         }}
       >
         <ambientLight intensity={0.4} />

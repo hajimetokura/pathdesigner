@@ -1,6 +1,7 @@
 import { memo, useState, useEffect, useCallback } from "react";
 import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
+import NodeShell from "../components/NodeShell";
 import { useUpstreamData } from "../hooks/useUpstreamData";
 import { usePanelTabs } from "../contexts/PanelTabsContext";
 import MeshViewer from "../components/MeshViewer";
@@ -8,9 +9,9 @@ import BrepImportPanel from "../components/BrepImportPanel";
 import { fetchMeshData } from "../api";
 import type { BrepImportResult, ObjectMesh } from "../types";
 
-function PreviewNodeInner({ id }: NodeProps) {
+function PreviewNodeInner({ id, selected }: NodeProps) {
   const { setNodes } = useReactFlow();
-  const { openTab } = usePanelTabs();
+  const { openTab, updateTab } = usePanelTabs();
 
   const brepResult = useUpstreamData<BrepImportResult>(
     id,
@@ -24,8 +25,9 @@ function PreviewNodeInner({ id }: NodeProps) {
 
   // Fetch mesh data when brepResult changes
   useEffect(() => {
+    // Clear previous meshes immediately on any upstream change
+    setMeshes([]);
     if (!brepResult?.file_id) {
-      setMeshes([]);
       return;
     }
     let cancelled = false;
@@ -42,7 +44,7 @@ function PreviewNodeInner({ id }: NodeProps) {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [brepResult?.file_id]);
+  }, [brepResult]);
 
   // Pass-through brepResult to downstream
   useEffect(() => {
@@ -54,52 +56,63 @@ function PreviewNodeInner({ id }: NodeProps) {
   }, [id, brepResult, setNodes]);
 
   // Open side panel with full 3D view
+  const tabId = `preview-3d-${id}`;
   const handleExpand = useCallback(() => {
     if (!brepResult) return;
     openTab({
-      id: `preview-3d-${id}`,
+      id: tabId,
       label: "3D View",
       icon: "📦",
       content: <BrepImportPanel brepResult={brepResult} meshes={meshes} />,
     });
-  }, [id, brepResult, meshes, openTab]);
+  }, [tabId, brepResult, meshes, openTab]);
+
+  // Auto-update panel content when data changes
+  useEffect(() => {
+    if (!brepResult || meshes.length === 0) return;
+    updateTab({
+      id: tabId,
+      label: "3D View",
+      icon: "📦",
+      content: <BrepImportPanel brepResult={brepResult} meshes={meshes} />,
+    });
+  }, [tabId, brepResult, meshes, updateTab]);
 
   return (
-    <div style={{ background: "#1e1e1e", borderRadius: 8, padding: 8, width: 220 }}>
+    <NodeShell category="cad" selected={selected}>
       <LabeledHandle type="target" id={`${id}-brep`} label="brep" dataType="geometry" />
 
-      <div style={{ fontSize: 11, color: "#ccc", marginBottom: 4, fontWeight: 600 }}>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--text-primary)" }}>
         3D Preview
       </div>
 
       <div
-        style={{ width: 200, height: 150, borderRadius: 4, overflow: "hidden", background: "#111", cursor: brepResult ? "pointer" : "default" }}
+        className="nodrag nopan nowheel"
+        style={{ width: "100%", height: 150, borderRadius: "var(--radius-control)", overflow: "hidden", background: "var(--surface-bg)", cursor: brepResult ? "pointer" : "default" }}
         onClick={handleExpand}
-        onPointerDown={(e) => e.stopPropagation()}
-        onWheelCapture={(e) => e.stopPropagation()}
       >
         {!brepResult && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#666", fontSize: 11 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)", fontSize: 11 }}>
             Connect upstream node
           </div>
         )}
         {brepResult && loading && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#888", fontSize: 11 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-secondary)", fontSize: 11 }}>
             Loading...
           </div>
         )}
         {brepResult && error && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#f44", fontSize: 11 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--color-error)", fontSize: 11 }}>
             {error}
           </div>
         )}
         {brepResult && !loading && !error && meshes.length > 0 && (
-          <MeshViewer meshes={meshes} style={{ width: 200, height: 150 }} />
+          <MeshViewer meshes={meshes} style={{ width: "100%", height: 150 }} />
         )}
       </div>
 
       <LabeledHandle type="source" id={`${id}-out`} label="out" dataType="geometry" />
-    </div>
+    </NodeShell>
   );
 }
 
