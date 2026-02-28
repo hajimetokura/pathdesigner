@@ -15,6 +15,7 @@ import ToolpathGenNode from "./nodes/ToolpathGenNode";
 import CncCodeNode from "./nodes/CncCodeNode";
 import ToolpathPreviewNode from "./nodes/ToolpathPreviewNode";
 import DamNode from "./nodes/DamNode";
+import { PreviewNode } from "./nodes/PreviewNode";
 import DebugNode from "./nodes/DebugNode";
 
 interface NodeRegistryEntry {
@@ -28,6 +29,7 @@ const NODE_REGISTRY: Record<string, NodeRegistryEntry> = {
   aiCad: { component: AiCadNode, label: "AI CAD", category: "cad" },
   snippetDb: { component: SnippetDbNode, label: "Code Library", category: "cad" },
   codeNode: { component: CodeNode, label: "Code", category: "cad" },
+  preview: { component: PreviewNode, label: "3D Preview", category: "cad" },
   brepImport: { component: BrepImportNode, label: "BREP Import", category: "cad" },
   sheet: { component: SheetNode, label: "Sheet", category: "cam" },
   placement: { component: PlacementNode, label: "Placement", category: "cam" },

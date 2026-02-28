@@ -6,10 +6,8 @@ import {
   generateAiCadStream,
   executeAiCadCode,
   fetchAiCadProfiles,
-  fetchMeshData,
 } from "../api";
-import type { AiCadResult, AiCadRefineResult, ProfileInfo, ObjectMesh } from "../types";
-import BrepImportPanel from "../components/BrepImportPanel";
+import type { AiCadResult, AiCadRefineResult, ProfileInfo } from "../types";
 import AiCadPanel from "../components/AiCadPanel";
 import AiCadChatPanel from "../components/AiCadChatPanel";
 import { usePanelTabs } from "../contexts/PanelTabsContext";
@@ -25,7 +23,6 @@ export default function AiCadNode({ id, selected }: NodeProps) {
   const [stage, setStage] = useState("");
   const [profiles, setProfiles] = useState<ProfileInfo[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<string>("general");
-  const [meshes, setMeshes] = useState<ObjectMesh[]>([]);
   const { setNodes } = useReactFlow();
 
   // Load available profiles on mount
@@ -54,12 +51,6 @@ export default function AiCadNode({ id, selected }: NodeProps) {
           n.id === id ? { ...n, data: { ...n.data, brepResult: data } } : n,
         ),
       );
-      try {
-        const meshData = await fetchMeshData(data.file_id);
-        setMeshes(meshData.objects);
-      } catch {
-        // non-critical
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Generation failed");
       setStatus("error");
@@ -80,10 +71,6 @@ export default function AiCadNode({ id, selected }: NodeProps) {
             n.id === id ? { ...n, data: { ...n.data, brepResult: data } } : n,
           ),
         );
-        try {
-          const meshData = await fetchMeshData(data.file_id);
-          setMeshes(meshData.objects);
-        } catch {}
       } catch (e) {
         setError(e instanceof Error ? e.message : "Execution failed");
         setStatus("error");
@@ -107,10 +94,6 @@ export default function AiCadNode({ id, selected }: NodeProps) {
           n.id === id ? { ...n, data: { ...n.data, brepResult: updated } } : n,
         ),
       );
-      try {
-        const meshData = await fetchMeshData(refineResult.file_id);
-        setMeshes(meshData.objects);
-      } catch {}
     },
     [id, result, setNodes],
   );
@@ -132,16 +115,6 @@ export default function AiCadNode({ id, selected }: NodeProps) {
       ),
     });
   }, [id, result, selectedProfile, openTab, handleApplyRefinement]);
-
-  const handleView3D = useCallback(() => {
-    if (!result) return;
-    openTab({
-      id: `ai-cad-3d-${id}`,
-      label: "3D View",
-      icon: "📦",
-      content: <BrepImportPanel brepResult={result} meshes={meshes} />,
-    });
-  }, [id, result, meshes, openTab]);
 
   const handleViewCode = useCallback(() => {
     if (!result) return;
@@ -223,11 +196,6 @@ export default function AiCadNode({ id, selected }: NodeProps) {
             </div>
           ))}
           <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-            {meshes.length > 0 && (
-              <button onClick={handleView3D} style={viewBtnStyle}>
-                View 3D
-              </button>
-            )}
             <button onClick={handleViewCode} style={viewBtnStyle}>
               View Code
             </button>
