@@ -14,7 +14,8 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from nodes.brep_import import analyze_step_file
+from nodes.align import align_solids
+from nodes.brep_import import analyze_step_file, _analyze_solid
 from nodes.contour_extract import extract_contours
 from nodes.mesh_export import tessellate_step_file
 from nodes.operation_detector import detect_operations
@@ -34,6 +35,7 @@ from schemas import (
     PlacementItem, ValidatePlacementRequest, ValidatePlacementResponse,
     AutoNestingRequest, AutoNestingResponse,
     SbpZipRequest,
+    AlignPartsRequest,
     AiCadRequest, AiCadCodeRequest, AiCadResult,
     AiCadRefineRequest, AiCadRefineResult, ChatMessage,
     GenerationSummary, ModelInfo, ProfileInfo,
@@ -138,6 +140,45 @@ async def upload_step(file: UploadFile):
         objects=objects,
         object_count=len(objects),
     )
+
+
+@app.post("/api/align-parts", response_model=BrepImportResult)
+def align_parts_endpoint(req: AlignPartsRequest):
+    """Rotate assembled parts flat for CNC and re-analyze."""
+    from build123d import import_step, Compound
+    from build123d import export_step as bd_export_step
+
+    step_path = _get_uploaded_step_path(req.file_id)
+
+    try:
+        compound = import_step(str(step_path))
+        solids = list(compound.solids())
+        if not solids:
+            raise HTTPException(status_code=422, detail="No solids found")
+
+        aligned = align_solids(solids)
+
+        # Export aligned solids as new STEP
+        new_compound = Compound(children=aligned)
+        new_file_id = uuid.uuid4().hex[:12]
+        new_path = UPLOAD_DIR / f"{new_file_id}.step"
+        bd_export_step(new_compound, str(new_path))
+
+        # Re-analyze each aligned solid
+        objects = [
+            _analyze_solid(s, index=i, file_name="aligned.step")
+            for i, s in enumerate(aligned)
+        ]
+
+        return BrepImportResult(
+            file_id=new_file_id,
+            objects=objects,
+            object_count=len(objects),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Align failed: {e}")
 
 
 @app.post("/api/extract-contours", response_model=ContourExtractResult)

@@ -1,8 +1,13 @@
 """Tests for align node — flatten assembled solids for CNC."""
 
-import pytest
-from build123d import Box, Pos, Compound, Solid
+import tempfile
+from pathlib import Path
 
+import pytest
+from build123d import Box, Pos, Compound, Solid, export_step
+from fastapi.testclient import TestClient
+
+from main import app
 from nodes.align import align_solids
 
 
@@ -64,3 +69,55 @@ def test_compound_solids_from_furniture():
         assert bb.size.Z == pytest.approx(18, abs=1.0)
         # All should sit at Z=0
         assert bb.min.Z == pytest.approx(0, abs=0.1)
+
+
+# --- API Tests ---
+
+
+@pytest.fixture
+def client():
+    return TestClient(app)
+
+
+def _upload_furniture_step(client) -> str:
+    """Helper: create a furniture compound STEP, upload it, return file_id."""
+    t = 18
+    shelf = Box(400, 300, t)
+    side = Box(t, 300, 600)
+    top = Pos(200 + t/2, 0, 600 - t/2) * shelf
+    left = Pos(0, 0, 300) * side
+    compound = Compound(children=[left, top])
+
+    with tempfile.NamedTemporaryFile(suffix=".step", delete=False) as f:
+        export_step(compound, f.name)
+        step_bytes = Path(f.name).read_bytes()
+
+    resp = client.post(
+        "/api/upload-step",
+        files={"file": ("test.step", step_bytes, "application/octet-stream")},
+    )
+    assert resp.status_code == 200
+    return resp.json()["file_id"]
+
+
+def test_align_parts_endpoint(client):
+    """POST /api/align-parts should return re-analyzed flat parts."""
+    file_id = _upload_furniture_step(client)
+
+    resp = client.post("/api/align-parts", json={"file_id": file_id})
+    assert resp.status_code == 200
+
+    data = resp.json()
+    assert "file_id" in data
+    assert data["file_id"] != file_id  # New file_id for aligned STEP
+    assert len(data["objects"]) == 2
+
+    for obj in data["objects"]:
+        # All parts should have thickness ≈ 18mm (Z after alignment)
+        assert obj["bounding_box"]["z"] == pytest.approx(18, abs=1.0)
+
+
+def test_align_parts_file_not_found(client):
+    """Should return 404 for unknown file_id."""
+    resp = client.post("/api/align-parts", json={"file_id": "nonexistent"})
+    assert resp.status_code == 404
