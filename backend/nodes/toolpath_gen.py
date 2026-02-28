@@ -157,6 +157,8 @@ def generate_toolpath_from_operations(
             toolpaths.append(
                 Toolpath(
                     operation_id=assignment.operation_id,
+                    object_id=detected_op.object_id,
+                    contour_type="drill",
                     passes=drill_passes,
                     settings=assignment.settings,
                 )
@@ -200,6 +202,8 @@ def generate_toolpath_from_operations(
             toolpaths.append(
                 Toolpath(
                     operation_id=assignment.operation_id,
+                    object_id=detected_op.object_id,
+                    contour_type="pocket",
                     passes=all_passes,
                     settings=assignment.settings,
                 )
@@ -227,6 +231,8 @@ def generate_toolpath_from_operations(
             toolpaths.append(
                 Toolpath(
                     operation_id=assignment.operation_id,
+                    object_id=detected_op.object_id,
+                    contour_type=contour.type if contour.type in ("exterior", "interior") else "exterior",
                     passes=passes,
                     settings=assignment.settings,
                 )

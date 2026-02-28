@@ -372,6 +372,21 @@ export default function ToolpathPreviewPanel({
             <span>Tab count</span>
             <span>{stats.tabCount}</span>
           </div>
+          {/* Per-part breakdown */}
+          {stats.partBreakdown.map(({ objectId, types }) => (
+            <div key={objectId} style={{ marginTop: 6 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>{objectId}</div>
+              {types.map(({ contourType, passes, distance }) => (
+                <div key={contourType} style={{ ...summaryRow, paddingLeft: 8, fontSize: 11 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: CONTOUR_COLORS[contourType], flexShrink: 0 }} />
+                    {contourType}
+                  </span>
+                  <span>{passes}p / {distance.toFixed(0)}mm</span>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
 
         <div style={legendStyle}>
@@ -394,29 +409,66 @@ export default function ToolpathPreviewPanel({
   );
 }
 
+const CONTOUR_COLORS: Record<string, string> = {
+  exterior: "#00bcd4",
+  interior: "#4dd0e1",
+  pocket: "#9c27b0",
+  drill: "#ff9800",
+};
+
+interface PartTypeStats {
+  contourType: string;
+  passes: number;
+  distance: number;
+}
+
+interface PartBreakdown {
+  objectId: string;
+  types: PartTypeStats[];
+}
+
 function calcStats(result: ToolpathGenResult) {
   let totalPasses = 0;
   let totalDistance = 0;
   let tabCount = 0;
 
+  // Per-part, per-contour_type accumulator
+  const partMap = new Map<string, Map<string, { passes: number; distance: number }>>();
+
   for (const tp of result.toolpaths) {
+    const objId = tp.object_id || tp.operation_id;
+    const cType = tp.contour_type || "contour";
+    if (!partMap.has(objId)) partMap.set(objId, new Map());
+    const typeMap = partMap.get(objId)!;
+    if (!typeMap.has(cType)) typeMap.set(cType, { passes: 0, distance: 0 });
+    const acc = typeMap.get(cType)!;
+
     for (const pass of tp.passes) {
       totalPasses++;
+      acc.passes++;
       tabCount += pass.tabs.length;
       const pts = pass.path;
       for (let i = 1; i < pts.length; i++) {
         const dx = pts[i][0] - pts[i - 1][0];
         const dy = pts[i][1] - pts[i - 1][1];
-        totalDistance += Math.sqrt(dx * dx + dy * dy);
+        const d = Math.sqrt(dx * dx + dy * dy);
+        totalDistance += d;
+        acc.distance += d;
       }
     }
   }
+
+  const partBreakdown: PartBreakdown[] = [...partMap.entries()].map(([objectId, typeMap]) => ({
+    objectId,
+    types: [...typeMap.entries()].map(([contourType, s]) => ({ contourType, ...s })),
+  }));
 
   return {
     operationCount: result.toolpaths.length,
     totalPasses,
     totalDistance,
     tabCount,
+    partBreakdown,
   };
 }
 

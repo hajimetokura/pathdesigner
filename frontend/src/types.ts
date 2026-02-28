@@ -201,6 +201,8 @@ export interface ToolpathPass {
 
 export interface Toolpath {
   operation_id: string;
+  object_id: string;
+  contour_type: "exterior" | "interior" | "pocket" | "drill";
   passes: ToolpathPass[];
   settings?: MachiningSettings;
 }

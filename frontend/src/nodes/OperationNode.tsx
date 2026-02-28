@@ -129,12 +129,22 @@ export default function OperationNode({ id, selected }: NodeProps) {
   }, [upstream?.fileId]);
 
   // Re-sync downstream when upstream placements/sheet change (without re-detecting)
+  // Use JSON key to avoid infinite loops from object reference changes
+  const upstreamSyncKey = useMemo(() => {
+    if (!upstream) return null;
+    return JSON.stringify({
+      placements: upstream.placementResult.placements,
+      sheet: upstream.placementResult.sheet,
+      activeSheetId: upstream.activeSheetId,
+    });
+  }, [upstream]);
+
   useEffect(() => {
-    if (!upstream || !detected) return;
+    if (!upstream || !detected || !upstreamSyncKey) return;
     const { placements: upstreamPlacements, sheet: upstreamSheet, objects } = upstream.placementResult;
     syncToNodeData(detected, assignments, upstreamSheet, upstreamPlacements, objects);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [upstream?.placementResult, upstream?.activeSheetId]);
+  }, [upstreamSyncKey]);
 
   const handleToggleOp = useCallback(
     (opId: string) => {

@@ -224,15 +224,19 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
       {status === "blocked" && (
         <div style={blockedStyle}>
           <span style={{ fontWeight: 600 }}>Placement問題あり</span>
-          {error.split("\n").map((line, i) => (
-            <div key={i}>{line}</div>
-          ))}
+          <div style={scrollableListStyle}>
+            {error.split("\n").map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+          </div>
         </div>
       )}
 
       {status === "error" && (
-        <div style={{ color: "var(--color-error)", fontSize: 11, padding: "4px 0" }}>
-          {error}
+        <div style={scrollableListStyle}>
+          <div style={{ color: "var(--color-error)", fontSize: 11, padding: "4px 0" }}>
+            {error}
+          </div>
         </div>
       )}
 
@@ -247,19 +251,33 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
             {toolpathResult.toolpaths.length > 1 ? "s" : ""}
           </div>
           <div style={scrollableListStyle}>
-            {toolpathResult.toolpaths.map((tp) => (
-              <div key={tp.operation_id} style={detailStyle}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>
-                  {tp.operation_id}
+            {(() => {
+              // Group toolpaths by object_id
+              const groups = new Map<string, typeof toolpathResult.toolpaths>();
+              for (const tp of toolpathResult.toolpaths) {
+                const key = tp.object_id || tp.operation_id;
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key)!.push(tp);
+              }
+              return [...groups.entries()].map(([objId, tps]) => (
+                <div key={objId} style={detailStyle}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)", marginBottom: 2 }}>
+                    {objId}
+                  </div>
+                  {tps.map((tp, i) => (
+                    <div key={`${tp.operation_id}-${tp.contour_type}-${i}`} style={{ display: "flex", alignItems: "center", gap: 4, padding: "1px 0" }}>
+                      <span style={{ ...contourDotStyle, background: CONTOUR_COLORS[tp.contour_type] ?? "var(--text-muted)" }} />
+                      <span style={{ fontSize: 10, color: "var(--text-secondary)", minWidth: 48 }}>
+                        {tp.contour_type}
+                      </span>
+                      <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                        {tp.passes.length}p Z:{tp.passes[0]?.z_depth.toFixed(1)}{tp.passes.length > 1 ? `→${tp.passes[tp.passes.length - 1].z_depth.toFixed(1)}` : ""}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                  {tp.passes.length} passes
-                </div>
-                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
-                  Z: {tp.passes.map((p) => p.z_depth.toFixed(1)).join(" \u2192 ")}
-                </div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       )}
@@ -283,6 +301,20 @@ export default function ToolpathGenNode({ id, selected }: NodeProps) {
     </NodeShell>
   );
 }
+
+const CONTOUR_COLORS: Record<string, string> = {
+  exterior: "#00bcd4",
+  interior: "#4dd0e1",
+  pocket: "#9c27b0",
+  drill: "#ff9800",
+};
+
+const contourDotStyle: React.CSSProperties = {
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  flexShrink: 0,
+};
 
 /* --- Styles --- */
 

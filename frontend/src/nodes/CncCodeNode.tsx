@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { type NodeProps } from "@xyflow/react";
 import type {
   OutputResult,
@@ -28,7 +28,7 @@ interface UpstreamZipData {
 }
 
 export default function CncCodeNode({ id, selected }: NodeProps) {
-  const { openTab } = usePanelTabs();
+  const { openTab, updateTab } = usePanelTabs();
   const [zipLoading, setZipLoading] = useState(false);
 
   // Subscribe to upstream ToolpathGenNode's outputResult
@@ -124,6 +124,16 @@ export default function CncCodeNode({ id, selected }: NodeProps) {
     });
   }, [id, outputResult, handleExport, openTab]);
 
+  // Keep panel in sync when upstream data changes
+  useEffect(() => {
+    if (!outputResult) return;
+    updateTab({
+      id: `cnc-code-${id}`,
+      label: "CNC Code",
+      icon: "\ud83d\udcc4",
+      content: <CncCodePanel outputResult={outputResult} onExport={handleExport} />,
+    });
+  }, [id, outputResult, handleExport, updateTab]);
 
   return (
     <NodeShell category="cam" selected={selected}>

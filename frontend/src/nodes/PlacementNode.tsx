@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type NodeProps, useReactFlow } from "@xyflow/react";
 import type {
   BrepImportResult,
@@ -68,12 +68,14 @@ export default function PlacementNode({ id, selected }: NodeProps) {
   }, [brepResult, sheetSettings]);
 
   // Re-sync downstream when sheet settings change (after initial setup)
+  // Use JSON key to avoid infinite loops from object reference changes
+  const sheetSyncKey = useMemo(() => sheetSettings ? JSON.stringify(sheetSettings) : null, [sheetSettings]);
   useEffect(() => {
     if (brepResult && sheetSettings && placements.length > 0) {
       syncToNodeData(placements, brepResult, sheetSettings);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheetSettings]);
+  }, [sheetSyncKey]);
 
   const handleActiveSheetChange = useCallback(
     (sheetId: string) => {
@@ -86,10 +88,11 @@ export default function PlacementNode({ id, selected }: NodeProps) {
   );
 
   const handlePlacementsChange = useCallback(
-    async (updated: PlacementItem[]) => {
+    async (updated: PlacementItem[], newSheetId?: string) => {
       setPlacements(updated);
+      if (newSheetId) setActiveSheetId(newSheetId);
       if (brepResult && sheetSettings) {
-        syncToNodeData(updated, brepResult, sheetSettings);
+        syncToNodeData(updated, brepResult, sheetSettings, newSheetId);
 
         // Validate (with outlines for collision detection)
         const bbs: Record<string, { x: number; y: number; z: number }> = {};

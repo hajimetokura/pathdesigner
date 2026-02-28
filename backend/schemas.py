@@ -55,6 +55,13 @@ class AlignPartsRequest(BaseModel):
     file_id: str
 
 
+# --- Merge BREPs ---
+
+
+class MergeBRepsRequest(BaseModel):
+    file_ids: list[str]
+
+
 # --- Node 2: Contour Extract ---
 
 
@@ -319,6 +326,8 @@ class ToolpathPass(BaseModel):
 
 class Toolpath(BaseModel):
     operation_id: str
+    object_id: str = ""
+    contour_type: Literal["exterior", "interior", "pocket", "drill"] = "exterior"
     passes: list[ToolpathPass]
     settings: MachiningSettings | None = None
 
