@@ -24,8 +24,9 @@ function PreviewNodeInner({ id }: NodeProps) {
 
   // Fetch mesh data when brepResult changes
   useEffect(() => {
+    // Clear previous meshes immediately on any upstream change
+    setMeshes([]);
     if (!brepResult?.file_id) {
-      setMeshes([]);
       return;
     }
     let cancelled = false;
@@ -42,7 +43,7 @@ function PreviewNodeInner({ id }: NodeProps) {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [brepResult?.file_id]);
+  }, [brepResult]);
 
   // Pass-through brepResult to downstream
   useEffect(() => {
