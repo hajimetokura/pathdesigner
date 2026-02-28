@@ -726,8 +726,35 @@ def test_list_profiles_info():
     """list_profiles_info() returns all available profiles."""
     client = LLMClient(api_key="test-key")
     profiles = client.list_profiles_info()
-    assert len(profiles) == 2
+    assert len(profiles) == 4
     ids = [p["id"] for p in profiles]
     assert "general" in ids
     assert "2d" in ids
+    assert "sketch_cutout" in ids
+    assert "sketch_3d" in ids
     assert all("name" in p and "description" in p for p in profiles)
+
+
+def test_sketch_profiles_exist():
+    """Sketch profiles are registered in _PROFILES."""
+    from llm_client import _PROFILES
+    assert "sketch_cutout" in _PROFILES
+    assert "sketch_3d" in _PROFILES
+    assert "cheatsheet" in _PROFILES["sketch_cutout"]
+    assert "cheatsheet" in _PROFILES["sketch_3d"]
+
+
+def test_sketch_cutout_profile_content():
+    """sketch_cutout profile focuses on 2.5D / extrude patterns."""
+    from llm_client import _build_system_prompt
+    prompt = _build_system_prompt("sketch_cutout")
+    assert "スケッチ" in prompt or "sketch" in prompt.lower()
+    assert "extrude" in prompt.lower()
+
+
+def test_sketch_3d_profile_content():
+    """sketch_3d profile includes revolve/loft for 3D shapes."""
+    from llm_client import _build_system_prompt
+    prompt = _build_system_prompt("sketch_3d")
+    assert "revolve" in prompt.lower()
+    assert "loft" in prompt.lower() or "extrude" in prompt.lower()
