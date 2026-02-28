@@ -35,7 +35,7 @@ from schemas import (
     PlacementItem, ValidatePlacementRequest, ValidatePlacementResponse,
     AutoNestingRequest, AutoNestingResponse,
     SbpZipRequest,
-    AlignPartsRequest,
+    AlignPartsRequest, MergeBRepsRequest,
     AiCadRequest, AiCadCodeRequest, AiCadResult,
     AiCadRefineRequest, AiCadRefineResult, ChatMessage,
     GenerationSummary, ModelInfo, ProfileInfo,
@@ -179,6 +179,44 @@ def align_parts_endpoint(req: AlignPartsRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Align failed: {e}")
+
+
+@app.post("/api/merge-breps", response_model=BrepImportResult)
+def merge_breps_endpoint(req: MergeBRepsRequest):
+    """Merge multiple STEP files into one combined file."""
+    from build123d import import_step, Compound
+    from build123d import export_step as bd_export_step
+
+    if len(req.file_ids) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 file_ids required")
+
+    all_solids = []
+    all_file_names = []
+    for fid in req.file_ids:
+        step_path = _get_uploaded_step_path(fid)
+        compound = import_step(str(step_path))
+        solids = list(compound.solids())
+        all_solids.extend(solids)
+        all_file_names.append(step_path.stem)
+
+    if not all_solids:
+        raise HTTPException(status_code=422, detail="No solids found in provided files")
+
+    merged_compound = Compound(children=all_solids)
+    new_file_id = uuid.uuid4().hex[:12]
+    new_path = UPLOAD_DIR / f"{new_file_id}.step"
+    bd_export_step(merged_compound, str(new_path))
+
+    objects = [
+        _analyze_solid(s, index=i, file_name="merged.step")
+        for i, s in enumerate(all_solids)
+    ]
+
+    return BrepImportResult(
+        file_id=new_file_id,
+        objects=objects,
+        object_count=len(objects),
+    )
 
 
 @app.post("/api/extract-contours", response_model=ContourExtractResult)

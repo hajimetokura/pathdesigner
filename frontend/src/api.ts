@@ -80,6 +80,14 @@ export async function alignParts(fileId: string): Promise<BrepImportResult> {
   );
 }
 
+export async function mergeBReps(fileIds: string[]): Promise<BrepImportResult> {
+  return requestJson<BrepImportResult>(
+    `${API_BASE_URL}/api/merge-breps`,
+    jsonPost({ file_ids: fileIds }),
+    "Merge failed",
+  );
+}
+
 export async function extractContours(
   fileId: string,
   objectId: string,

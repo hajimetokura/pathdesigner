@@ -18,6 +18,7 @@ import ToolpathPreviewNode from "./nodes/ToolpathPreviewNode";
 import DamNode from "./nodes/DamNode";
 import { PreviewNode } from "./nodes/PreviewNode";
 import DebugNode from "./nodes/DebugNode";
+import MergeNode from "./nodes/MergeNode";
 
 interface NodeRegistryEntry {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,6 +41,7 @@ const NODE_REGISTRY: Record<string, NodeRegistryEntry> = {
   toolpathGen: { component: ToolpathGenNode, label: "Toolpath Gen", category: "cam" },
   cncCode: { component: CncCodeNode, label: "CNC Code", category: "cam" },
   toolpathPreview: { component: ToolpathPreviewNode, label: "Toolpath Preview", category: "cam" },
+  merge: { component: MergeNode, label: "Merge", category: "utility" },
   dam: { component: DamNode, label: "Dam", category: "utility" },
   debug: { component: DebugNode, label: "Debug", category: "utility" },
 };
