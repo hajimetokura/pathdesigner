@@ -211,6 +211,144 @@ with BuildPart() as bp:
 result = bp.part
 """
 
+_SKETCH_CUTOUT_CHEATSHEET = """\
+
+═══ SKETCH → 板材切削（2.5D）プロファイル ═══
+
+CORE CONCEPT: ユーザーの手描きスケッチ画像から、CNC切削用の2.5D形状を生成する。
+板材から切り出す形状（外形線・穴・ポケット）を忠実に再現する。
+
+KEY RULES:
+- スケッチの輪郭を忠実にトレースし、build123dの2Dプリミティブで再現
+- 厚み（Z方向）は extrude のみ使用（2.5D加工）
+- 丸みを帯びた角は RectangleRounded や fillet で表現
+- フリーフォーム形状は Spline + BuildLine + make_face() で構築
+- align=(Align.MIN, Align.MIN, Align.MIN) を使用してXY原点を左下に配置
+
+═══ QUICK REFERENCE ═══
+
+2D: Rectangle(w,h) | RectangleRounded(w,h,r) | Circle(r) | Polygon(*pts)
+    SlotOverall(w,h) | Ellipse(rx,ry) | RegularPolygon(r,n)
+1D: Line(p1,p2) | Polyline(*pts) | Spline(*pts) | CenterArc(c,r,start,arc)
+    RadiusArc(p1,p2,r) | make_face() — REQUIRED after BuildLine
+Ops: extrude(amount=d) | extrude(amount=-d, mode=Mode.SUBTRACT)
+     offset(amount=d) | mirror(about=Plane.YZ)
+Place: Pos(x,y,z) * shape | Rot(0,0,45) * shape
+Pattern: Locations(pts) | GridLocations(xs,ys,xn,yn) | PolarLocations(r,n)
+
+═══ PITFALLS ═══
+
+1. スケッチの曲線は Spline で近似する（直線化しない）
+2. BuildLine は閉じたループを形成すること（始点＝終点）
+3. make_face() を忘れると extrude できない
+4. 穴は Mode.SUBTRACT で別の extrude を行う
+5. DEFAULT ALIGNMENT IS CENTER — align=(Align.MIN, Align.MIN, Align.MIN) 推奨
+6. Builder result: bp.part (NOT bp or part)
+7. thickness 変数を定義して extrude(amount=thickness) とする
+
+═══ PATTERNS ═══
+
+# スケッチから有機的な形状を切り出す:
+thickness = 12
+with BuildPart() as bp:
+    with BuildSketch():
+        with BuildLine():
+            Spline((0, 0), (30, 40), (80, 50), (120, 30), (150, 0))
+            Line((150, 0), (150, -80))
+            Line((150, -80), (0, -80))
+            Line((0, -80), (0, 0))
+        make_face()
+    extrude(amount=thickness)
+result = bp.part
+
+# 角丸の板に穴を開ける:
+thickness = 18
+with BuildPart() as bp:
+    with BuildSketch():
+        RectangleRounded(200, 120, radius=15)
+        with Locations((50, 0), (-50, 0)):
+            Circle(10, mode=Mode.SUBTRACT)
+    extrude(amount=thickness)
+result = bp.part
+"""
+
+_SKETCH_3D_CHEATSHEET = """\
+
+═══ SKETCH → 立体物（3D）プロファイル ═══
+
+CORE CONCEPT: ユーザーの手描きスケッチ画像から、3D立体形状を生成する。
+押し出し（extrude）、回転体（revolve）、ロフト（loft）等を組み合わせて形状を構築する。
+スケッチが示す形状の意図（器、ボトル、ハンドル等）を読み取り、適切な3D手法を選択する。
+
+KEY RULES:
+- スケッチの側面シルエットを断面プロファイルとして使用
+- 回転対称な形状（カップ、ボトル、皿等）は revolve を使用
+- 直線的な形状は extrude を使用
+- 断面変化がある形状は loft を使用
+- 曲面はフィレット（fillet）で表現
+
+═══ QUICK REFERENCE ═══
+
+3D: Box(l,w,h) | Cylinder(r,h) | Cone(r1,r2,h) | Sphere(r) | Torus(R,r)
+2D: Rectangle(w,h) | RectangleRounded(w,h,r) | Circle(r) | Polygon(*pts)
+1D: Line(p1,p2) | Polyline(*pts) | Spline(*pts) | CenterArc(c,r,start,arc)
+    RadiusArc(p1,p2,r) | make_face()
+Ops: extrude(amount=d) | revolve(axis=Axis.Y) | loft() | sweep()
+     fillet(edges,r) | chamfer(edges,l) | offset(amount=-t, openings=f)
+Bool: A - B (subtract) | A + B (union) | A & B (intersect)
+Place: Pos(x,y,z) * shape | Rot(0,0,45) * shape
+Plane: Plane.XY | Plane.XZ | Plane.XY.offset(20)
+Select: .sort_by(Axis.Z)[-1] (top) | .group_by(Axis.Z)[-1] (top group)
+        .filter_by(GeomType.CIRCLE) (circular)
+
+═══ PITFALLS ═══
+
+1. revolve の断面プロファイルは回転軸の片側のみに配置すること
+2. loft に渡すスケッチは上から順番に配置（Plane.XY.offset(z)）
+3. fillet/chamfer は BuildPart 内でのみ使用
+4. Spline で滑らかな断面を作り、revolve で回転体にする
+5. offset(openings=face) でシェル化（中空化）する
+6. Builder result: bp.part (NOT bp or part)
+
+═══ PATTERNS ═══
+
+# スケッチの断面から回転体（カップ）を作る:
+with BuildPart() as bp:
+    with BuildSketch(Plane.XZ):
+        with BuildLine():
+            Polyline((30, 0), (35, 80), (40, 100))
+            Line((40, 100), (0, 100))
+            Line((0, 100), (0, 0))
+            Line((0, 0), (30, 0))
+        make_face()
+    revolve(axis=Axis.Z)
+    top = bp.faces().sort_by(Axis.Z)[-1]
+    offset(amount=-3, openings=top)
+result = bp.part
+
+# スケッチから押し出し + フィレットで丸みのある立体:
+with BuildPart() as bp:
+    with BuildSketch():
+        with BuildLine():
+            Spline((0, 0), (20, 30), (50, 40), (80, 30), (100, 0))
+            Line((100, 0), (0, 0))
+        make_face()
+    extrude(amount=50)
+    fillet(bp.edges().filter_by(Axis.Z), radius=5)
+result = bp.part
+
+# 断面のロフト（ボトル状）:
+with BuildPart() as bp:
+    with BuildSketch(Plane.XY):
+        Circle(30)
+    with BuildSketch(Plane.XY.offset(60)):
+        Circle(15)
+    with BuildSketch(Plane.XY.offset(80)):
+        Circle(10)
+    loft()
+result = bp.part
+"""
+
 _PROFILES: dict[str, dict] = {
     "general": {
         "name": "汎用",
@@ -221,6 +359,16 @@ _PROFILES: dict[str, dict] = {
         "name": "2D・板材加工",
         "description": "2D切り抜き・板材・ポケット・テキスト彫刻",
         "cheatsheet": _2D_CHEATSHEET,
+    },
+    "sketch_cutout": {
+        "name": "スケッチ → 板材切削",
+        "description": "手描きスケッチからCNC切削用の2.5D形状を生成",
+        "cheatsheet": _SKETCH_CUTOUT_CHEATSHEET,
+    },
+    "sketch_3d": {
+        "name": "スケッチ → 立体物",
+        "description": "手描きスケッチから押し出しや回転体で3D形状を生成",
+        "cheatsheet": _SKETCH_3D_CHEATSHEET,
     },
 }
 

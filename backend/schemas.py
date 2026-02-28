@@ -518,6 +518,16 @@ class AiCadRefineResult(BaseModel):
     ai_message: str
 
 
+# ── Sketch to BREP ─────────────────────────────────────────────────────────────
+
+
+class SketchToBrepRequest(BaseModel):
+    """Request to convert a hand-drawn sketch image to a 3D BREP model."""
+    image_base64: str
+    prompt: str = ""
+    profile: str = "sketch_cutout"
+
+
 # ── Snippet DB ────────────────────────────────────────────────────────────────
 
 class SnippetSaveRequest(BaseModel):

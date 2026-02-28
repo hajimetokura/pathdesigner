@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useCallback, useRef } from "react";
+import { memo, useState, useEffect, useRef } from "react";
 import { type NodeProps, useReactFlow } from "@xyflow/react";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";

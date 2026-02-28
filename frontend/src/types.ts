@@ -336,6 +336,22 @@ export interface SnippetSaveRequest {
   source_generation_id?: string;
 }
 
+/** Sketch types */
+
+export interface Stroke {
+  points: [number, number][];
+  color: string;
+  width: number;
+  tool: "pen" | "eraser";
+}
+
+export interface SketchData {
+  image_base64: string;
+  strokes: Stroke[];
+  canvas_width: number;
+  canvas_height: number;
+}
+
 /** SnippetDbNode の node data */
 export interface SnippetDbNodeData extends Record<string, unknown> {
   outputResult: AiCadResult | null;

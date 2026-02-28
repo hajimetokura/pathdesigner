@@ -28,6 +28,7 @@
   --handle-geometry: #4a90d9;
   --handle-settings: #66bb6a;
   --handle-toolpath: #ff9800;
+  --handle-sketch: #e91e63;
   --handle-generic: #9e9e9e;
 
   --color-accent: #4a90d9;
@@ -71,6 +72,7 @@
   --handle-geometry: #4a90d9;
   --handle-settings: #66bb6a;
   --handle-toolpath: #ff9800;
+  --handle-sketch: #e91e63;
   --handle-generic: #9e9e9e;
 
   --color-accent: #4a90d9;
@@ -114,6 +116,7 @@
   --handle-geometry: #268bd2; /* blue */
   --handle-settings: #859900; /* green */
   --handle-toolpath: #cb4b16; /* orange */
+  --handle-sketch: #d33682;   /* magenta */
   --handle-generic: #839496;  /* base0 */
 
   --color-accent: #268bd2;   /* blue */

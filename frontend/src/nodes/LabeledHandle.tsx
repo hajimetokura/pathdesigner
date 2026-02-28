@@ -6,6 +6,7 @@ const handleColors: Record<string, string> = {
   geometry: "var(--handle-geometry)",
   settings: "var(--handle-settings)",
   toolpath: "var(--handle-toolpath)",
+  sketch: "var(--handle-sketch)",
   generic: "var(--handle-generic)",
 };
 
@@ -14,6 +15,7 @@ const handleIcons: Record<string, string> = {
   geometry: "⬡",   // hexagon — 3D shape
   settings: "⚙",   // gear
   toolpath: "⤳",   // squiggly arrow — path
+  sketch: "✏",     // pencil — freehand sketch
   generic: "○",
 };
 

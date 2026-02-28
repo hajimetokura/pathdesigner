@@ -445,3 +445,58 @@ export async function executeSnippet(id: string): Promise<AiCadResult> {
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
+
+// ── Sketch to BREP ───────────────────────────────────────────────────────────
+
+export async function sketchToBrepStream(
+  imageBase64: string,
+  prompt: string,
+  profile: string,
+  onStage?: (event: AiCadStageEvent) => void,
+): Promise<AiCadResult> {
+  const response = await fetch(`${API_BASE_URL}/api/sketch-to-brep`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify({ image_base64: imageBase64, prompt, profile }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Sketch to BREP failed: ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("No response body");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: AiCadResult | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    let eventType = "";
+    for (const line of lines) {
+      if (line.startsWith("event: ")) {
+        eventType = line.slice(7).trim();
+      } else if (line.startsWith("data: ")) {
+        const data = JSON.parse(line.slice(6));
+        if (eventType === "stage" && onStage) {
+          onStage(data);
+        } else if (eventType === "result") {
+          result = data;
+        } else if (eventType === "error") {
+          throw new Error(data.message);
+        }
+        eventType = "";
+      }
+    }
+  }
+
+  if (!result) throw new Error("No result received");
+  return result;
+}
