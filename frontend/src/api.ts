@@ -72,6 +72,14 @@ export async function uploadStepFile(file: File): Promise<BrepImportResult> {
   );
 }
 
+export async function alignParts(fileId: string): Promise<BrepImportResult> {
+  return requestJson<BrepImportResult>(
+    `${API_BASE_URL}/api/align-parts`,
+    jsonPost({ file_id: fileId }),
+    "Align failed",
+  );
+}
+
 export async function extractContours(
   fileId: string,
   objectId: string,
