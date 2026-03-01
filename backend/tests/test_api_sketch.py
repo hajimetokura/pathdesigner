@@ -1,4 +1,4 @@
-"""Integration tests for /api/sketch-to-brep endpoint."""
+"""Integration tests for /ai-cad/generate with sketch (image) input."""
 
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -29,12 +29,13 @@ def _mock_objects():
     )]
 
 
-def test_sketch_to_brep_returns_sse_stages():
-    """POST /api/sketch-to-brep returns SSE stream with stage and result events."""
+def test_generate_with_image_returns_sse_stages():
+    """POST /ai-cad/generate with image_base64 returns SSE stream with stage and result events."""
 
     mock_objects = _mock_objects()
 
-    async def mock_pipeline(prompt, *, image_base64=None, profile="general", on_stage=None):
+    async def mock_pipeline(prompt, *, image_base64=None, profile="general",
+                            coder_model=None, on_stage=None, on_detail=None):
         if on_stage:
             await on_stage("designing")
             await on_stage("coding")
@@ -54,10 +55,10 @@ def test_sketch_to_brep_returns_sse_stages():
 
         client = TestClient(app)
         response = client.post(
-            "/api/sketch-to-brep",
+            "/ai-cad/generate",
             json={
-                "image_base64": "data:image/png;base64,iVBORw0KGgo=",
                 "prompt": "四角い板",
+                "image_base64": "data:image/png;base64,iVBORw0KGgo=",
                 "profile": "sketch_cutout",
             },
             headers={"Accept": "text/event-stream"},
@@ -69,34 +70,17 @@ def test_sketch_to_brep_returns_sse_stages():
         assert '"designing"' in text
         assert "event: result" in text
 
-        # Verify generate_pipeline was called with sketch preamble + user prompt
-        # and correct profile and image_base64
-        # (mock_pipeline captures these via closure — we just check it ran)
 
-
-def test_sketch_to_brep_missing_image():
-    """POST /api/sketch-to-brep with empty image_base64 returns SSE error."""
-    client = TestClient(app)
-    response = client.post(
-        "/api/sketch-to-brep",
-        json={
-            "image_base64": "",
-            "prompt": "test",
-        },
-    )
-    assert response.status_code == 200  # SSE always 200
-    assert "event: error" in response.text
-
-
-def test_sketch_to_brep_prompt_includes_preamble():
-    """Verify the prompt sent to LLM includes sketch-specific preamble."""
+def test_generate_with_image_includes_preamble():
+    """Verify the prompt sent to LLM includes sketch-specific preamble when image is present."""
     mock_objects = _mock_objects()
-    captured_prompt = {}
+    captured = {}
 
-    async def mock_pipeline(prompt, *, image_base64=None, profile="general", on_stage=None):
-        captured_prompt["prompt"] = prompt
-        captured_prompt["image_base64"] = image_base64
-        captured_prompt["profile"] = profile
+    async def mock_pipeline(prompt, *, image_base64=None, profile="general",
+                            coder_model=None, on_stage=None, on_detail=None):
+        captured["prompt"] = prompt
+        captured["image_base64"] = image_base64
+        captured["profile"] = profile
         if on_stage:
             await on_stage("executing")
         return "result = Box(10, 10, 10)", mock_objects, b"STEP"
@@ -113,25 +97,26 @@ def test_sketch_to_brep_prompt_includes_preamble():
 
         client = TestClient(app)
         client.post(
-            "/api/sketch-to-brep",
+            "/ai-cad/generate",
             json={
-                "image_base64": "data:image/png;base64,abc123",
                 "prompt": "丸い皿",
+                "image_base64": "data:image/png;base64,abc123",
                 "profile": "sketch_3d",
             },
         )
 
-    assert "スケッチ" in captured_prompt["prompt"]
-    assert "丸い皿" in captured_prompt["prompt"]
-    assert captured_prompt["image_base64"] == "data:image/png;base64,abc123"
-    assert captured_prompt["profile"] == "sketch_3d"
+    assert "スケッチ" in captured["prompt"]
+    assert "丸い皿" in captured["prompt"]
+    assert captured["image_base64"] == "data:image/png;base64,abc123"
+    assert captured["profile"] == "sketch_3d"
 
 
-def test_sketch_to_brep_file_id_prefix():
-    """Result file_id starts with 'sketch-'."""
+def test_generate_with_image_file_id_prefix():
+    """Result file_id starts with 'sketch-' when image is provided."""
     mock_objects = _mock_objects()
 
-    async def mock_pipeline(prompt, *, image_base64=None, profile="general", on_stage=None):
+    async def mock_pipeline(prompt, *, image_base64=None, profile="general",
+                            coder_model=None, on_stage=None, on_detail=None):
         if on_stage:
             await on_stage("executing")
         return "result = Box(10, 10, 10)", mock_objects, b"STEP"
@@ -148,15 +133,14 @@ def test_sketch_to_brep_file_id_prefix():
 
         client = TestClient(app)
         response = client.post(
-            "/api/sketch-to-brep",
+            "/ai-cad/generate",
             json={
-                "image_base64": "data:image/png;base64,abc123",
                 "prompt": "",
+                "image_base64": "data:image/png;base64,abc123",
             },
         )
 
     text = response.text
-    # Parse the result event
     for line in text.split("\n"):
         if line.startswith("data: ") and "file_id" in line:
             data = json.loads(line[6:])
@@ -164,3 +148,74 @@ def test_sketch_to_brep_file_id_prefix():
             break
     else:
         pytest.fail("No result event with file_id found")
+
+
+def test_generate_text_only_file_id_prefix():
+    """Result file_id starts with 'ai-cad-' when no image is provided."""
+    mock_objects = _mock_objects()
+
+    async def mock_pipeline(prompt, *, image_base64=None, profile="general",
+                            coder_model=None, on_stage=None, on_detail=None):
+        if on_stage:
+            await on_stage("executing")
+        return "result = Box(10, 10, 10)", mock_objects, b"STEP"
+
+    with patch("main._get_llm") as mock_get_llm, \
+         patch("main._get_db") as mock_get_db:
+        mock_llm = MagicMock()
+        mock_llm.generate_pipeline = mock_pipeline
+        mock_get_llm.return_value = mock_llm
+
+        mock_db = AsyncMock()
+        mock_db.save_generation = AsyncMock(return_value="gen-1")
+        mock_get_db.return_value = mock_db
+
+        client = TestClient(app)
+        response = client.post(
+            "/ai-cad/generate",
+            json={"prompt": "円柱を作って"},
+        )
+
+    text = response.text
+    for line in text.split("\n"):
+        if line.startswith("data: ") and "file_id" in line:
+            data = json.loads(line[6:])
+            assert data["file_id"].startswith("ai-cad-")
+            break
+    else:
+        pytest.fail("No result event with file_id found")
+
+
+def test_generate_with_coder_model():
+    """Verify coder_model is passed through to generate_pipeline."""
+    mock_objects = _mock_objects()
+    captured = {}
+
+    async def mock_pipeline(prompt, *, image_base64=None, profile="general",
+                            coder_model=None, on_stage=None, on_detail=None):
+        captured["coder_model"] = coder_model
+        if on_stage:
+            await on_stage("executing")
+        return "result = Box(10, 10, 10)", mock_objects, b"STEP"
+
+    with patch("main._get_llm") as mock_get_llm, \
+         patch("main._get_db") as mock_get_db:
+        mock_llm = MagicMock()
+        mock_llm.generate_pipeline = mock_pipeline
+        mock_get_llm.return_value = mock_llm
+
+        mock_db = AsyncMock()
+        mock_db.save_generation = AsyncMock(return_value="gen-1")
+        mock_get_db.return_value = mock_db
+
+        client = TestClient(app)
+        client.post(
+            "/ai-cad/generate",
+            json={
+                "prompt": "テスト",
+                "image_base64": "data:image/png;base64,abc123",
+                "coder_model": "deepseek/deepseek-r1",
+            },
+        )
+
+    assert captured["coder_model"] == "deepseek/deepseek-r1"
