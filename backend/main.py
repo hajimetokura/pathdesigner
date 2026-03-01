@@ -39,7 +39,6 @@ from schemas import (
     AiCadRequest, AiCadCodeRequest, AiCadResult,
     AiCadRefineRequest, AiCadRefineResult, ChatMessage,
     GenerationSummary, ModelInfo, ProfileInfo,
-    SketchToBrepRequest,
     SnippetSaveRequest, SnippetInfo, SnippetListResponse,
 )
 
@@ -547,26 +546,57 @@ def get_ai_cad_profiles():
     return _get_llm().list_profiles_info()
 
 
+_SKETCH_PREAMBLE = (
+    "以下はユーザーの手描きスケッチ画像です。"
+    "この形状を忠実にbuild123dコードに変換してください。"
+)
+
+
 @app.post("/ai-cad/generate")
 async def ai_cad_generate(req: AiCadRequest):
     """Generate 3D model from text/image prompt via LLM pipeline (SSE stream)."""
     llm = _get_llm()
 
     async def event_stream():
-        stage_queue: asyncio.Queue[str | None] = asyncio.Queue()
+        # Build prompt — auto-prepend sketch preamble when image is present
+        full_prompt = req.prompt
+        if req.image_base64:
+            full_prompt = _SKETCH_PREAMBLE
+            if req.prompt:
+                full_prompt += f"\n\nユーザーの補足: {req.prompt}"
+
+        # Validate: need either prompt text or image
+        if not full_prompt.strip() and not req.image_base64:
+            data = json.dumps({"message": "prompt or image_base64 is required"})
+            yield f"event: error\ndata: {data}\n\n"
+            return
+
+        event_queue: asyncio.Queue[tuple[str, str, str] | None] = asyncio.Queue()
 
         async def queue_stage(stage: str):
-            await stage_queue.put(stage)
+            messages = {
+                "designing": "設計中...",
+                "coding": "コーディング中...",
+                "reviewing": "レビュー中...",
+                "executing": "実行中...",
+                "retrying": "リトライ中...",
+            }
+            await event_queue.put(("stage", stage, messages.get(stage, stage)))
+
+        async def queue_detail(key: str, value: str):
+            await event_queue.put(("detail", key, value))
 
         result_holder: dict = {}
 
         async def run_pipeline():
             try:
                 code, objects, step_bytes = await llm.generate_pipeline(
-                    req.prompt,
+                    full_prompt,
                     image_base64=req.image_base64,
                     profile=req.profile,
+                    coder_model=req.coder_model,
                     on_stage=queue_stage,
+                    on_detail=queue_detail,
                 )
                 result_holder["code"] = code
                 result_holder["objects"] = objects
@@ -574,24 +604,21 @@ async def ai_cad_generate(req: AiCadRequest):
             except Exception as e:
                 result_holder["error"] = str(e)
             finally:
-                await stage_queue.put(None)  # sentinel
+                await event_queue.put(None)  # sentinel
 
         task = asyncio.create_task(run_pipeline())
 
-        messages = {
-            "designing": "設計中...",
-            "coding": "コーディング中...",
-            "reviewing": "レビュー中...",
-            "executing": "実行中...",
-            "retrying": "リトライ中...",
-        }
-
         while True:
-            stage = await stage_queue.get()
-            if stage is None:
+            event = await event_queue.get()
+            if event is None:
                 break
-            data = json.dumps({"stage": stage, "message": messages.get(stage, stage)})
-            yield f"event: stage\ndata: {data}\n\n"
+            event_type, key, value = event
+            if event_type == "stage":
+                data = json.dumps({"stage": key, "message": value})
+                yield f"event: stage\ndata: {data}\n\n"
+            elif event_type == "detail":
+                data = json.dumps({"key": key, "value": value})
+                yield f"event: detail\ndata: {data}\n\n"
 
         await task
 
@@ -604,9 +631,10 @@ async def ai_cad_generate(req: AiCadRequest):
         objects = result_holder["objects"]
         step_bytes = result_holder["step_bytes"]
 
-        # Save STEP + generation (same logic as before)
+        # Save STEP + generation
         db = await _get_db()
-        file_id = f"ai-cad-{uuid.uuid4().hex[:8]}"
+        prefix = "sketch" if req.image_base64 else "ai-cad"
+        file_id = f"{prefix}-{uuid.uuid4().hex[:8]}"
         brep_result = BrepImportResult(
             file_id=file_id, objects=objects, object_count=len(objects),
         )
@@ -621,7 +649,7 @@ async def ai_cad_generate(req: AiCadRequest):
             (UPLOAD_DIR / f"{file_id}.step").write_bytes(step_bytes)
 
         gen_id = await db.save_generation(
-            prompt=req.prompt, code=code,
+            prompt=full_prompt, code=code,
             result_json=brep_result.model_dump_json(),
             model_used="pipeline", status="success",
             step_path=step_path,
@@ -630,7 +658,7 @@ async def ai_cad_generate(req: AiCadRequest):
         result = AiCadResult(
             file_id=file_id, objects=objects, object_count=len(objects),
             generated_code=code, generation_id=gen_id,
-            prompt_used=req.prompt, model_used="pipeline",
+            prompt_used=full_prompt, model_used="pipeline",
         )
         data = result.model_dump_json()
         yield f"event: result\ndata: {data}\n\n"
@@ -827,120 +855,6 @@ async def ai_cad_delete(gen_id: str):
     await db.delete_generation(gen_id)
     return {"deleted": gen_id}
 
-
-# ── Sketch to BREP ────────────────────────────────────────────────────────────
-
-
-_SKETCH_PREAMBLE = (
-    "以下はユーザーの手描きスケッチ画像です。"
-    "この形状を忠実にbuild123dコードに変換してください。"
-)
-
-
-@app.post("/api/sketch-to-brep")
-async def sketch_to_brep(req: SketchToBrepRequest):
-    """Convert a hand-drawn sketch image to a 3D BREP model (SSE stream)."""
-    llm = _get_llm()
-
-    async def event_stream():
-        # Validate image
-        if not req.image_base64:
-            data = json.dumps({"message": "image_base64 is required"})
-            yield f"event: error\ndata: {data}\n\n"
-            return
-
-        stage_queue: asyncio.Queue[str | None] = asyncio.Queue()
-
-        async def queue_stage(stage: str):
-            await stage_queue.put(stage)
-
-        result_holder: dict = {}
-
-        # Build prompt with sketch preamble
-        full_prompt = _SKETCH_PREAMBLE
-        if req.prompt:
-            full_prompt += f"\n\nユーザーの補足: {req.prompt}"
-
-        async def run_pipeline():
-            try:
-                code, objects, step_bytes = await llm.generate_pipeline(
-                    full_prompt,
-                    image_base64=req.image_base64,
-                    profile=req.profile,
-                    on_stage=queue_stage,
-                )
-                result_holder["code"] = code
-                result_holder["objects"] = objects
-                result_holder["step_bytes"] = step_bytes
-            except Exception as e:
-                result_holder["error"] = str(e)
-            finally:
-                await stage_queue.put(None)  # sentinel
-
-        task = asyncio.create_task(run_pipeline())
-
-        messages = {
-            "designing": "設計中...",
-            "coding": "コーディング中...",
-            "reviewing": "レビュー中...",
-            "executing": "実行中...",
-            "retrying": "リトライ中...",
-        }
-
-        while True:
-            stage = await stage_queue.get()
-            if stage is None:
-                break
-            data = json.dumps({"stage": stage, "message": messages.get(stage, stage)})
-            yield f"event: stage\ndata: {data}\n\n"
-
-        await task
-
-        if "error" in result_holder:
-            data = json.dumps({"message": result_holder["error"]})
-            yield f"event: error\ndata: {data}\n\n"
-            return
-
-        code = result_holder["code"]
-        objects = result_holder["objects"]
-        step_bytes = result_holder["step_bytes"]
-
-        # Save STEP + generation
-        db = await _get_db()
-        file_id = f"sketch-{uuid.uuid4().hex[:8]}"
-        brep_result = BrepImportResult(
-            file_id=file_id, objects=objects, object_count=len(objects),
-        )
-
-        step_path = None
-        if step_bytes:
-            gen_dir = GENERATIONS_DIR / file_id
-            gen_dir.mkdir(exist_ok=True)
-            step_file = gen_dir / "model.step"
-            step_file.write_bytes(step_bytes)
-            step_path = str(step_file)
-            (UPLOAD_DIR / f"{file_id}.step").write_bytes(step_bytes)
-
-        gen_id = await db.save_generation(
-            prompt=full_prompt, code=code,
-            result_json=brep_result.model_dump_json(),
-            model_used="pipeline", status="success",
-            step_path=step_path,
-        )
-
-        result = AiCadResult(
-            file_id=file_id, objects=objects, object_count=len(objects),
-            generated_code=code, generation_id=gen_id,
-            prompt_used=full_prompt, model_used="pipeline",
-        )
-        data = result.model_dump_json()
-        yield f"event: result\ndata: {data}\n\n"
-
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-    )
 
 
 # ── Snippet DB endpoints ──────────────────────────────────────────────────────

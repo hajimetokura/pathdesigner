@@ -674,7 +674,9 @@ class LLMClient:
         *,
         image_base64: str | None = None,
         profile: str = "general",
+        coder_model: str | None = None,
         on_stage: Callable[[str], Awaitable[None]] | None = None,
+        on_detail: Callable[[str, str], Awaitable[None]] | None = None,
     ) -> tuple[str, list[BrepObject], bytes | None]:
         """Run 2-stage pipeline: Gemini design → Qwen code → review → execute → retry."""
 
@@ -682,17 +684,24 @@ class LLMClient:
             if on_stage:
                 await on_stage(stage)
 
+        async def _detail(key: str, value: str):
+            if on_detail:
+                await on_detail(key, value)
+
         # Stage 1: Design with Gemini
         await _notify("designing")
         design = await self._design_with_context(prompt, profile=profile)
+        await _detail("design", design)
 
         # Stage 2: Generate code with Qwen
         await _notify("coding")
         code = await self._generate_code(prompt, design, profile=profile)
+        await _detail("code", code)
 
         # Stage 2.5: Self-review
         await _notify("reviewing")
         code = await self._self_review(prompt, code, profile=profile)
+        await _detail("reviewed_code", code)
 
         # Execute
         await _notify("executing")
@@ -702,6 +711,7 @@ class LLMClient:
             return code, objects, step_bytes
         except CodeExecutionError as e:
             first_error = e
+            await _detail("execution_error", str(e))
 
         # Retry: re-query Gemini with error info, then Qwen
         await _notify("retrying")
@@ -711,12 +721,14 @@ class LLMClient:
             "エラーを修正するために必要なAPIと正しい使い方を提示してください。",
             profile=profile,
         )
+        await _detail("retry_design", retry_design)
 
         retry_code = await self._generate_code(
             f"{prompt}\n\n前回エラー: {first_error}",
             retry_design,
             profile=profile,
         )
+        await _detail("retry_code", retry_code)
 
         await _notify("executing")
         objects, step_bytes = execute_build123d_code(retry_code)
