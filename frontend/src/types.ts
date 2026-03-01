@@ -345,6 +345,10 @@ export interface Stroke {
   tool: "pen" | "eraser";
 }
 
+export interface TextData {
+  prompt: string;
+}
+
 export interface SketchData {
   image_base64: string;
   strokes: Stroke[];
