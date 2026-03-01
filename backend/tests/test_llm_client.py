@@ -618,7 +618,7 @@ def test_ai_cad_generate_sse_streams_stages():
         outline=[],
     )]
 
-    async def mock_pipeline(prompt, *, image_base64=None, profile="general", on_stage=None):
+    async def mock_pipeline(prompt, *, image_base64=None, profile="general", coder_model=None, on_stage=None, on_detail=None):
         if on_stage:
             await on_stage("designing")
             await on_stage("coding")
