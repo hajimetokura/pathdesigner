@@ -453,6 +453,7 @@ class AiCadRequest(BaseModel):
     image_base64: str | None = None
     model: str | None = None  # OpenRouter model ID; None = use default
     profile: str = "general"
+    coder_model: str | None = None  # Override coder model for pipeline
 
 
 class AiCadCodeRequest(BaseModel):
@@ -517,15 +518,6 @@ class AiCadRefineResult(BaseModel):
     generation_id: str
     ai_message: str
 
-
-# ── Sketch to BREP ─────────────────────────────────────────────────────────────
-
-
-class SketchToBrepRequest(BaseModel):
-    """Request to convert a hand-drawn sketch image to a 3D BREP model."""
-    image_base64: str
-    prompt: str = ""
-    profile: str = "sketch_cutout"
 
 
 # ── Snippet DB ────────────────────────────────────────────────────────────────
