@@ -257,56 +257,45 @@ export async function generateSbpZip(
 
 /** AI CAD API */
 
+import { parseSSEStream } from "./utils/parseSSEStream";
+
+export interface SketchDetailEvent {
+  key: string;
+  value: string;
+}
+
+export interface CoderModelInfo {
+  id: string;
+  name: string;
+  is_default: boolean;
+}
+
 export async function generateAiCadStream(
   prompt: string,
   profile?: string,
   onStage?: (event: AiCadStageEvent) => void,
+  imageBase64?: string,
+  coderModel?: string,
+  onDetail?: (event: SketchDetailEvent) => void,
 ): Promise<AiCadResult> {
+  const body: Record<string, string | undefined> = { prompt, profile };
+  if (imageBase64) body.image_base64 = imageBase64;
+  if (coderModel) body.coder_model = coderModel;
+
   const response = await fetch(`${API_BASE_URL}/ai-cad/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ prompt, profile }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     throw new Error(`AI generation failed: ${response.status}`);
   }
 
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response body");
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let result: AiCadResult | null = null;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    let eventType = "";
-    for (const line of lines) {
-      if (line.startsWith("event: ")) {
-        eventType = line.slice(7).trim();
-      } else if (line.startsWith("data: ")) {
-        const data = JSON.parse(line.slice(6));
-        if (eventType === "stage" && onStage) {
-          onStage(data);
-        } else if (eventType === "result") {
-          result = data;
-        } else if (eventType === "error") {
-          throw new Error(data.message);
-        }
-        eventType = "";
-      }
-    }
-  }
-
-  if (!result) throw new Error("No result received");
-  return result;
+  return parseSSEStream<AiCadResult>(response, {
+    onStage: onStage as (data: { stage: string; message: string }) => void,
+    onDetail: onDetail,
+  });
 }
 
 export async function executeAiCadCode(code: string): Promise<AiCadResult> {
@@ -378,41 +367,9 @@ export async function refineAiCadStream(
     throw new Error(`Refine failed: ${response.status}`);
   }
 
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response body");
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let result: AiCadRefineResult | null = null;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    let eventType = "";
-    for (const line of lines) {
-      if (line.startsWith("event: ")) {
-        eventType = line.slice(7).trim();
-      } else if (line.startsWith("data: ")) {
-        const data = JSON.parse(line.slice(6));
-        if (eventType === "stage" && onStage) {
-          onStage(data);
-        } else if (eventType === "result") {
-          result = data;
-        } else if (eventType === "error") {
-          throw new Error(data.message);
-        }
-        eventType = "";
-      }
-    }
-  }
-
-  if (!result) throw new Error("No result received");
-  return result;
+  return parseSSEStream<AiCadRefineResult>(response, {
+    onStage: onStage as (data: { stage: string; message: string }) => void,
+  });
 }
 
 // ── Snippet DB ────────────────────────────────────────────────────────────────
@@ -446,57 +403,7 @@ export async function executeSnippet(id: string): Promise<AiCadResult> {
   return res.json();
 }
 
-// ── Sketch to BREP ───────────────────────────────────────────────────────────
-
-export async function sketchToBrepStream(
-  imageBase64: string,
-  prompt: string,
-  profile: string,
-  onStage?: (event: AiCadStageEvent) => void,
-): Promise<AiCadResult> {
-  const response = await fetch(`${API_BASE_URL}/api/sketch-to-brep`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-    body: JSON.stringify({ image_base64: imageBase64, prompt, profile }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Sketch to BREP failed: ${response.status}`);
-  }
-
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response body");
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let result: AiCadResult | null = null;
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
-
-    let eventType = "";
-    for (const line of lines) {
-      if (line.startsWith("event: ")) {
-        eventType = line.slice(7).trim();
-      } else if (line.startsWith("data: ")) {
-        const data = JSON.parse(line.slice(6));
-        if (eventType === "stage" && onStage) {
-          onStage(data);
-        } else if (eventType === "result") {
-          result = data;
-        } else if (eventType === "error") {
-          throw new Error(data.message);
-        }
-        eventType = "";
-      }
-    }
-  }
-
-  if (!result) throw new Error("No result received");
-  return result;
+export async function fetchCoderModels(): Promise<CoderModelInfo[]> {
+  const models = await fetchAiCadModels();
+  return models.map((m) => ({ id: m.id, name: m.name, is_default: m.is_default }));
 }
