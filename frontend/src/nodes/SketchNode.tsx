@@ -14,7 +14,7 @@ const CANVAS_H = 400;
 const THUMB_W = 140;
 const THUMB_H = 93;
 
-export default function SketchCanvasNode({ id, selected }: NodeProps) {
+export default function SketchNode({ id, selected }: NodeProps) {
   const { setNodes, getNode } = useReactFlow();
   const { openTab, updateTab } = usePanelTabs();
 
@@ -138,8 +138,8 @@ export default function SketchCanvasNode({ id, selected }: NodeProps) {
   }, [id, strokes, tool, penColor, penWidth, openTab, buildPanelContent]);
 
   return (
-    <NodeShell category="cad" selected={selected}>
-      <div style={headerStyle}>Sketch Canvas</div>
+    <NodeShell category="utility" selected={selected}>
+      <div style={headerStyle}>Sketch</div>
 
       {thumbnail ? (
         <img
