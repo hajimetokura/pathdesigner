@@ -157,3 +157,48 @@ class TestWaterlineRoughing:
         )
         with pytest.raises(FileNotFoundError):
             generate_waterline_roughing(req)
+
+    def test_waterline_roughing_to_sbp(self, freeform_stl):
+        """Full pipeline: mesh → roughing → SBP code."""
+        from nodes.three_d_milling import generate_waterline_roughing
+        from sbp_writer import SbpWriter
+
+        req = ThreeDRoughingRequest(
+            mesh_file_path=str(freeform_stl),
+            z_step=10.0,
+            stock_to_leave=0.0,
+        )
+        toolpaths = generate_waterline_roughing(req)
+        assert len(toolpaths) > 0
+
+        # Create SBP writer with minimal settings
+        from schemas import (
+            PostProcessorSettings,
+            SheetSettings,
+            SheetMaterial,
+            MachiningSettings,
+            TabSettings,
+        )
+
+        machining = MachiningSettings(
+            operation_type="contour",
+            tool=Tool(diameter=6.35, type="ballnose", flutes=2),
+            feed_rate=FeedRate(xy=50, z=20),
+            jog_speed=200,
+            spindle_speed=18000,
+            depth_per_pass=10.0,
+            total_depth=50.0,
+            direction="climb",
+            offset_side="none",
+            tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+        )
+
+        post = PostProcessorSettings()
+        sheet = SheetSettings(
+            materials=[SheetMaterial(material_id="mat_001", label="Stock", thickness=60.0)],
+        )
+        writer = SbpWriter(post, machining, sheet)
+        sbp = writer.generate(toolpaths)
+
+        assert "M3," in sbp  # 3D move commands
+        assert len(sbp) > 100
