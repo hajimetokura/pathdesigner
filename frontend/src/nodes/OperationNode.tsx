@@ -3,6 +3,7 @@ import { type NodeProps, useReactFlow } from "@xyflow/react";
 import { detectOperations } from "../api";
 import type {
   BrepObject,
+  DetectedOperation,
   SheetSettings,
   OperationDetectResult,
   OperationAssignment,
@@ -93,7 +94,6 @@ export default function OperationNode({ id, selected }: NodeProps) {
     lastFileIdRef.current = fileId;
 
     const { placements: upstreamPlacements, sheet: upstreamSheet, objects } = placementResult;
-    const objectIds = objects.map((o) => o.object_id);
 
     let cancelled = false;
     setStatus("loading");
@@ -101,7 +101,45 @@ export default function OperationNode({ id, selected }: NodeProps) {
 
     (async () => {
       try {
-        const result = await detectOperations(fileId, objectIds);
+        // Split objects into 3D (local detect) and 2D (API detect)
+        const obj3d = objects.filter((o) => o.machining_type === "3d");
+        const obj2d = objects.filter((o) => o.machining_type !== "3d");
+
+        const local3dOps: DetectedOperation[] = obj3d.map((obj, i) => ({
+          operation_id: `op_3d_${obj.object_id}_${i}`,
+          object_id: obj.object_id,
+          operation_type: "3d_roughing" as const,
+          geometry: {
+            contours: [],
+            offset_applied: { distance: 0, side: "none" as const },
+            depth: obj.thickness,
+          },
+          suggested_settings: {
+            operation_type: "3d_roughing" as const,
+            tool: { diameter: 6.35, type: "ballnose" as const, flutes: 2 },
+            feed_rate: { xy: 50, z: 20 },
+            jog_speed: 200,
+            spindle_speed: 18000,
+            depth_per_pass: 3.0,
+            total_depth: obj.thickness,
+            direction: "climb" as const,
+            offset_side: "none" as const,
+            tabs: { enabled: false, height: 0, width: 0, count: 0 },
+            z_step: 3.0,
+            stock_to_leave: 0.5,
+          },
+          enabled: true,
+        }));
+
+        let api2dOps: DetectedOperation[] = [];
+        if (obj2d.length > 0) {
+          const apiResult = await detectOperations(fileId, obj2d.map((o) => o.object_id));
+          if (cancelled) return;
+          api2dOps = apiResult.operations;
+        }
+
+        const allOps = [...local3dOps, ...api2dOps];
+        const result: OperationDetectResult = { operations: allOps };
         if (cancelled) return;
         setDetected(result);
 

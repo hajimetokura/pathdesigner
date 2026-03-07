@@ -1,7 +1,11 @@
 import { useCallback, useState } from "react";
 import { type NodeProps, useReactFlow } from "@xyflow/react";
 import { generate3dRoughing } from "../api";
-import type { MeshImportResult, ThreeDRoughingResult } from "../types";
+import type {
+  MeshImportResult,
+  OperationAssignment,
+  ThreeDRoughingResult,
+} from "../types";
 import LabeledHandle from "./LabeledHandle";
 import NodeShell from "../components/NodeShell";
 import { useUpstreamData } from "../hooks/useUpstreamData";
@@ -14,16 +18,6 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
   const [error, setError] = useState("");
   const { setNodes } = useReactFlow();
 
-  // Parameters
-  const [zStep, setZStep] = useState(3.0);
-  const [stockToLeave, setStockToLeave] = useState(0.5);
-  const [toolDiameter, setToolDiameter] = useState(6.0);
-  const [toolType, setToolType] = useState<string>("ballnose");
-  const [toolFlutes, setToolFlutes] = useState(2);
-  const [feedXY, setFeedXY] = useState(20);
-  const [feedZ, setFeedZ] = useState(10);
-  const [spindleSpeed, setSpindleSpeed] = useState(18000);
-
   // Read upstream MeshImportNode data
   const extractMesh = useCallback(
     (d: Record<string, unknown>): MeshImportResult | undefined => {
@@ -35,18 +29,42 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
   );
   const meshData = useUpstreamData(id, `${id}-mesh`, extractMesh);
 
+  // Read upstream OperationNode — find enabled 3d_roughing assignment
+  const extractRoughing = useCallback(
+    (d: Record<string, unknown>): OperationAssignment | undefined => {
+      const assignments = d.assignments as OperationAssignment[] | undefined;
+      if (!assignments?.length) return undefined;
+      return assignments.find(
+        (a) => a.settings.operation_type === "3d_roughing" && a.enabled,
+      );
+    },
+    [],
+  );
+  const roughingAssignment = useUpstreamData(
+    id,
+    `${id}-operations`,
+    extractRoughing,
+  );
+
   const handleGenerate = useCallback(async () => {
     if (!meshData?.mesh_file_path) return;
     setStatus("loading");
     setError("");
     try {
+      const s = roughingAssignment?.settings;
       const res = await generate3dRoughing(
         meshData.mesh_file_path,
-        zStep,
-        stockToLeave,
-        { diameter: toolDiameter, type: toolType, flutes: toolFlutes },
-        { xy: feedXY, z: feedZ },
-        spindleSpeed,
+        s?.z_step ?? 3.0,
+        s?.stock_to_leave ?? 0.5,
+        s
+          ? {
+              diameter: s.tool.diameter,
+              type: s.tool.type,
+              flutes: s.tool.flutes,
+            }
+          : undefined,
+        s ? { xy: s.feed_rate.xy, z: s.feed_rate.z } : undefined,
+        s?.spindle_speed,
       );
       setResult(res);
       setStatus("success");
@@ -61,28 +79,22 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
       setError(e instanceof Error ? e.message : "Generation failed");
       setStatus("error");
     }
-  }, [
-    meshData,
-    zStep,
-    stockToLeave,
-    toolDiameter,
-    toolType,
-    toolFlutes,
-    feedXY,
-    feedZ,
-    spindleSpeed,
-    id,
-    setNodes,
-  ]);
+  }, [meshData, roughingAssignment, id, setNodes]);
 
   // Count Z levels and total passes from result
   const zLevels = result
-    ? new Set(result.toolpaths.flatMap((tp) => tp.passes.map((p) => p.z_depth)))
-        .size
+    ? new Set(
+        result.toolpaths.flatMap((tp) => tp.passes.map((p) => p.z_depth)),
+      ).size
     : 0;
   const totalPasses = result
     ? result.toolpaths.reduce((sum, tp) => sum + tp.passes.length, 0)
     : 0;
+
+  // Summary of current settings from upstream
+  const settingsLabel = roughingAssignment
+    ? `z=${roughingAssignment.settings.z_step ?? 3}mm / ${roughingAssignment.settings.tool.type} ${roughingAssignment.settings.tool.diameter}mm`
+    : null;
 
   return (
     <NodeShell category="cam" selected={selected}>
@@ -92,7 +104,15 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
         label="mesh"
         dataType="geometry"
         index={0}
-        total={1}
+        total={2}
+      />
+      <LabeledHandle
+        type="target"
+        id={`${id}-operations`}
+        label="operations"
+        dataType="geometry"
+        index={1}
+        total={2}
       />
 
       <div style={headerStyle}>3D Milling</div>
@@ -103,89 +123,15 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
         </div>
       )}
 
-      {/* Roughing Parameters */}
-      <div style={sectionStyle}>
-        <div style={labelStyle}>Z Step (mm)</div>
-        <input
-          type="number"
-          value={zStep}
-          min={0.1}
-          step={0.5}
-          onChange={(e) => setZStep(Number(e.target.value))}
-          style={inputStyle}
-        />
+      {!roughingAssignment && meshData && status !== "loading" && (
+        <div style={{ color: "var(--text-muted)", fontSize: 11 }}>
+          Connect Operation node
+        </div>
+      )}
 
-        <div style={labelStyle}>Stock to Leave (mm)</div>
-        <input
-          type="number"
-          value={stockToLeave}
-          min={0}
-          step={0.1}
-          onChange={(e) => setStockToLeave(Number(e.target.value))}
-          style={inputStyle}
-        />
-
-        <div style={labelStyle}>Tool Diameter (mm)</div>
-        <input
-          type="number"
-          value={toolDiameter}
-          min={0.1}
-          step={0.5}
-          onChange={(e) => setToolDiameter(Number(e.target.value))}
-          style={inputStyle}
-        />
-
-        <div style={labelStyle}>Tool Type</div>
-        <select
-          value={toolType}
-          onChange={(e) => setToolType(e.target.value)}
-          style={inputStyle}
-        >
-          <option value="ballnose">Ballnose</option>
-          <option value="endmill">Endmill</option>
-          <option value="v_bit">V-Bit</option>
-        </select>
-
-        <div style={labelStyle}>Flutes</div>
-        <input
-          type="number"
-          value={toolFlutes}
-          min={1}
-          max={8}
-          onChange={(e) => setToolFlutes(Number(e.target.value))}
-          style={inputStyle}
-        />
-
-        <div style={labelStyle}>Feed XY (mm/s)</div>
-        <input
-          type="number"
-          value={feedXY}
-          min={1}
-          step={1}
-          onChange={(e) => setFeedXY(Number(e.target.value))}
-          style={inputStyle}
-        />
-
-        <div style={labelStyle}>Feed Z (mm/s)</div>
-        <input
-          type="number"
-          value={feedZ}
-          min={1}
-          step={1}
-          onChange={(e) => setFeedZ(Number(e.target.value))}
-          style={inputStyle}
-        />
-
-        <div style={labelStyle}>Spindle Speed (RPM)</div>
-        <input
-          type="number"
-          value={spindleSpeed}
-          min={1000}
-          step={1000}
-          onChange={(e) => setSpindleSpeed(Number(e.target.value))}
-          style={inputStyle}
-        />
-      </div>
+      {settingsLabel && (
+        <div style={settingsBadgeStyle}>{settingsLabel}</div>
+      )}
 
       {/* Generate Button */}
       <button
@@ -194,7 +140,8 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
         style={{
           ...buttonStyle,
           opacity: !meshData || status === "loading" ? 0.5 : 1,
-          cursor: !meshData || status === "loading" ? "not-allowed" : "pointer",
+          cursor:
+            !meshData || status === "loading" ? "not-allowed" : "pointer",
         }}
       >
         {status === "loading" ? "Generating..." : "Generate Roughing"}
@@ -202,7 +149,9 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
 
       {/* Error */}
       {status === "error" && (
-        <div style={{ color: "var(--color-error)", fontSize: 11, marginTop: 4 }}>
+        <div
+          style={{ color: "var(--color-error)", fontSize: 11, marginTop: 4 }}
+        >
           {error}
         </div>
       )}
@@ -242,30 +191,13 @@ const headerStyle: React.CSSProperties = {
   color: "var(--text-primary)",
 };
 
-const sectionStyle: React.CSSProperties = {
+const settingsBadgeStyle: React.CSSProperties = {
+  fontSize: 10,
+  color: "var(--text-secondary)",
   background: "var(--surface-bg)",
-  borderRadius: 6,
-  padding: "8px 10px",
-  marginBottom: 8,
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 11,
-  color: "var(--text-muted)",
-  marginBottom: 2,
-  marginTop: 6,
-};
-
-const inputStyle: React.CSSProperties = {
-  display: "block",
-  width: "100%",
-  padding: "3px 6px",
-  fontSize: 12,
-  border: "1px solid var(--border-subtle)",
-  borderRadius: 4,
-  background: "var(--surface-bg)",
-  color: "var(--text-primary)",
-  boxSizing: "border-box",
+  borderRadius: "var(--radius-item)",
+  padding: "3px 8px",
+  marginBottom: 6,
 };
 
 const buttonStyle: React.CSSProperties = {
