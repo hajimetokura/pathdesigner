@@ -41,6 +41,7 @@ from schemas import (
     AiCadRefineRequest, AiCadRefineResult, ChatMessage,
     GenerationSummary, ModelInfo, ProfileInfo,
     SnippetSaveRequest, SnippetInfo, SnippetListResponse,
+    ThreeDRoughingRequest, ThreeDRoughingResult,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -551,6 +552,29 @@ def generate_sbp_zip_endpoint(req: SbpZipRequest):
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=pathdesigner_sheets.zip"},
     )
+
+
+# --- 3D Milling Endpoints ---
+
+
+@app.post("/api/3d-roughing", response_model=ThreeDRoughingResult)
+def three_d_roughing_endpoint(req: ThreeDRoughingRequest):
+    """Generate waterline roughing toolpaths from a mesh file."""
+    from nodes.three_d_milling import generate_waterline_roughing
+
+    if not Path(req.mesh_file_path).exists():
+        raise HTTPException(status_code=400, detail=f"Mesh file not found: {req.mesh_file_path}")
+
+    try:
+        toolpaths = generate_waterline_roughing(
+            mesh_file_path=req.mesh_file_path,
+            z_step=req.z_step,
+            stock_to_leave=req.stock_to_leave,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Roughing generation failed: {e}")
+
+    return ThreeDRoughingResult(toolpaths=toolpaths)
 
 
 # --- AI CAD Endpoints ---
