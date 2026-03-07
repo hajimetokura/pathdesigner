@@ -361,6 +361,29 @@ export interface SketchData {
   canvas_height: number;
 }
 
+// --- 3D Milling ---
+
+export interface ThreeDRoughingSettings {
+  z_step: number;
+  tool: { diameter: number; type: "ballnose" | "endmill" | "v_bit"; flutes: number };
+  feed_rate: { xy: number; z: number };
+  spindle_speed: number;
+  stock_to_leave: number;
+}
+
+export interface ThreeDRoughingRequest {
+  mesh_file_path: string;
+  z_step: number;
+  stock_to_leave: number;
+  tool?: { diameter: number; type: string; flutes: number };
+  feed_rate?: { xy: number; z: number };
+  spindle_speed?: number;
+}
+
+export interface ThreeDRoughingResult {
+  toolpaths: Toolpath[];
+}
+
 /** SnippetDbNode の node data */
 export interface SnippetDbNodeData extends Record<string, unknown> {
   outputResult: AiCadResult | null;

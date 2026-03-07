@@ -14,6 +14,7 @@ import PlacementNode from "./nodes/PlacementNode";
 import OperationNode from "./nodes/OperationNode";
 import PostProcessorNode from "./nodes/PostProcessorNode";
 import ToolpathGenNode from "./nodes/ToolpathGenNode";
+import ThreeDMillingNode from "./nodes/ThreeDMillingNode";
 import CncCodeNode from "./nodes/CncCodeNode";
 import ToolpathPreviewNode from "./nodes/ToolpathPreviewNode";
 import DamNode from "./nodes/DamNode";
@@ -43,6 +44,7 @@ const NODE_REGISTRY: Record<string, NodeRegistryEntry> = {
   operation: { component: OperationNode, label: "Operation", category: "cam" },
   postProcessor: { component: PostProcessorNode, label: "Post Processor", category: "cam" },
   toolpathGen: { component: ToolpathGenNode, label: "Toolpath Gen", category: "cam" },
+  threeDMilling: { component: ThreeDMillingNode, label: "3D Milling", category: "cam" },
   cncCode: { component: CncCodeNode, label: "CNC Code", category: "cam" },
   toolpathPreview: { component: ToolpathPreviewNode, label: "Toolpath Preview", category: "cam" },
   sketchNode: { component: SketchNode, label: "Sketch", category: "utility" },
