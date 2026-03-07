@@ -12,7 +12,7 @@ import numpy as np
 import trimesh
 from shapely.geometry import Polygon
 
-from schemas import Toolpath, ToolpathPass
+from schemas import ThreeDRoughingRequest, Toolpath, ToolpathPass
 
 
 def _section_to_polygons(section, z_level: float) -> list[Polygon]:
@@ -43,11 +43,7 @@ def _section_to_polygons(section, z_level: float) -> list[Polygon]:
     return polygons
 
 
-def generate_waterline_roughing(
-    mesh_file_path: str,
-    z_step: float = 3.0,
-    stock_to_leave: float = 0.5,
-) -> list[Toolpath]:
+def generate_waterline_roughing(req: ThreeDRoughingRequest) -> list[Toolpath]:
     """Generate waterline roughing toolpaths from a mesh file.
 
     Algorithm:
@@ -63,17 +59,20 @@ def generate_waterline_roughing(
     Raises:
         FileNotFoundError: If mesh_file_path does not exist.
     """
-    path = Path(mesh_file_path)
+    path = Path(req.mesh_file_path)
     if not path.exists():
-        raise FileNotFoundError(f"Mesh file not found: {mesh_file_path}")
+        raise FileNotFoundError(f"Mesh file not found: {req.mesh_file_path}")
 
     mesh = trimesh.load(str(path), force="mesh")
     if not isinstance(mesh, trimesh.Trimesh):
-        raise ValueError(f"Invalid mesh file: {mesh_file_path}")
+        raise ValueError(f"Invalid mesh file: {req.mesh_file_path}")
 
     bounds = mesh.bounds  # [[min_x, min_y, min_z], [max_x, max_y, max_z]]
     z_min = float(bounds[0][2])
     z_max = float(bounds[1][2])
+
+    z_step = req.z_step
+    stock_to_leave = req.stock_to_leave
 
     # Generate Z levels from top to bottom (skip very top, skip bottom)
     z_levels: list[float] = []

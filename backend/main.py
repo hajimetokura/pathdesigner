@@ -566,11 +566,7 @@ def three_d_roughing_endpoint(req: ThreeDRoughingRequest):
         raise HTTPException(status_code=400, detail=f"Mesh file not found: {req.mesh_file_path}")
 
     try:
-        toolpaths = generate_waterline_roughing(
-            mesh_file_path=req.mesh_file_path,
-            z_step=req.z_step,
-            stock_to_leave=req.stock_to_leave,
-        )
+        toolpaths = generate_waterline_roughing(req)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Roughing generation failed: {e}")
 

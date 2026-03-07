@@ -90,11 +90,12 @@ class TestWaterlineRoughing:
         """Waterline roughing on a sphere should produce toolpaths at multiple Z levels."""
         from nodes.three_d_milling import generate_waterline_roughing
 
-        result = generate_waterline_roughing(
+        req = ThreeDRoughingRequest(
             mesh_file_path=str(freeform_stl),
             z_step=5.0,
             stock_to_leave=0.0,
         )
+        result = generate_waterline_roughing(req)
 
         assert len(result) > 0
         # Each toolpath should have 3D paths
@@ -110,11 +111,12 @@ class TestWaterlineRoughing:
         """Z levels should be in descending order (top to bottom)."""
         from nodes.three_d_milling import generate_waterline_roughing
 
-        result = generate_waterline_roughing(
+        req = ThreeDRoughingRequest(
             mesh_file_path=str(freeform_stl),
             z_step=5.0,
             stock_to_leave=0.0,
         )
+        result = generate_waterline_roughing(req)
 
         z_depths = [tp.passes[0].z_depth for tp in result if tp.passes]
         # Should be descending (cutting from top down)
@@ -127,30 +129,31 @@ class TestWaterlineRoughing:
         """Stock-to-leave should produce smaller contours (or fewer)."""
         from nodes.three_d_milling import generate_waterline_roughing
 
-        result_no_stock = generate_waterline_roughing(
+        req_no_stock = ThreeDRoughingRequest(
             mesh_file_path=str(freeform_stl),
             z_step=5.0,
             stock_to_leave=0.0,
         )
-        result_with_stock = generate_waterline_roughing(
+        req_with_stock = ThreeDRoughingRequest(
             mesh_file_path=str(freeform_stl),
             z_step=5.0,
             stock_to_leave=2.0,
         )
+        result_no_stock = generate_waterline_roughing(req_no_stock)
+        result_with_stock = generate_waterline_roughing(req_with_stock)
 
         # Both should produce toolpaths
         assert len(result_no_stock) > 0
         assert len(result_with_stock) > 0
-        # With stock_to_leave, some Z levels might have fewer/no polygons
-        # At minimum, we check both run without error
 
     def test_waterline_roughing_invalid_file(self):
         """Should raise FileNotFoundError for non-existent file."""
         from nodes.three_d_milling import generate_waterline_roughing
 
+        req = ThreeDRoughingRequest(
+            mesh_file_path="/tmp/does_not_exist.stl",
+            z_step=5.0,
+            stock_to_leave=0.0,
+        )
         with pytest.raises(FileNotFoundError):
-            generate_waterline_roughing(
-                mesh_file_path="/tmp/does_not_exist.stl",
-                z_step=5.0,
-                stock_to_leave=0.0,
-            )
+            generate_waterline_roughing(req)
