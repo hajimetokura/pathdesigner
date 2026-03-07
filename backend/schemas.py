@@ -187,6 +187,31 @@ class MachiningSettings(BaseModel):
     depth_per_peck: float = 6.0  # mm
 
 
+# --- 3D Milling ---
+
+
+class ThreeDRoughingSettings(BaseModel):
+    """Waterline roughing parameters."""
+    z_step: float = 3.0
+    tool: Tool = Tool(diameter=6.35, type="ballnose", flutes=2)
+    feed_rate: FeedRate = FeedRate(xy=50, z=20)
+    spindle_speed: int = 18000
+    stock_to_leave: float = 0.5
+
+
+class ThreeDRoughingRequest(BaseModel):
+    mesh_file_path: str
+    z_step: float = 3.0
+    stock_to_leave: float = 0.5
+    tool: Tool = Tool(diameter=6.35, type="ballnose", flutes=2)
+    feed_rate: FeedRate = FeedRate(xy=50, z=20)
+    spindle_speed: int = 18000
+
+
+class ThreeDRoughingResult(BaseModel):
+    toolpaths: list[Toolpath]
+
+
 _DEFAULT_TOOL = Tool(diameter=6.35, type="endmill", flutes=2)
 _DEFAULT_TABS_OFF = TabSettings(enabled=False, height=0, width=0, count=0)
 

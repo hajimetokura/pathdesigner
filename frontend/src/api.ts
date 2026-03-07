@@ -25,6 +25,7 @@ import type {
   SnippetInfo,
   SnippetListResponse,
   SnippetSaveRequest,
+  ThreeDRoughingResult,
 } from "./types";
 import { API_BASE_URL } from "./config";
 import { DEFAULT_TOOL_DIAMETER_MM, DEFAULT_OFFSET_SIDE, DEFAULT_CLEARANCE_MM } from "./constants";
@@ -263,6 +264,31 @@ export async function generateSbpZip(
       post_processor: postProcessor,
     }),
     "ZIP generation failed"
+  );
+}
+
+/** 3D Milling API */
+
+export async function generate3dRoughing(
+  meshFilePath: string,
+  zStep: number = 3.0,
+  stockToLeave: number = 0.5,
+  tool?: { diameter: number; type: string; flutes: number },
+  feedRate?: { xy: number; z: number },
+  spindleSpeed?: number,
+): Promise<ThreeDRoughingResult> {
+  const body: Record<string, unknown> = {
+    mesh_file_path: meshFilePath,
+    z_step: zStep,
+    stock_to_leave: stockToLeave,
+  };
+  if (tool) body.tool = tool;
+  if (feedRate) body.feed_rate = feedRate;
+  if (spindleSpeed) body.spindle_speed = spindleSpeed;
+  return requestJson<ThreeDRoughingResult>(
+    `${API_BASE_URL}/api/3d-roughing`,
+    jsonPost(body),
+    "3D roughing failed"
   );
 }
 
