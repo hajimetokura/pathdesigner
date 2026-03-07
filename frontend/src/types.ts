@@ -38,6 +38,10 @@ export interface BrepImportResult {
   object_count: number;
 }
 
+export interface MeshImportResult extends BrepImportResult {
+  mesh_file_path: string;
+}
+
 /** Node 2: Contour Extract types */
 
 export interface Contour {
@@ -283,6 +287,7 @@ export interface GenerationSummary {
 export interface ModelInfo {
   id: string;
   name: string;
+  role: "designer" | "coder";
   is_default: boolean;
   supports_vision: boolean;
 }

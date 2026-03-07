@@ -1,5 +1,6 @@
 import type {
   BrepImportResult,
+  MeshImportResult,
   BrepObject,
   BoundingBox,
   ContourExtractResult,
@@ -69,6 +70,16 @@ export async function uploadStepFile(file: File): Promise<BrepImportResult> {
     `${API_BASE_URL}/api/upload-step`,
     { method: "POST", body: formData },
     "Upload failed"
+  );
+}
+
+export async function uploadMeshFile(file: File): Promise<MeshImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return requestJson<MeshImportResult>(
+    `${API_BASE_URL}/api/upload-mesh`,
+    { method: "POST", body: formData },
+    "Mesh upload failed"
   );
 }
 
@@ -277,10 +288,12 @@ export async function generateAiCadStream(
   imageBase64?: string,
   coderModel?: string,
   onDetail?: (event: SketchDetailEvent) => void,
+  designerModel?: string,
 ): Promise<AiCadResult> {
   const body: Record<string, string | undefined> = { prompt, profile };
   if (imageBase64) body.image_base64 = imageBase64;
   if (coderModel) body.coder_model = coderModel;
+  if (designerModel) body.designer_model = designerModel;
 
   const response = await fetch(`${API_BASE_URL}/ai-cad/generate`, {
     method: "POST",
@@ -405,5 +418,14 @@ export async function executeSnippet(id: string): Promise<AiCadResult> {
 
 export async function fetchCoderModels(): Promise<CoderModelInfo[]> {
   const models = await fetchAiCadModels();
-  return models.map((m) => ({ id: m.id, name: m.name, is_default: m.is_default }));
+  return models
+    .filter((m) => m.role === "coder")
+    .map((m) => ({ id: m.id, name: m.name, is_default: m.is_default }));
+}
+
+export async function fetchDesignerModels(): Promise<CoderModelInfo[]> {
+  const models = await fetchAiCadModels();
+  return models
+    .filter((m) => m.role === "designer")
+    .map((m) => ({ id: m.id, name: m.name, is_default: m.is_default }));
 }

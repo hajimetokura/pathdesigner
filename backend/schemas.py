@@ -48,6 +48,11 @@ class BrepImportResult(BaseModel):
     object_count: int
 
 
+class MeshImportResult(BrepImportResult):
+    """Mesh import output — extends BrepImportResult with mesh file path."""
+    mesh_file_path: str
+
+
 # --- Align Parts ---
 
 
@@ -454,6 +459,7 @@ class AiCadRequest(BaseModel):
     model: str | None = None  # OpenRouter model ID; None = use default
     profile: str = "general"
     coder_model: str | None = None  # Override coder model for pipeline
+    designer_model: str | None = None  # Override designer model for pipeline
 
 
 class AiCadCodeRequest(BaseModel):
@@ -482,6 +488,7 @@ class ModelInfo(BaseModel):
     """Available LLM model info."""
     id: str
     name: str
+    role: str  # "designer" or "coder"
     is_default: bool
     supports_vision: bool
     large_context: bool = False

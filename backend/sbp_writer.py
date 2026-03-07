@@ -133,7 +133,7 @@ class SbpWriter:
         if not first_path:
             return lines
 
-        start_x, start_y = first_path[0]
+        start_x, start_y = first_path[0][0], first_path[0][1]
         is_drill = toolpath.settings and toolpath.settings.operation_type == "drill"
 
         # Jog to start position
@@ -171,16 +171,21 @@ class SbpWriter:
 
         # Cut along the contour (skip first point — already there from descend)
         for i in range(1, len(path)):
-            x, y = path[i]
-            z = tab_z_map.get(i, tp_pass.z_depth)
+            pt = path[i]
+            if len(pt) >= 3:
+                x, y, z = pt[0], pt[1], pt[2]
+            else:
+                x, y = pt[0], pt[1]
+                z = tab_z_map.get(i, tp_pass.z_depth)
             lines.append(f"M3,{x},{y},{z}")
 
         return lines
 
     def _descend(self, point: list[float], z_depth: float) -> list[str]:
         """Descend to cutting depth at the given point."""
-        x, y = point
-        return [f"M3,{x},{y},{z_depth}"]
+        x, y = point[0], point[1]
+        z = point[2] if len(point) >= 3 else z_depth
+        return [f"M3,{x},{y},{z}"]
 
     def _footer(self) -> list[str]:
         home = self.s.home_position

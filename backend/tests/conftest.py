@@ -88,3 +88,40 @@ def _generate_box_with_pocket(output_path: Path):
     result = box - pocket
     output_path.parent.mkdir(parents=True, exist_ok=True)
     export_step(result, str(output_path))
+
+
+@pytest.fixture
+def simple_box_stl() -> Path:
+    """Path to a simple 100x50x10mm box STL file."""
+    path = FIXTURES_DIR / "simple_box.stl"
+    if not path.exists():
+        _generate_simple_box_stl(path)
+    return path
+
+
+@pytest.fixture
+def freeform_stl() -> Path:
+    """Path to a freeform (sphere) STL file for 3D machining tests."""
+    path = FIXTURES_DIR / "sphere.stl"
+    if not path.exists():
+        _generate_sphere_stl(path)
+    return path
+
+
+def _generate_simple_box_stl(output_path: Path):
+    """Generate a simple box STL file using trimesh."""
+    import trimesh
+
+    mesh = trimesh.creation.box(extents=[100, 50, 10])
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    mesh.export(str(output_path))
+
+
+def _generate_sphere_stl(output_path: Path):
+    """Generate a sphere STL for 3D machining tests."""
+    import trimesh
+
+    mesh = trimesh.creation.icosphere(subdivisions=3, radius=25)
+    mesh.apply_translation([0, 0, 25])
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    mesh.export(str(output_path))

@@ -8,6 +8,7 @@ import SnippetDbNode from "./nodes/SnippetDbNode";
 import CodeNode from "./nodes/CodeNode";
 import AlignNode from "./nodes/AlignNode";
 import BrepImportNode from "./nodes/BrepImportNode";
+import MeshImportNode from "./nodes/MeshImportNode";
 import SheetNode from "./nodes/SheetNode";
 import PlacementNode from "./nodes/PlacementNode";
 import OperationNode from "./nodes/OperationNode";
@@ -35,6 +36,7 @@ const NODE_REGISTRY: Record<string, NodeRegistryEntry> = {
   codeNode: { component: CodeNode, label: "Code", category: "cad" },
   preview: { component: PreviewNode, label: "3D Preview", category: "cad" },
   brepImport: { component: BrepImportNode, label: "BREP Import", category: "cad" },
+  meshImport: { component: MeshImportNode, label: "Mesh Import", category: "cad" },
   align: { component: AlignNode, label: "Align", category: "cam" },
   sheet: { component: SheetNode, label: "Sheet", category: "cam" },
   placement: { component: PlacementNode, label: "Placement", category: "cam" },
