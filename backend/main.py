@@ -18,6 +18,7 @@ from nodes.align import align_solids
 from nodes.brep_import import analyze_step_file, _analyze_solid
 from nodes.contour_extract import extract_contours
 from nodes.mesh_export import tessellate_step_file
+from nodes.mesh_import import analyze_mesh_file
 from nodes.operation_detector import detect_operations
 from nodes.toolpath_gen import generate_toolpath, generate_toolpath_from_operations
 from nodes.ai_cad import execute_build123d_code, CodeExecutionError
@@ -25,7 +26,7 @@ from llm_client import LLMClient
 from db import GenerationDB, SnippetsDB
 from sbp_writer import SbpWriter
 from schemas import (
-    BrepImportResult, ContourExtractRequest, ContourExtractResult,
+    BrepImportResult, MeshImportResult, ContourExtractRequest, ContourExtractResult,
     MachiningSettings, PresetItem, ValidateSettingsRequest, ValidateSettingsResponse,
     ToolpathGenRequest, ToolpathGenResult,
     SbpGenRequest, OutputResult,
@@ -139,6 +140,41 @@ async def upload_step(file: UploadFile):
         file_id=file_id,
         objects=objects,
         object_count=len(objects),
+    )
+
+
+@app.post("/api/upload-mesh", response_model=MeshImportResult)
+async def upload_mesh(file: UploadFile):
+    """Upload a mesh file (STL/OBJ) and return analysis results."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No filename provided")
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in (".stl", ".obj"):
+        raise HTTPException(
+            status_code=400, detail="Only .stl/.obj files are accepted"
+        )
+
+    file_id = uuid.uuid4().hex[:12]
+    saved_path = UPLOAD_DIR / f"{file_id}{suffix}"
+
+    content = await file.read()
+    saved_path.write_bytes(content)
+
+    try:
+        objects = analyze_mesh_file(saved_path, file_name=file.filename)
+    except ValueError as e:
+        saved_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        saved_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail=f"Mesh analysis failed: {e}")
+
+    return MeshImportResult(
+        file_id=file_id,
+        objects=objects,
+        object_count=len(objects),
+        mesh_file_path=str(saved_path),
     )
 
 
@@ -522,17 +558,18 @@ def generate_sbp_zip_endpoint(req: SbpZipRequest):
 
 @app.get("/ai-cad/models", response_model=list[ModelInfo])
 def get_ai_cad_models():
-    """Return pipeline model configuration."""
+    """Return available models with role and default info."""
     from llm_client import PIPELINE_MODELS, AVAILABLE_MODELS
 
     result = []
-    for role, model_id in PIPELINE_MODELS.items():
-        info = AVAILABLE_MODELS.get(model_id, {})
+    for model_id, info in AVAILABLE_MODELS.items():
+        role = info.get("role", "coder")
         result.append(
             {
                 "id": model_id,
-                "name": f"{role}: {info.get('name', model_id)}",
-                "is_default": False,
+                "name": info.get("name", model_id),
+                "role": role,
+                "is_default": PIPELINE_MODELS.get(role) == model_id,
                 "supports_vision": info.get("supports_vision", False),
                 "large_context": info.get("large_context", False),
             }
@@ -595,6 +632,7 @@ async def ai_cad_generate(req: AiCadRequest):
                     image_base64=req.image_base64,
                     profile=req.profile,
                     coder_model=req.coder_model,
+                    designer_model=req.designer_model,
                     on_stage=queue_stage,
                     on_detail=queue_detail,
                 )
