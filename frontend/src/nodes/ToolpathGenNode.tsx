@@ -307,6 +307,7 @@ const CONTOUR_COLORS: Record<string, string> = {
   interior: "#4dd0e1",
   pocket: "#9c27b0",
   drill: "#ff9800",
+  "3d_roughing": "#4caf50",
 };
 
 const contourDotStyle: React.CSSProperties = {

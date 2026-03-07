@@ -170,7 +170,7 @@ class MachiningSettings(BaseModel):
     present with default values for serialization simplicity.
     """
 
-    operation_type: Literal["contour", "pocket", "drill", "engrave"]
+    operation_type: Literal["contour", "pocket", "drill", "engrave", "3d_roughing"]
     tool: Tool
     feed_rate: FeedRate
     jog_speed: float  # mm/s
@@ -185,6 +185,9 @@ class MachiningSettings(BaseModel):
     pocket_stepover: float = 0.5  # 0-1 ratio of tool diameter
     # Drill-specific
     depth_per_peck: float = 6.0  # mm
+    # 3D roughing-specific
+    z_step: float = 0  # mm, waterline Z step (0 = unused for 2D)
+    stock_to_leave: float = 0  # mm, remaining material (0 = unused for 2D)
 
 
 # --- 3D Milling ---
@@ -252,6 +255,20 @@ _DEFAULT_SETTINGS: dict[str, dict] = {
         offset_side="none",
         tabs=_DEFAULT_TABS_OFF,
     ),
+    "3d_roughing": dict(
+        operation_type="3d_roughing",
+        tool=Tool(diameter=6.35, type="ballnose", flutes=2),
+        feed_rate=FeedRate(xy=50, z=20),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=3.0,
+        total_depth=50.0,
+        direction="climb",
+        offset_side="none",
+        tabs=_DEFAULT_TABS_OFF,
+        z_step=3.0,
+        stock_to_leave=0.5,
+    ),
 }
 
 
@@ -298,7 +315,7 @@ class OperationGeometry(BaseModel):
 class DetectedOperation(BaseModel):
     operation_id: str
     object_id: str
-    operation_type: Literal["contour", "pocket", "drill", "engrave"]
+    operation_type: Literal["contour", "pocket", "drill", "engrave", "3d_roughing"]
     geometry: OperationGeometry
     suggested_settings: MachiningSettings
     enabled: bool = True
@@ -357,7 +374,7 @@ class ToolpathPass(BaseModel):
 class Toolpath(BaseModel):
     operation_id: str
     object_id: str = ""
-    contour_type: Literal["exterior", "interior", "pocket", "drill"] = "exterior"
+    contour_type: Literal["exterior", "interior", "pocket", "drill", "3d_roughing"] = "exterior"
     passes: list[ToolpathPass]
     settings: MachiningSettings | None = None
 

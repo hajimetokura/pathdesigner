@@ -529,131 +529,210 @@ export default function OperationDetailPanel({
                   {/* Settings fields */}
                   {opsInGroup.length > 0 && (
                     <>
-                      {/* Common fields */}
-                      {group.operation_type === "drill" ? (
-                        <NumberRow
-                          label="Depth/peck (mm)"
-                          value={group.settings.depth_per_peck ?? 6}
-                          onChange={(v) =>
-                            updateGroupSettings(group.group_id, "depth_per_peck", v)
-                          }
-                        />
-                      ) : (
-                        <NumberRow
-                          label="Depth/pass (mm)"
-                          value={group.settings.depth_per_pass}
-                          onChange={(v) =>
-                            updateGroupSettings(group.group_id, "depth_per_pass", v)
-                          }
-                        />
-                      )}
-                      <NumberRow
-                        label="Feed XY (mm/s)"
-                        value={group.settings.feed_rate.xy}
-                        onChange={(v) =>
-                          updateGroupSettings(group.group_id, "feed_rate", {
-                            ...group.settings.feed_rate,
-                            xy: v,
-                          })
-                        }
-                      />
-                      <NumberRow
-                        label="Feed Z (mm/s)"
-                        value={group.settings.feed_rate.z}
-                        onChange={(v) =>
-                          updateGroupSettings(group.group_id, "feed_rate", {
-                            ...group.settings.feed_rate,
-                            z: v,
-                          })
-                        }
-                      />
-                      <NumberRow
-                        label="Spindle (RPM)"
-                        value={group.settings.spindle_speed}
-                        step={1000}
-                        onChange={(v) =>
-                          updateGroupSettings(group.group_id, "spindle_speed", Math.round(v))
-                        }
-                      />
-                      <NumberRow
-                        label="Tool dia (mm)"
-                        value={group.settings.tool.diameter}
-                        step={0.1}
-                        onChange={(v) =>
-                          updateGroupSettings(group.group_id, "tool", {
-                            ...group.settings.tool,
-                            diameter: v,
-                          })
-                        }
-                      />
-
-                      {/* Pocket-specific fields */}
-                      {group.operation_type === "pocket" && (
+                      {group.operation_type === "3d_roughing" ? (
+                        /* 3D roughing-specific fields */
                         <>
+                          <NumberRow
+                            label="Z Step (mm)"
+                            value={group.settings.z_step ?? 3.0}
+                            step={0.5}
+                            onChange={(v) =>
+                              updateGroupSettings(group.group_id, "z_step", v)
+                            }
+                          />
+                          <NumberRow
+                            label="Stock to Leave (mm)"
+                            value={group.settings.stock_to_leave ?? 0.5}
+                            step={0.1}
+                            onChange={(v) =>
+                              updateGroupSettings(group.group_id, "stock_to_leave", v)
+                            }
+                          />
                           <div style={fieldRowStyle}>
-                            <label style={fieldLabelStyle}>Pattern</label>
+                            <label style={fieldLabelStyle}>Tool Type</label>
                             <select
                               style={selectStyle}
-                              value={group.settings.pocket_pattern ?? "contour-parallel"}
+                              value={group.settings.tool.type}
                               onChange={(e) =>
-                                updateGroupSettings(
-                                  group.group_id,
-                                  "pocket_pattern",
-                                  e.target.value
-                                )
+                                updateGroupSettings(group.group_id, "tool", {
+                                  ...group.settings.tool,
+                                  type: e.target.value,
+                                })
                               }
                             >
-                              <option value="contour-parallel">Contour Parallel</option>
-                              <option value="raster">Raster (Zigzag)</option>
+                              <option value="ballnose">Ballnose</option>
+                              <option value="endmill">Endmill</option>
                             </select>
                           </div>
                           <NumberRow
-                            label="Stepover (%)"
-                            value={Math.round((group.settings.pocket_stepover ?? 0.5) * 100)}
-                            step={5}
+                            label="Tool dia (mm)"
+                            value={group.settings.tool.diameter}
+                            step={0.1}
                             onChange={(v) =>
-                              updateGroupSettings(
-                                group.group_id,
-                                "pocket_stepover",
-                                Math.max(0.1, Math.min(1, v / 100))
-                              )
+                              updateGroupSettings(group.group_id, "tool", {
+                                ...group.settings.tool,
+                                diameter: v,
+                              })
+                            }
+                          />
+                          <NumberRow
+                            label="Feed XY (mm/s)"
+                            value={group.settings.feed_rate.xy}
+                            onChange={(v) =>
+                              updateGroupSettings(group.group_id, "feed_rate", {
+                                ...group.settings.feed_rate,
+                                xy: v,
+                              })
+                            }
+                          />
+                          <NumberRow
+                            label="Feed Z (mm/s)"
+                            value={group.settings.feed_rate.z}
+                            onChange={(v) =>
+                              updateGroupSettings(group.group_id, "feed_rate", {
+                                ...group.settings.feed_rate,
+                                z: v,
+                              })
+                            }
+                          />
+                          <NumberRow
+                            label="Spindle (RPM)"
+                            value={group.settings.spindle_speed}
+                            step={1000}
+                            onChange={(v) =>
+                              updateGroupSettings(group.group_id, "spindle_speed", Math.round(v))
                             }
                           />
                         </>
-                      )}
-
-                      {/* Contour-specific fields */}
-                      {group.operation_type === "contour" && (
+                      ) : (
+                        /* 2D operation fields */
                         <>
-                          <div style={fieldRowStyle}>
-                            <label style={fieldLabelStyle}>Direction</label>
-                            <select
-                              style={selectStyle}
-                              value={group.settings.direction}
-                              onChange={(e) =>
-                                updateGroupSettings(group.group_id, "direction", e.target.value)
+                          {group.operation_type === "drill" ? (
+                            <NumberRow
+                              label="Depth/peck (mm)"
+                              value={group.settings.depth_per_peck ?? 6}
+                              onChange={(v) =>
+                                updateGroupSettings(group.group_id, "depth_per_peck", v)
                               }
-                            >
-                              <option value="climb">climb</option>
-                              <option value="conventional">conventional</option>
-                            </select>
-                          </div>
-                          <div style={fieldRowStyle}>
-                            <label style={fieldLabelStyle}>Tabs</label>
-                            <label style={{ fontSize: 11 }}>
-                              <input
-                                type="checkbox"
-                                checked={group.settings.tabs.enabled}
-                                onChange={() =>
-                                  updateGroupSettings(group.group_id, "tabs", {
-                                    ...group.settings.tabs,
-                                    enabled: !group.settings.tabs.enabled,
-                                  })
+                            />
+                          ) : (
+                            <NumberRow
+                              label="Depth/pass (mm)"
+                              value={group.settings.depth_per_pass}
+                              onChange={(v) =>
+                                updateGroupSettings(group.group_id, "depth_per_pass", v)
+                              }
+                            />
+                          )}
+                          <NumberRow
+                            label="Feed XY (mm/s)"
+                            value={group.settings.feed_rate.xy}
+                            onChange={(v) =>
+                              updateGroupSettings(group.group_id, "feed_rate", {
+                                ...group.settings.feed_rate,
+                                xy: v,
+                              })
+                            }
+                          />
+                          <NumberRow
+                            label="Feed Z (mm/s)"
+                            value={group.settings.feed_rate.z}
+                            onChange={(v) =>
+                              updateGroupSettings(group.group_id, "feed_rate", {
+                                ...group.settings.feed_rate,
+                                z: v,
+                              })
+                            }
+                          />
+                          <NumberRow
+                            label="Spindle (RPM)"
+                            value={group.settings.spindle_speed}
+                            step={1000}
+                            onChange={(v) =>
+                              updateGroupSettings(group.group_id, "spindle_speed", Math.round(v))
+                            }
+                          />
+                          <NumberRow
+                            label="Tool dia (mm)"
+                            value={group.settings.tool.diameter}
+                            step={0.1}
+                            onChange={(v) =>
+                              updateGroupSettings(group.group_id, "tool", {
+                                ...group.settings.tool,
+                                diameter: v,
+                              })
+                            }
+                          />
+
+                          {/* Pocket-specific fields */}
+                          {group.operation_type === "pocket" && (
+                            <>
+                              <div style={fieldRowStyle}>
+                                <label style={fieldLabelStyle}>Pattern</label>
+                                <select
+                                  style={selectStyle}
+                                  value={group.settings.pocket_pattern ?? "contour-parallel"}
+                                  onChange={(e) =>
+                                    updateGroupSettings(
+                                      group.group_id,
+                                      "pocket_pattern",
+                                      e.target.value
+                                    )
+                                  }
+                                >
+                                  <option value="contour-parallel">Contour Parallel</option>
+                                  <option value="raster">Raster (Zigzag)</option>
+                                </select>
+                              </div>
+                              <NumberRow
+                                label="Stepover (%)"
+                                value={Math.round((group.settings.pocket_stepover ?? 0.5) * 100)}
+                                step={5}
+                                onChange={(v) =>
+                                  updateGroupSettings(
+                                    group.group_id,
+                                    "pocket_stepover",
+                                    Math.max(0.1, Math.min(1, v / 100))
+                                  )
                                 }
                               />
-                              {" "}enabled ({group.settings.tabs.count})
-                            </label>
-                          </div>
+                            </>
+                          )}
+
+                          {/* Contour-specific fields */}
+                          {group.operation_type === "contour" && (
+                            <>
+                              <div style={fieldRowStyle}>
+                                <label style={fieldLabelStyle}>Direction</label>
+                                <select
+                                  style={selectStyle}
+                                  value={group.settings.direction}
+                                  onChange={(e) =>
+                                    updateGroupSettings(group.group_id, "direction", e.target.value)
+                                  }
+                                >
+                                  <option value="climb">climb</option>
+                                  <option value="conventional">conventional</option>
+                                </select>
+                              </div>
+                              <div style={fieldRowStyle}>
+                                <label style={fieldLabelStyle}>Tabs</label>
+                                <label style={{ fontSize: 11 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={group.settings.tabs.enabled}
+                                    onChange={() =>
+                                      updateGroupSettings(group.group_id, "tabs", {
+                                        ...group.settings.tabs,
+                                        enabled: !group.settings.tabs.enabled,
+                                      })
+                                    }
+                                  />
+                                  {" "}enabled ({group.settings.tabs.count})
+                                </label>
+                              </div>
+                            </>
+                          )}
                         </>
                       )}
                     </>

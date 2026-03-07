@@ -101,7 +101,7 @@ export interface TabSettings {
 }
 
 export interface MachiningSettings {
-  operation_type: "contour" | "pocket" | "drill" | "engrave";
+  operation_type: "contour" | "pocket" | "drill" | "engrave" | "3d_roughing";
   tool: Tool;
   feed_rate: FeedRate;
   jog_speed: number;
@@ -116,6 +116,9 @@ export interface MachiningSettings {
   pocket_stepover?: number; // 0-1 ratio of tool diameter
   // Drill-specific
   depth_per_peck?: number; // mm
+  // 3D roughing-specific
+  z_step?: number;
+  stock_to_leave?: number;
 }
 
 export interface PresetItem {
@@ -142,7 +145,7 @@ export interface OperationGeometry {
 export interface DetectedOperation {
   operation_id: string;
   object_id: string;
-  operation_type: "contour" | "pocket" | "drill" | "engrave";
+  operation_type: "contour" | "pocket" | "drill" | "engrave" | "3d_roughing";
   geometry: OperationGeometry;
   suggested_settings: MachiningSettings;
   enabled: boolean;
@@ -206,7 +209,7 @@ export interface ToolpathPass {
 export interface Toolpath {
   operation_id: string;
   object_id: string;
-  contour_type: "exterior" | "interior" | "pocket" | "drill";
+  contour_type: "exterior" | "interior" | "pocket" | "drill" | "3d_roughing";
   passes: ToolpathPass[];
   settings?: MachiningSettings;
 }
