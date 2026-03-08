@@ -105,31 +105,58 @@ export default function OperationNode({ id, selected }: NodeProps) {
         const obj3d = objects.filter((o) => o.machining_type === "3d");
         const obj2d = objects.filter((o) => o.machining_type !== "3d");
 
-        const local3dOps: DetectedOperation[] = obj3d.map((obj, i) => ({
-          operation_id: `op_3d_${obj.object_id}_${i}`,
-          object_id: obj.object_id,
-          operation_type: "3d_roughing" as const,
-          geometry: {
-            contours: [],
-            offset_applied: { distance: 0, side: "none" as const },
-            depth: obj.thickness,
-          },
-          suggested_settings: {
+        const local3dOps: DetectedOperation[] = obj3d.flatMap((obj, i) => [
+          {
+            operation_id: `op_3d_roughing_${obj.object_id}_${i}`,
+            object_id: obj.object_id,
             operation_type: "3d_roughing" as const,
-            tool: { diameter: 6.35, type: "ballnose" as const, flutes: 2 },
-            feed_rate: { xy: 50, z: 20 },
-            jog_speed: 200,
-            spindle_speed: 18000,
-            depth_per_pass: 3.0,
-            total_depth: obj.thickness,
-            direction: "climb" as const,
-            offset_side: "none" as const,
-            tabs: { enabled: false, height: 0, width: 0, count: 0 },
-            z_step: 3.0,
-            stock_to_leave: 0.5,
+            geometry: {
+              contours: [],
+              offset_applied: { distance: 0, side: "none" as const },
+              depth: obj.thickness,
+            },
+            suggested_settings: {
+              operation_type: "3d_roughing" as const,
+              tool: { diameter: 6.35, type: "ballnose" as const, flutes: 2 },
+              feed_rate: { xy: 50, z: 20 },
+              jog_speed: 200,
+              spindle_speed: 18000,
+              depth_per_pass: 3.0,
+              total_depth: obj.thickness,
+              direction: "climb" as const,
+              offset_side: "none" as const,
+              tabs: { enabled: false, height: 0, width: 0, count: 0 },
+              z_step: 3.0,
+              stock_to_leave: 0.5,
+            },
+            enabled: true,
           },
-          enabled: true,
-        }));
+          {
+            operation_id: `op_3d_finishing_${obj.object_id}_${i}`,
+            object_id: obj.object_id,
+            operation_type: "3d_finishing" as const,
+            geometry: {
+              contours: [],
+              offset_applied: { distance: 0, side: "none" as const },
+              depth: obj.thickness,
+            },
+            suggested_settings: {
+              operation_type: "3d_finishing" as const,
+              tool: { diameter: 3.175, type: "ballnose" as const, flutes: 2 },
+              feed_rate: { xy: 30, z: 15 },
+              jog_speed: 200,
+              spindle_speed: 18000,
+              depth_per_pass: 0,
+              total_depth: 0,
+              direction: "climb" as const,
+              offset_side: "none" as const,
+              tabs: { enabled: false, height: 0, width: 0, count: 0 },
+              stepover_3d: 0.15,
+              scan_angle: 0.0,
+            },
+            enabled: true,
+          },
+        ]);
 
         let api2dOps: DetectedOperation[] = [];
         if (obj2d.length > 0) {
