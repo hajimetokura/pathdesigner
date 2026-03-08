@@ -330,3 +330,80 @@ def test_raster_finishing_invalid_file():
     req = ThreeDFinishingRequest(mesh_file_path="/tmp/nonexistent_xyz.stl")
     with pytest.raises(FileNotFoundError):
         generate_raster_finishing(req)
+
+
+# --- Integration Test ---
+
+
+def test_roughing_finishing_merged_sbp(freeform_stl):
+    """Full pipeline: roughing + finishing -> merge -> SBP with tool change."""
+    from nodes.three_d_milling import generate_waterline_roughing, generate_raster_finishing
+    from sbp_writer import SbpWriter
+    from schemas import (
+        PostProcessorSettings,
+    )
+
+    # Generate roughing
+    roughing_req = ThreeDRoughingRequest(
+        mesh_file_path=str(freeform_stl),
+        z_step=10.0,
+        stock_to_leave=0.5,
+    )
+    roughing_tps = generate_waterline_roughing(roughing_req)
+    assert len(roughing_tps) > 0
+
+    # Generate finishing
+    finishing_req = ThreeDFinishingRequest(
+        mesh_file_path=str(freeform_stl),
+        stepover=0.5,
+        scan_angle=0.0,
+    )
+    finishing_tps = generate_raster_finishing(finishing_req)
+    assert len(finishing_tps) > 0
+
+    # Attach settings
+    roughing_settings = MachiningSettings(
+        operation_type="3d_roughing",
+        tool=Tool(diameter=6.35, type="endmill", flutes=2),
+        feed_rate=FeedRate(xy=50, z=20),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=10.0,
+        total_depth=50.0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+    )
+    finishing_settings = MachiningSettings(
+        operation_type="3d_finishing",
+        tool=Tool(diameter=3.175, type="ballnose", flutes=2),
+        feed_rate=FeedRate(xy=30, z=15),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=0,
+        total_depth=0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+    )
+
+    for tp in roughing_tps:
+        tp.settings = roughing_settings
+    for tp in finishing_tps:
+        tp.settings = finishing_settings
+
+    # Merge
+    all_toolpaths = roughing_tps + finishing_tps
+
+    # Generate SBP
+    post = PostProcessorSettings()
+    writer = SbpWriter(post, roughing_settings)
+    sbp = writer.generate(all_toolpaths)
+
+    # Verify tool change
+    assert "C8" in sbp, "Expected tool change (C8) between roughing and finishing"
+    assert "M3," in sbp
+    assert len(sbp) > 200
+    # Verify both roughing and finishing paths present
+    lines = [l for l in sbp.split("\n") if l.startswith("M3,")]
+    assert len(lines) > 10
