@@ -43,6 +43,7 @@ from schemas import (
     SnippetSaveRequest, SnippetInfo, SnippetListResponse,
     ThreeDRoughingRequest, ThreeDRoughingResult,
     ThreeDFinishingRequest, ThreeDFinishingResult,
+    MergeToolpathsRequest, Toolpath,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -588,6 +589,15 @@ def three_d_finishing_endpoint(req: ThreeDFinishingRequest):
         raise HTTPException(status_code=500, detail=f"Finishing generation failed: {e}")
 
     return ThreeDFinishingResult(toolpaths=toolpaths)
+
+
+@app.post("/api/merge-toolpaths", response_model=ToolpathGenResult)
+def merge_toolpaths(req: MergeToolpathsRequest):
+    """Concatenate multiple toolpath results in order."""
+    all_toolpaths: list[Toolpath] = []
+    for source in req.sources:
+        all_toolpaths.extend(source.toolpaths)
+    return ToolpathGenResult(toolpaths=all_toolpaths)
 
 
 # --- AI CAD Endpoints ---

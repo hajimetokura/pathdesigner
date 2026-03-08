@@ -424,6 +424,10 @@ class ToolpathGenResult(BaseModel):
     sheet_depth: float | None = None   # mm (Y axis)
 
 
+class MergeToolpathsRequest(BaseModel):
+    sources: list[ToolpathGenResult]
+
+
 class SbpGenRequest(BaseModel):
     toolpath_result: ToolpathGenResult
     operations: list[OperationAssignment]
