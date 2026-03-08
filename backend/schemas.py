@@ -206,7 +206,7 @@ class ThreeDRoughingSettings(BaseModel):
 
 
 class ThreeDRoughingRequest(BaseModel):
-    file_id: str = ""
+    file_id: str
     z_step: float = 3.0
     stock_to_leave: float = 0.5
     tool: Tool = Tool(diameter=6.35, type="ballnose", flutes=2)
@@ -220,7 +220,7 @@ class ThreeDRoughingResult(BaseModel):
 
 
 class ThreeDFinishingRequest(BaseModel):
-    file_id: str = ""
+    file_id: str
     stepover: float = 0.15        # ratio of tool diameter
     scan_angle: float = 0.0       # degrees
     tool: Tool = Tool(diameter=3.175, type="ballnose", flutes=2)
