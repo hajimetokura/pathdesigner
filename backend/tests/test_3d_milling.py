@@ -7,8 +7,12 @@ from schemas import (
     ThreeDRoughingSettings,
     ThreeDRoughingRequest,
     ThreeDRoughingResult,
+    ThreeDFinishingRequest,
+    ThreeDFinishingResult,
+    MachiningSettings,
     Tool,
     FeedRate,
+    TabSettings,
     Toolpath,
     ToolpathPass,
 )
@@ -202,3 +206,45 @@ class TestWaterlineRoughing:
 
         assert "M3," in sbp  # 3D move commands
         assert len(sbp) > 100
+
+
+# --- 3D Finishing Schema Tests ---
+
+
+def test_three_d_finishing_settings_defaults():
+    req = ThreeDFinishingRequest(mesh_file_path="/tmp/test.stl")
+    assert req.stepover == 0.15
+    assert req.scan_angle == 0.0
+    assert req.tool.type == "ballnose"
+    assert req.tool.diameter == 3.175
+    assert req.spindle_speed == 18000
+
+
+def test_three_d_finishing_result():
+    tp = Toolpath(
+        operation_id="3d_finishing_001",
+        object_id="obj_001",
+        contour_type="3d_finishing",
+        passes=[ToolpathPass(pass_number=1, z_depth=0, path=[[0, 0, -3], [10, 0, -2.5]], tabs=[])],
+    )
+    result = ThreeDFinishingResult(toolpaths=[tp])
+    assert len(result.toolpaths) == 1
+
+
+def test_machining_settings_3d_finishing():
+    s = MachiningSettings(
+        operation_type="3d_finishing",
+        tool=Tool(diameter=3.175, type="ballnose", flutes=2),
+        feed_rate=FeedRate(xy=30, z=15),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=0,
+        total_depth=0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+        stepover_3d=0.15,
+        scan_angle=0.0,
+    )
+    assert s.operation_type == "3d_finishing"
+    assert s.stepover_3d == 0.15

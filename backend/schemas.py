@@ -170,7 +170,7 @@ class MachiningSettings(BaseModel):
     present with default values for serialization simplicity.
     """
 
-    operation_type: Literal["contour", "pocket", "drill", "engrave", "3d_roughing"]
+    operation_type: Literal["contour", "pocket", "drill", "engrave", "3d_roughing", "3d_finishing"]
     tool: Tool
     feed_rate: FeedRate
     jog_speed: float  # mm/s
@@ -188,6 +188,9 @@ class MachiningSettings(BaseModel):
     # 3D roughing-specific
     z_step: float = 0  # mm, waterline Z step (0 = unused for 2D)
     stock_to_leave: float = 0  # mm, remaining material (0 = unused for 2D)
+    # 3D finishing-specific
+    stepover_3d: float = 0.15  # 0-1 ratio of tool diameter (for raster finishing)
+    scan_angle: float = 0.0  # degrees, 0 = X-axis scan lines
 
 
 # --- 3D Milling ---
@@ -212,6 +215,19 @@ class ThreeDRoughingRequest(BaseModel):
 
 
 class ThreeDRoughingResult(BaseModel):
+    toolpaths: list[Toolpath]
+
+
+class ThreeDFinishingRequest(BaseModel):
+    mesh_file_path: str
+    stepover: float = 0.15        # ratio of tool diameter
+    scan_angle: float = 0.0       # degrees
+    tool: Tool = Tool(diameter=3.175, type="ballnose", flutes=2)
+    feed_rate: FeedRate = FeedRate(xy=30, z=15)
+    spindle_speed: int = 18000
+
+
+class ThreeDFinishingResult(BaseModel):
     toolpaths: list[Toolpath]
 
 
@@ -269,6 +285,20 @@ _DEFAULT_SETTINGS: dict[str, dict] = {
         z_step=3.0,
         stock_to_leave=0.5,
     ),
+    "3d_finishing": dict(
+        operation_type="3d_finishing",
+        tool=Tool(diameter=3.175, type="ballnose", flutes=2),
+        feed_rate=FeedRate(xy=30, z=15),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=0,
+        total_depth=0,
+        direction="climb",
+        offset_side="none",
+        tabs=_DEFAULT_TABS_OFF,
+        stepover_3d=0.15,
+        scan_angle=0.0,
+    ),
 }
 
 
@@ -315,7 +345,7 @@ class OperationGeometry(BaseModel):
 class DetectedOperation(BaseModel):
     operation_id: str
     object_id: str
-    operation_type: Literal["contour", "pocket", "drill", "engrave", "3d_roughing"]
+    operation_type: Literal["contour", "pocket", "drill", "engrave", "3d_roughing", "3d_finishing"]
     geometry: OperationGeometry
     suggested_settings: MachiningSettings
     enabled: bool = True
@@ -374,7 +404,7 @@ class ToolpathPass(BaseModel):
 class Toolpath(BaseModel):
     operation_id: str
     object_id: str = ""
-    contour_type: Literal["exterior", "interior", "pocket", "drill", "3d_roughing"] = "exterior"
+    contour_type: Literal["exterior", "interior", "pocket", "drill", "3d_roughing", "3d_finishing"] = "exterior"
     passes: list[ToolpathPass]
     settings: MachiningSettings | None = None
 
