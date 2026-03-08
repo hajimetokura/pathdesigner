@@ -10,23 +10,19 @@ def client():
     return TestClient(app)
 
 
-def test_3d_finishing_endpoint(client, freeform_stl):
-    """Upload STL then generate finishing toolpath."""
-    with open(freeform_stl, "rb") as f:
+def test_3d_finishing_endpoint(client, simple_box_step):
+    """Upload STEP then generate finishing toolpath."""
+    with open(simple_box_step, "rb") as f:
         upload_resp = client.post(
-            "/api/upload-mesh",
-            files={"file": ("sphere.stl", f, "application/octet-stream")},
+            "/api/upload-step",
+            files={"file": ("box.step", f, "application/octet-stream")},
         )
     assert upload_resp.status_code == 200
-    mesh_path = upload_resp.json()["mesh_file_path"]
+    file_id = upload_resp.json()["file_id"]
 
     resp = client.post(
         "/api/3d-finishing",
-        json={
-            "mesh_file_path": mesh_path,
-            "stepover": 0.3,
-            "scan_angle": 0.0,
-        },
+        json={"file_id": file_id, "stepover": 0.3, "scan_angle": 0.0},
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -37,9 +33,9 @@ def test_3d_finishing_endpoint(client, freeform_stl):
 
 
 def test_3d_finishing_invalid_file(client):
-    """Non-existent mesh file should return 400."""
+    """Non-existent file_id should return 404."""
     resp = client.post(
         "/api/3d-finishing",
-        json={"mesh_file_path": "/tmp/nonexistent_xyz.stl"},
+        json={"file_id": "nonexistent_xyz"},
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 404
