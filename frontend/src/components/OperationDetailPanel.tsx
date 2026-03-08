@@ -529,25 +529,63 @@ export default function OperationDetailPanel({
                   {/* Settings fields */}
                   {opsInGroup.length > 0 && (
                     <>
-                      {group.operation_type === "3d_roughing" ? (
-                        /* 3D roughing-specific fields */
+                      {group.operation_type === "3d_roughing" || group.operation_type === "3d_finishing" ? (
+                        /* 3D operation-specific fields */
                         <>
-                          <NumberRow
-                            label="Z Step (mm)"
-                            value={group.settings.z_step ?? 3.0}
-                            step={0.5}
-                            onChange={(v) =>
-                              updateGroupSettings(group.group_id, "z_step", v)
-                            }
-                          />
-                          <NumberRow
-                            label="Stock to Leave (mm)"
-                            value={group.settings.stock_to_leave ?? 0.5}
-                            step={0.1}
-                            onChange={(v) =>
-                              updateGroupSettings(group.group_id, "stock_to_leave", v)
-                            }
-                          />
+                          {group.operation_type === "3d_roughing" && (
+                            <>
+                              <NumberRow
+                                label="Z Step (mm)"
+                                value={group.settings.z_step ?? 3.0}
+                                step={0.5}
+                                onChange={(v) =>
+                                  updateGroupSettings(group.group_id, "z_step", v)
+                                }
+                              />
+                              <NumberRow
+                                label="Stock to Leave (mm)"
+                                value={group.settings.stock_to_leave ?? 0.5}
+                                step={0.1}
+                                onChange={(v) =>
+                                  updateGroupSettings(group.group_id, "stock_to_leave", v)
+                                }
+                              />
+                            </>
+                          )}
+                          {group.operation_type === "3d_finishing" && (
+                            <>
+                              <NumberRow
+                                label="Stepover (%)"
+                                value={Math.round((group.settings.stepover_3d ?? 0.15) * 100)}
+                                step={5}
+                                onChange={(v) =>
+                                  updateGroupSettings(
+                                    group.group_id,
+                                    "stepover_3d",
+                                    Math.max(0.05, Math.min(0.5, v / 100)),
+                                  )
+                                }
+                              />
+                              <div style={fieldRowStyle}>
+                                <label style={fieldLabelStyle}>Scan Angle</label>
+                                <select
+                                  style={selectStyle}
+                                  value={group.settings.scan_angle ?? 0}
+                                  onChange={(e) =>
+                                    updateGroupSettings(
+                                      group.group_id,
+                                      "scan_angle",
+                                      parseFloat(e.target.value),
+                                    )
+                                  }
+                                >
+                                  <option value={0}>0 (X-axis)</option>
+                                  <option value={45}>45</option>
+                                  <option value={90}>90 (Y-axis)</option>
+                                </select>
+                              </div>
+                            </>
+                          )}
                           <div style={fieldRowStyle}>
                             <label style={fieldLabelStyle}>Tool Type</label>
                             <select

@@ -7,8 +7,12 @@ from schemas import (
     ThreeDRoughingSettings,
     ThreeDRoughingRequest,
     ThreeDRoughingResult,
+    ThreeDFinishingRequest,
+    ThreeDFinishingResult,
+    MachiningSettings,
     Tool,
     FeedRate,
+    TabSettings,
     Toolpath,
     ToolpathPass,
 )
@@ -202,3 +206,204 @@ class TestWaterlineRoughing:
 
         assert "M3," in sbp  # 3D move commands
         assert len(sbp) > 100
+
+
+# --- 3D Finishing Schema Tests ---
+
+
+def test_three_d_finishing_settings_defaults():
+    req = ThreeDFinishingRequest(mesh_file_path="/tmp/test.stl")
+    assert req.stepover == 0.15
+    assert req.scan_angle == 0.0
+    assert req.tool.type == "ballnose"
+    assert req.tool.diameter == 3.175
+    assert req.spindle_speed == 18000
+
+
+def test_three_d_finishing_result():
+    tp = Toolpath(
+        operation_id="3d_finishing_001",
+        object_id="obj_001",
+        contour_type="3d_finishing",
+        passes=[ToolpathPass(pass_number=1, z_depth=0, path=[[0, 0, -3], [10, 0, -2.5]], tabs=[])],
+    )
+    result = ThreeDFinishingResult(toolpaths=[tp])
+    assert len(result.toolpaths) == 1
+
+
+def test_machining_settings_3d_finishing():
+    s = MachiningSettings(
+        operation_type="3d_finishing",
+        tool=Tool(diameter=3.175, type="ballnose", flutes=2),
+        feed_rate=FeedRate(xy=30, z=15),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=0,
+        total_depth=0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+        stepover_3d=0.15,
+        scan_angle=0.0,
+    )
+    assert s.operation_type == "3d_finishing"
+    assert s.stepover_3d == 0.15
+
+
+# --- Raster Finishing Engine Tests ---
+
+
+def test_raster_finishing_sphere(freeform_stl):
+    """Raster finishing on sphere should produce scan-line toolpaths with 3D Z."""
+    from nodes.three_d_milling import generate_raster_finishing
+
+    req = ThreeDFinishingRequest(
+        mesh_file_path=str(freeform_stl),
+        stepover=0.3,
+        scan_angle=0.0,
+    )
+    toolpaths = generate_raster_finishing(req)
+    assert len(toolpaths) > 0
+
+    for tp in toolpaths:
+        for p in tp.passes:
+            assert len(p.path) >= 2
+            for coord in p.path:
+                assert len(coord) == 3
+
+
+def test_raster_finishing_z_follows_surface(freeform_stl):
+    """Z values should vary along scan lines (not flat) for a sphere."""
+    from nodes.three_d_milling import generate_raster_finishing
+
+    req = ThreeDFinishingRequest(
+        mesh_file_path=str(freeform_stl),
+        stepover=0.5,
+        scan_angle=0.0,
+    )
+    toolpaths = generate_raster_finishing(req)
+    assert len(toolpaths) > 0
+
+    for tp in toolpaths:
+        for p in tp.passes:
+            z_values = [c[2] for c in p.path]
+            if len(set(round(z, 1) for z in z_values)) > 1:
+                return
+    pytest.fail("Expected at least one pass with varying Z values on a sphere")
+
+
+def test_raster_finishing_scan_angle(freeform_stl):
+    """scan_angle=90 should produce Y-axis scan lines instead of X-axis."""
+    from nodes.three_d_milling import generate_raster_finishing
+
+    req_0 = ThreeDFinishingRequest(
+        mesh_file_path=str(freeform_stl),
+        stepover=0.5,
+        scan_angle=0.0,
+    )
+    req_90 = ThreeDFinishingRequest(
+        mesh_file_path=str(freeform_stl),
+        stepover=0.5,
+        scan_angle=90.0,
+    )
+    tp_0 = generate_raster_finishing(req_0)
+    tp_90 = generate_raster_finishing(req_90)
+    assert len(tp_0) > 0
+    assert len(tp_90) > 0
+
+    first_pass_0 = tp_0[0].passes[0].path
+    y_values_0 = [c[1] for c in first_pass_0]
+    y_range_0 = max(y_values_0) - min(y_values_0)
+
+    first_pass_90 = tp_90[0].passes[0].path
+    x_values_90 = [c[0] for c in first_pass_90]
+    x_range_90 = max(x_values_90) - min(x_values_90)
+
+    assert y_range_0 < 1.0, f"angle=0: Y should be constant per line, got range {y_range_0}"
+    assert x_range_90 < 1.0, f"angle=90: X should be constant per line, got range {x_range_90}"
+
+
+def test_raster_finishing_invalid_file():
+    """Non-existent file should raise."""
+    from nodes.three_d_milling import generate_raster_finishing
+
+    req = ThreeDFinishingRequest(mesh_file_path="/tmp/nonexistent_xyz.stl")
+    with pytest.raises(FileNotFoundError):
+        generate_raster_finishing(req)
+
+
+# --- Integration Test ---
+
+
+def test_roughing_finishing_merged_sbp(freeform_stl):
+    """Full pipeline: roughing + finishing -> merge -> SBP with tool change."""
+    from nodes.three_d_milling import generate_waterline_roughing, generate_raster_finishing
+    from sbp_writer import SbpWriter
+    from schemas import (
+        PostProcessorSettings,
+    )
+
+    # Generate roughing
+    roughing_req = ThreeDRoughingRequest(
+        mesh_file_path=str(freeform_stl),
+        z_step=10.0,
+        stock_to_leave=0.5,
+    )
+    roughing_tps = generate_waterline_roughing(roughing_req)
+    assert len(roughing_tps) > 0
+
+    # Generate finishing
+    finishing_req = ThreeDFinishingRequest(
+        mesh_file_path=str(freeform_stl),
+        stepover=0.5,
+        scan_angle=0.0,
+    )
+    finishing_tps = generate_raster_finishing(finishing_req)
+    assert len(finishing_tps) > 0
+
+    # Attach settings
+    roughing_settings = MachiningSettings(
+        operation_type="3d_roughing",
+        tool=Tool(diameter=6.35, type="endmill", flutes=2),
+        feed_rate=FeedRate(xy=50, z=20),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=10.0,
+        total_depth=50.0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+    )
+    finishing_settings = MachiningSettings(
+        operation_type="3d_finishing",
+        tool=Tool(diameter=3.175, type="ballnose", flutes=2),
+        feed_rate=FeedRate(xy=30, z=15),
+        jog_speed=200,
+        spindle_speed=18000,
+        depth_per_pass=0,
+        total_depth=0,
+        direction="climb",
+        offset_side="none",
+        tabs=TabSettings(enabled=False, height=0, width=0, count=0),
+    )
+
+    for tp in roughing_tps:
+        tp.settings = roughing_settings
+    for tp in finishing_tps:
+        tp.settings = finishing_settings
+
+    # Merge
+    all_toolpaths = roughing_tps + finishing_tps
+
+    # Generate SBP
+    post = PostProcessorSettings()
+    writer = SbpWriter(post, roughing_settings)
+    sbp = writer.generate(all_toolpaths)
+
+    # Verify tool change
+    assert "C8" in sbp, "Expected tool change (C8) between roughing and finishing"
+    assert "M3," in sbp
+    assert len(sbp) > 200
+    # Verify both roughing and finishing paths present
+    lines = [l for l in sbp.split("\n") if l.startswith("M3,")]
+    assert len(lines) > 10

@@ -26,6 +26,7 @@ import type {
   SnippetListResponse,
   SnippetSaveRequest,
   ThreeDRoughingResult,
+  ThreeDFinishingResult,
 } from "./types";
 import { API_BASE_URL } from "./config";
 import { DEFAULT_TOOL_DIAMETER_MM, DEFAULT_OFFSET_SIDE, DEFAULT_CLEARANCE_MM } from "./constants";
@@ -289,6 +290,39 @@ export async function generate3dRoughing(
     `${API_BASE_URL}/api/3d-roughing`,
     jsonPost(body),
     "3D roughing failed"
+  );
+}
+
+export async function generate3dFinishing(
+  meshFilePath: string,
+  stepover: number = 0.15,
+  scanAngle: number = 0.0,
+  tool?: { diameter: number; type: string; flutes: number },
+  feedRate?: { xy: number; z: number },
+  spindleSpeed?: number,
+): Promise<ThreeDFinishingResult> {
+  const body: Record<string, unknown> = {
+    mesh_file_path: meshFilePath,
+    stepover,
+    scan_angle: scanAngle,
+  };
+  if (tool) body.tool = tool;
+  if (feedRate) body.feed_rate = feedRate;
+  if (spindleSpeed) body.spindle_speed = spindleSpeed;
+  return requestJson<ThreeDFinishingResult>(
+    `${API_BASE_URL}/api/3d-finishing`,
+    jsonPost(body),
+    "3D finishing failed"
+  );
+}
+
+export async function mergeToolpaths(
+  sources: ToolpathGenResult[],
+): Promise<ToolpathGenResult> {
+  return requestJson<ToolpathGenResult>(
+    `${API_BASE_URL}/api/merge-toolpaths`,
+    jsonPost({ sources }),
+    "Toolpath merge failed"
   );
 }
 

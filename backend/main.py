@@ -42,6 +42,8 @@ from schemas import (
     GenerationSummary, ModelInfo, ProfileInfo,
     SnippetSaveRequest, SnippetInfo, SnippetListResponse,
     ThreeDRoughingRequest, ThreeDRoughingResult,
+    ThreeDFinishingRequest, ThreeDFinishingResult,
+    MergeToolpathsRequest, Toolpath,
 )
 
 app = FastAPI(title="PathDesigner", version="0.1.0")
@@ -571,6 +573,31 @@ def three_d_roughing_endpoint(req: ThreeDRoughingRequest):
         raise HTTPException(status_code=500, detail=f"Roughing generation failed: {e}")
 
     return ThreeDRoughingResult(toolpaths=toolpaths)
+
+
+@app.post("/api/3d-finishing", response_model=ThreeDFinishingResult)
+def three_d_finishing_endpoint(req: ThreeDFinishingRequest):
+    """Generate raster finishing toolpaths from a mesh file."""
+    from nodes.three_d_milling import generate_raster_finishing
+
+    if not Path(req.mesh_file_path).exists():
+        raise HTTPException(status_code=400, detail=f"Mesh file not found: {req.mesh_file_path}")
+
+    try:
+        toolpaths = generate_raster_finishing(req)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Finishing generation failed: {e}")
+
+    return ThreeDFinishingResult(toolpaths=toolpaths)
+
+
+@app.post("/api/merge-toolpaths", response_model=ToolpathGenResult)
+def merge_toolpaths(req: MergeToolpathsRequest):
+    """Concatenate multiple toolpath results in order."""
+    all_toolpaths: list[Toolpath] = []
+    for source in req.sources:
+        all_toolpaths.extend(source.toolpaths)
+    return ToolpathGenResult(toolpaths=all_toolpaths)
 
 
 # --- AI CAD Endpoints ---

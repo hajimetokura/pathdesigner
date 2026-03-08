@@ -101,7 +101,7 @@ export interface TabSettings {
 }
 
 export interface MachiningSettings {
-  operation_type: "contour" | "pocket" | "drill" | "engrave" | "3d_roughing";
+  operation_type: "contour" | "pocket" | "drill" | "engrave" | "3d_roughing" | "3d_finishing";
   tool: Tool;
   feed_rate: FeedRate;
   jog_speed: number;
@@ -119,6 +119,9 @@ export interface MachiningSettings {
   // 3D roughing-specific
   z_step?: number;
   stock_to_leave?: number;
+  // 3D finishing-specific
+  stepover_3d?: number;
+  scan_angle?: number;
 }
 
 export interface PresetItem {
@@ -145,7 +148,7 @@ export interface OperationGeometry {
 export interface DetectedOperation {
   operation_id: string;
   object_id: string;
-  operation_type: "contour" | "pocket" | "drill" | "engrave" | "3d_roughing";
+  operation_type: "contour" | "pocket" | "drill" | "engrave" | "3d_roughing" | "3d_finishing";
   geometry: OperationGeometry;
   suggested_settings: MachiningSettings;
   enabled: boolean;
@@ -209,7 +212,7 @@ export interface ToolpathPass {
 export interface Toolpath {
   operation_id: string;
   object_id: string;
-  contour_type: "exterior" | "interior" | "pocket" | "drill" | "3d_roughing";
+  contour_type: "exterior" | "interior" | "pocket" | "drill" | "3d_roughing" | "3d_finishing";
   passes: ToolpathPass[];
   settings?: MachiningSettings;
 }
@@ -384,6 +387,10 @@ export interface ThreeDRoughingRequest {
 }
 
 export interface ThreeDRoughingResult {
+  toolpaths: Toolpath[];
+}
+
+export interface ThreeDFinishingResult {
   toolpaths: Toolpath[];
 }
 
