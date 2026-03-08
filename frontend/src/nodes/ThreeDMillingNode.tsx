@@ -2,7 +2,6 @@ import { useCallback, useState } from "react";
 import { type NodeProps, useReactFlow } from "@xyflow/react";
 import { generate3dRoughing, generate3dFinishing } from "../api";
 import type {
-  MeshImportResult,
   OperationAssignment,
   ThreeDRoughingResult,
   ThreeDFinishingResult,
@@ -26,16 +25,14 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
 
   const { setNodes } = useReactFlow();
 
-  // Read upstream MeshImportNode data
-  const extractMesh = useCallback(
-    (d: Record<string, unknown>): MeshImportResult | undefined => {
-      const br = d.brepResult as MeshImportResult | undefined;
-      if (br && br.mesh_file_path) return br;
-      return undefined;
+  // Read upstream fileId from OperationNode
+  const extractFileId = useCallback(
+    (d: Record<string, unknown>): string | undefined => {
+      return d.fileId as string | undefined;
     },
     [],
   );
-  const meshData = useUpstreamData(id, `${id}-mesh`, extractMesh);
+  const fileId = useUpstreamData(id, `${id}-operations`, extractFileId);
 
   // Read upstream OperationNode — find enabled 3d_roughing assignment
   const extractRoughing = useCallback(
@@ -72,13 +69,13 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
   );
 
   const handleGenerateRoughing = useCallback(async () => {
-    if (!meshData?.mesh_file_path) return;
+    if (!fileId) return;
     setRoughingStatus("loading");
     setRoughingError("");
     try {
       const s = roughingAssignment?.settings;
       const res = await generate3dRoughing(
-        meshData.mesh_file_path,
+        fileId,
         s?.z_step ?? 3.0,
         s?.stock_to_leave ?? 0.5,
         s
@@ -104,16 +101,16 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
       setRoughingError(e instanceof Error ? e.message : "Generation failed");
       setRoughingStatus("error");
     }
-  }, [meshData, roughingAssignment, id, setNodes]);
+  }, [fileId, roughingAssignment, id, setNodes]);
 
   const handleGenerateFinishing = useCallback(async () => {
-    if (!meshData?.mesh_file_path) return;
+    if (!fileId) return;
     setFinishingStatus("loading");
     setFinishingError("");
     try {
       const s = finishingAssignment?.settings;
       const res = await generate3dFinishing(
-        meshData.mesh_file_path,
+        fileId,
         s?.stepover_3d ?? 0.15,
         s?.scan_angle ?? 0.0,
         s
@@ -141,7 +138,7 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
       );
       setFinishingStatus("error");
     }
-  }, [meshData, finishingAssignment, id, setNodes]);
+  }, [fileId, finishingAssignment, id, setNodes]);
 
   // Count Z levels and total passes from roughing result
   const roughingZLevels = roughingResult
@@ -168,37 +165,18 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
     <NodeShell category="cam" selected={selected}>
       <LabeledHandle
         type="target"
-        id={`${id}-mesh`}
-        label="mesh"
-        dataType="geometry"
-        index={0}
-        total={2}
-      />
-      <LabeledHandle
-        type="target"
         id={`${id}-operations`}
         label="operations"
         dataType="geometry"
-        index={1}
-        total={2}
       />
 
       <div style={headerStyle}>3D Milling</div>
 
-      {!meshData && roughingStatus !== "loading" && (
+      {!roughingAssignment && !finishingAssignment && roughingStatus !== "loading" && (
         <div style={{ color: "var(--text-muted)", fontSize: 11 }}>
-          Connect Mesh Import
+          Connect Operation node
         </div>
       )}
-
-      {!roughingAssignment &&
-        !finishingAssignment &&
-        meshData &&
-        roughingStatus !== "loading" && (
-          <div style={{ color: "var(--text-muted)", fontSize: 11 }}>
-            Connect Operation node
-          </div>
-        )}
 
       {/* --- Roughing Section --- */}
       {roughingAssignment && (
@@ -209,13 +187,13 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
           )}
           <button
             onClick={handleGenerateRoughing}
-            disabled={!meshData || roughingStatus === "loading"}
+            disabled={!fileId || roughingStatus === "loading"}
             style={{
               ...buttonStyle,
               opacity:
-                !meshData || roughingStatus === "loading" ? 0.5 : 1,
+                !fileId || roughingStatus === "loading" ? 0.5 : 1,
               cursor:
-                !meshData || roughingStatus === "loading"
+                !fileId || roughingStatus === "loading"
                   ? "not-allowed"
                   : "pointer",
             }}
@@ -253,14 +231,14 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
           )}
           <button
             onClick={handleGenerateFinishing}
-            disabled={!meshData || finishingStatus === "loading"}
+            disabled={!fileId || finishingStatus === "loading"}
             style={{
               ...buttonStyle,
               background: "var(--color-toolpath, #6366f1)",
               opacity:
-                !meshData || finishingStatus === "loading" ? 0.5 : 1,
+                !fileId || finishingStatus === "loading" ? 0.5 : 1,
               cursor:
-                !meshData || finishingStatus === "loading"
+                !fileId || finishingStatus === "loading"
                   ? "not-allowed"
                   : "pointer",
             }}
@@ -284,15 +262,15 @@ export default function ThreeDMillingNode({ id, selected }: NodeProps) {
       )}
 
       {/* --- No operation assigned: show default generate button --- */}
-      {!roughingAssignment && !finishingAssignment && meshData && (
+      {!roughingAssignment && !finishingAssignment && fileId && (
         <button
           onClick={handleGenerateRoughing}
-          disabled={!meshData || roughingStatus === "loading"}
+          disabled={!fileId || roughingStatus === "loading"}
           style={{
             ...buttonStyle,
-            opacity: !meshData || roughingStatus === "loading" ? 0.5 : 1,
+            opacity: !fileId || roughingStatus === "loading" ? 0.5 : 1,
             cursor:
-              !meshData || roughingStatus === "loading"
+              !fileId || roughingStatus === "loading"
                 ? "not-allowed"
                 : "pointer",
           }}

@@ -271,7 +271,7 @@ export async function generateSbpZip(
 /** 3D Milling API */
 
 export async function generate3dRoughing(
-  meshFilePath: string,
+  fileId: string,
   zStep: number = 3.0,
   stockToLeave: number = 0.5,
   tool?: { diameter: number; type: string; flutes: number },
@@ -279,7 +279,7 @@ export async function generate3dRoughing(
   spindleSpeed?: number,
 ): Promise<ThreeDRoughingResult> {
   const body: Record<string, unknown> = {
-    mesh_file_path: meshFilePath,
+    file_id: fileId,
     z_step: zStep,
     stock_to_leave: stockToLeave,
   };
@@ -294,7 +294,7 @@ export async function generate3dRoughing(
 }
 
 export async function generate3dFinishing(
-  meshFilePath: string,
+  fileId: string,
   stepover: number = 0.15,
   scanAngle: number = 0.0,
   tool?: { diameter: number; type: string; flutes: number },
@@ -302,7 +302,7 @@ export async function generate3dFinishing(
   spindleSpeed?: number,
 ): Promise<ThreeDFinishingResult> {
   const body: Record<string, unknown> = {
-    mesh_file_path: meshFilePath,
+    file_id: fileId,
     stepover,
     scan_angle: scanAngle,
   };
