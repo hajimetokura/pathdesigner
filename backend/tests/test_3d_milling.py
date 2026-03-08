@@ -248,3 +248,85 @@ def test_machining_settings_3d_finishing():
     )
     assert s.operation_type == "3d_finishing"
     assert s.stepover_3d == 0.15
+
+
+# --- Raster Finishing Engine Tests ---
+
+
+def test_raster_finishing_sphere(freeform_stl):
+    """Raster finishing on sphere should produce scan-line toolpaths with 3D Z."""
+    from nodes.three_d_milling import generate_raster_finishing
+
+    req = ThreeDFinishingRequest(
+        mesh_file_path=str(freeform_stl),
+        stepover=0.3,
+        scan_angle=0.0,
+    )
+    toolpaths = generate_raster_finishing(req)
+    assert len(toolpaths) > 0
+
+    for tp in toolpaths:
+        for p in tp.passes:
+            assert len(p.path) >= 2
+            for coord in p.path:
+                assert len(coord) == 3
+
+
+def test_raster_finishing_z_follows_surface(freeform_stl):
+    """Z values should vary along scan lines (not flat) for a sphere."""
+    from nodes.three_d_milling import generate_raster_finishing
+
+    req = ThreeDFinishingRequest(
+        mesh_file_path=str(freeform_stl),
+        stepover=0.5,
+        scan_angle=0.0,
+    )
+    toolpaths = generate_raster_finishing(req)
+    assert len(toolpaths) > 0
+
+    for tp in toolpaths:
+        for p in tp.passes:
+            z_values = [c[2] for c in p.path]
+            if len(set(round(z, 1) for z in z_values)) > 1:
+                return
+    pytest.fail("Expected at least one pass with varying Z values on a sphere")
+
+
+def test_raster_finishing_scan_angle(freeform_stl):
+    """scan_angle=90 should produce Y-axis scan lines instead of X-axis."""
+    from nodes.three_d_milling import generate_raster_finishing
+
+    req_0 = ThreeDFinishingRequest(
+        mesh_file_path=str(freeform_stl),
+        stepover=0.5,
+        scan_angle=0.0,
+    )
+    req_90 = ThreeDFinishingRequest(
+        mesh_file_path=str(freeform_stl),
+        stepover=0.5,
+        scan_angle=90.0,
+    )
+    tp_0 = generate_raster_finishing(req_0)
+    tp_90 = generate_raster_finishing(req_90)
+    assert len(tp_0) > 0
+    assert len(tp_90) > 0
+
+    first_pass_0 = tp_0[0].passes[0].path
+    y_values_0 = [c[1] for c in first_pass_0]
+    y_range_0 = max(y_values_0) - min(y_values_0)
+
+    first_pass_90 = tp_90[0].passes[0].path
+    x_values_90 = [c[0] for c in first_pass_90]
+    x_range_90 = max(x_values_90) - min(x_values_90)
+
+    assert y_range_0 < 1.0, f"angle=0: Y should be constant per line, got range {y_range_0}"
+    assert x_range_90 < 1.0, f"angle=90: X should be constant per line, got range {x_range_90}"
+
+
+def test_raster_finishing_invalid_file():
+    """Non-existent file should raise."""
+    from nodes.three_d_milling import generate_raster_finishing
+
+    req = ThreeDFinishingRequest(mesh_file_path="/tmp/nonexistent_xyz.stl")
+    with pytest.raises(FileNotFoundError):
+        generate_raster_finishing(req)
