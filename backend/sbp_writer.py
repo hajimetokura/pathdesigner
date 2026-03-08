@@ -107,10 +107,25 @@ class SbpWriter:
         lines: list[str] = []
         lines.append("'")
 
-        # Spindle speed change
-        if curr.spindle_speed != prev.spindle_speed:
+        tool_changed = (
+            curr.tool.diameter != prev.tool.diameter
+            or curr.tool.type != prev.tool.type
+        )
+
+        if tool_changed:
+            # Retract, stop spindle, tool change, restart spindle
+            lines.append(f"JZ,{self.s.safe_z}")
+            lines.append("C8")
+            lines.append("'Tool Change")
+            lines.append(f"'  New: {curr.tool.type} {curr.tool.diameter}mm")
+            lines.append("C9")
             lines.append(f"TR,{curr.spindle_speed}")
             lines.append(f"PAUSE {self.s.warmup_pause}")
+        else:
+            # Spindle speed change only
+            if curr.spindle_speed != prev.spindle_speed:
+                lines.append(f"TR,{curr.spindle_speed}")
+                lines.append(f"PAUSE {self.s.warmup_pause}")
 
         # Feed rate change
         if curr.feed_rate != prev.feed_rate:
