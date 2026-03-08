@@ -45,13 +45,15 @@ class TestThreeDRoughingSettings:
 
 class TestThreeDRoughingRequest:
     def test_minimal(self):
-        req = ThreeDRoughingRequest(mesh_file_path="/tmp/test.stl")
+        req = ThreeDRoughingRequest(file_id="test123", mesh_file_path="/tmp/test.stl")
+        assert req.file_id == "test123"
         assert req.mesh_file_path == "/tmp/test.stl"
         assert req.z_step == 3.0
         assert req.stock_to_leave == 0.5
 
     def test_custom(self):
         req = ThreeDRoughingRequest(
+            file_id="test456",
             mesh_file_path="/tmp/test.stl",
             z_step=1.5,
             stock_to_leave=0.2,
@@ -95,7 +97,7 @@ class TestWaterlineRoughing:
         from nodes.three_d_milling import generate_waterline_roughing
 
         req = ThreeDRoughingRequest(
-            mesh_file_path=str(freeform_stl),
+            file_id="test", mesh_file_path=str(freeform_stl),
             z_step=5.0,
             stock_to_leave=0.0,
         )
@@ -116,7 +118,7 @@ class TestWaterlineRoughing:
         from nodes.three_d_milling import generate_waterline_roughing
 
         req = ThreeDRoughingRequest(
-            mesh_file_path=str(freeform_stl),
+            file_id="test", mesh_file_path=str(freeform_stl),
             z_step=5.0,
             stock_to_leave=0.0,
         )
@@ -134,12 +136,12 @@ class TestWaterlineRoughing:
         from nodes.three_d_milling import generate_waterline_roughing
 
         req_no_stock = ThreeDRoughingRequest(
-            mesh_file_path=str(freeform_stl),
+            file_id="test", mesh_file_path=str(freeform_stl),
             z_step=5.0,
             stock_to_leave=0.0,
         )
         req_with_stock = ThreeDRoughingRequest(
-            mesh_file_path=str(freeform_stl),
+            file_id="test", mesh_file_path=str(freeform_stl),
             z_step=5.0,
             stock_to_leave=2.0,
         )
@@ -155,7 +157,7 @@ class TestWaterlineRoughing:
         from nodes.three_d_milling import generate_waterline_roughing
 
         req = ThreeDRoughingRequest(
-            mesh_file_path="/tmp/does_not_exist.stl",
+            file_id="test", mesh_file_path="/tmp/does_not_exist.stl",
             z_step=5.0,
             stock_to_leave=0.0,
         )
@@ -168,7 +170,7 @@ class TestWaterlineRoughing:
         from sbp_writer import SbpWriter
 
         req = ThreeDRoughingRequest(
-            mesh_file_path=str(freeform_stl),
+            file_id="test", mesh_file_path=str(freeform_stl),
             z_step=10.0,
             stock_to_leave=0.0,
         )
@@ -212,7 +214,7 @@ class TestWaterlineRoughing:
 
 
 def test_three_d_finishing_settings_defaults():
-    req = ThreeDFinishingRequest(mesh_file_path="/tmp/test.stl")
+    req = ThreeDFinishingRequest(file_id="test", mesh_file_path="/tmp/test.stl")
     assert req.stepover == 0.15
     assert req.scan_angle == 0.0
     assert req.tool.type == "ballnose"
@@ -258,7 +260,7 @@ def test_raster_finishing_sphere(freeform_stl):
     from nodes.three_d_milling import generate_raster_finishing
 
     req = ThreeDFinishingRequest(
-        mesh_file_path=str(freeform_stl),
+        file_id="test", mesh_file_path=str(freeform_stl),
         stepover=0.3,
         scan_angle=0.0,
     )
@@ -277,7 +279,7 @@ def test_raster_finishing_z_follows_surface(freeform_stl):
     from nodes.three_d_milling import generate_raster_finishing
 
     req = ThreeDFinishingRequest(
-        mesh_file_path=str(freeform_stl),
+        file_id="test", mesh_file_path=str(freeform_stl),
         stepover=0.5,
         scan_angle=0.0,
     )
@@ -297,12 +299,12 @@ def test_raster_finishing_scan_angle(freeform_stl):
     from nodes.three_d_milling import generate_raster_finishing
 
     req_0 = ThreeDFinishingRequest(
-        mesh_file_path=str(freeform_stl),
+        file_id="test", mesh_file_path=str(freeform_stl),
         stepover=0.5,
         scan_angle=0.0,
     )
     req_90 = ThreeDFinishingRequest(
-        mesh_file_path=str(freeform_stl),
+        file_id="test", mesh_file_path=str(freeform_stl),
         stepover=0.5,
         scan_angle=90.0,
     )
@@ -327,7 +329,7 @@ def test_raster_finishing_invalid_file():
     """Non-existent file should raise."""
     from nodes.three_d_milling import generate_raster_finishing
 
-    req = ThreeDFinishingRequest(mesh_file_path="/tmp/nonexistent_xyz.stl")
+    req = ThreeDFinishingRequest(file_id="test", mesh_file_path="/tmp/nonexistent_xyz.stl")
     with pytest.raises(FileNotFoundError):
         generate_raster_finishing(req)
 
@@ -345,7 +347,7 @@ def test_roughing_finishing_merged_sbp(freeform_stl):
 
     # Generate roughing
     roughing_req = ThreeDRoughingRequest(
-        mesh_file_path=str(freeform_stl),
+        file_id="test", mesh_file_path=str(freeform_stl),
         z_step=10.0,
         stock_to_leave=0.5,
     )
@@ -354,7 +356,7 @@ def test_roughing_finishing_merged_sbp(freeform_stl):
 
     # Generate finishing
     finishing_req = ThreeDFinishingRequest(
-        mesh_file_path=str(freeform_stl),
+        file_id="test", mesh_file_path=str(freeform_stl),
         stepover=0.5,
         scan_angle=0.0,
     )

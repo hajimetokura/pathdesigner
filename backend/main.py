@@ -109,6 +109,19 @@ def _get_uploaded_step_path(file_id: str) -> Path:
     return matches[0]
 
 
+def _resolve_stl_for_file_id(file_id: str) -> Path:
+    """Resolve file_id to STL path, auto-converting from STEP if needed."""
+    stl_path = UPLOAD_DIR / f"{file_id}.stl"
+    if stl_path.exists():
+        return stl_path
+    step_path = _get_uploaded_step_path(file_id)
+    from nodes.mesh_export import export_step_to_stl
+    result = export_step_to_stl(step_path, output_dir=UPLOAD_DIR)
+    if result.name != f"{file_id}.stl":
+        result.rename(stl_path)
+    return stl_path
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "version": "0.1.0"}
@@ -564,8 +577,8 @@ def three_d_roughing_endpoint(req: ThreeDRoughingRequest):
     """Generate waterline roughing toolpaths from a mesh file."""
     from nodes.three_d_milling import generate_waterline_roughing
 
-    if not Path(req.mesh_file_path).exists():
-        raise HTTPException(status_code=400, detail=f"Mesh file not found: {req.mesh_file_path}")
+    stl_path = _resolve_stl_for_file_id(req.file_id)
+    req.mesh_file_path = str(stl_path)
 
     try:
         toolpaths = generate_waterline_roughing(req)
@@ -580,8 +593,8 @@ def three_d_finishing_endpoint(req: ThreeDFinishingRequest):
     """Generate raster finishing toolpaths from a mesh file."""
     from nodes.three_d_milling import generate_raster_finishing
 
-    if not Path(req.mesh_file_path).exists():
-        raise HTTPException(status_code=400, detail=f"Mesh file not found: {req.mesh_file_path}")
+    stl_path = _resolve_stl_for_file_id(req.file_id)
+    req.mesh_file_path = str(stl_path)
 
     try:
         toolpaths = generate_raster_finishing(req)
