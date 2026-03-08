@@ -77,12 +77,12 @@ export default function OperationNode({ id, selected }: NodeProps) {
       setNodes((nds) =>
         nds.map((n) =>
           n.id === id
-            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, sheetSettings: sheet, placements: plc, objectOrigins, boundingBoxes, outlines, activeSheetId: sid } }
+            ? { ...n, data: { ...n.data, detectedOperations: det, assignments: assign, sheetSettings: sheet, placements: plc, objectOrigins, boundingBoxes, outlines, activeSheetId: sid, fileId: upstream?.fileId } }
             : n
         )
       );
     },
-    [id, setNodes, upstream?.activeSheetId]
+    [id, setNodes, upstream?.activeSheetId, upstream?.fileId]
   );
 
   // Auto-detect operations when upstream data changes

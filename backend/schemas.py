@@ -211,7 +211,7 @@ class ThreeDRoughingRequest(BaseModel):
     stock_to_leave: float = 0.5
     tool: Tool = Tool(diameter=6.35, type="ballnose", flutes=2)
     feed_rate: FeedRate = FeedRate(xy=50.0, z=20.0)
-    spindle_speed: float = 18000.0
+    spindle_speed: int = 18000
     mesh_file_path: str = ""  # resolved internally by endpoint
 
 
@@ -225,7 +225,7 @@ class ThreeDFinishingRequest(BaseModel):
     scan_angle: float = 0.0       # degrees
     tool: Tool = Tool(diameter=3.175, type="ballnose", flutes=2)
     feed_rate: FeedRate = FeedRate(xy=30.0, z=15.0)
-    spindle_speed: float = 18000.0
+    spindle_speed: int = 18000
     mesh_file_path: str = ""  # resolved internally by endpoint
 
 
