@@ -148,7 +148,7 @@ export interface OperationGeometry {
 export interface DetectedOperation {
   operation_id: string;
   object_id: string;
-  operation_type: "contour" | "pocket" | "drill" | "engrave" | "3d_roughing";
+  operation_type: "contour" | "pocket" | "drill" | "engrave" | "3d_roughing" | "3d_finishing";
   geometry: OperationGeometry;
   suggested_settings: MachiningSettings;
   enabled: boolean;
@@ -212,7 +212,7 @@ export interface ToolpathPass {
 export interface Toolpath {
   operation_id: string;
   object_id: string;
-  contour_type: "exterior" | "interior" | "pocket" | "drill" | "3d_roughing";
+  contour_type: "exterior" | "interior" | "pocket" | "drill" | "3d_roughing" | "3d_finishing";
   passes: ToolpathPass[];
   settings?: MachiningSettings;
 }
